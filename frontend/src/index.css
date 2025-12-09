@@ -1,12 +1,24 @@
-/* 1. RESET EVERYTHING */
+/* frontend/src/index.css */
+
+/* 1. GLOBAL RESET & THEME */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   
-  /* Match your landing page dark color exactly */
-  background-color: #0f1115; 
-  color: rgba(255, 255, 255, 0.87);
+  /* Theme Variables */
+  --bg-dark: #0f1115;
+  --bg-card: #18181b;
+  --bg-input: #27272a;
+  --primary: #10b981;      /* Emerald Green */
+  --primary-hover: #059669;
+  --text-main: #ffffff;
+  --text-muted: #9ca3af;
+  --border-color: #27272a;
+
+  color-scheme: light dark;
+  color: var(--text-main);
+  background-color: var(--bg-dark);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -14,41 +26,139 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 2. KILL THE WHITE BORDER */
+/* Force full screen dark mode */
 html, body {
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 100%;
-  min-height: 100vh;
-  background-color: #0f1115; /* Ensures no white shows if there's a gap */
-  overflow-x: hidden; /* Prevents side-scrolling white bars */
-}
-
-/* 3. RESET THE REACT ROOT */
-#root {
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   width: 100%;
   min-height: 100vh;
-  display: block; /* Ensures it acts as a block, not a flex container */
+  background-color: var(--bg-dark);
 }
 
-/* 4. BUTTON STYLES (Keep these) */
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+#root {
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* 2. REUSABLE CLASSES */
+
+/* Containers */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.card {
+  background-color: var(--bg-card);
+  padding: 30px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+/* Typography */
+h1 {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 20px;
+}
+
+h2 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 15px;
+}
+
+h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: white;
+}
+
+p.muted {
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+/* Buttons */
+.btn {
+  padding: 12px 24px;
+  border-radius: 6px;
+  border: none;
   cursor: pointer;
-  transition: border-color 0.25s;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
-button:hover {
-  border-color: #646cff;
+
+.btn-primary {
+  background-color: var(--primary);
+  color: #000;
 }
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--bg-input);
+  color: #fff;
+  border: 1px solid var(--border-color);
+}
+.btn-secondary:hover {
+  background-color: #3f3f46;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #fff;
+  border: 1px solid var(--border-color);
+  padding: 8px 20px;
+  font-size: 14px;
+}
+.btn-ghost:hover {
+  border-color: #71717a;
+}
+
+/* Form Inputs (For Login/Signup) */
+.input-group {
+  margin-bottom: 15px;
+}
+
+.input-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.input-field {
+  width: 100%;
+  padding: 10px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: white;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+}
+.input-field:focus {
+  border-color: var(--primary);
+}
+
+/* Links */
+.link {
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
 }
