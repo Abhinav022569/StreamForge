@@ -129,7 +129,7 @@ const LandingPage = () => {
               &nbsp;&nbsp;df = pd.read_csv(json_data[<span style={{ color: '#a5f3fc' }}>'source'</span>])<br/>
               <br/>
               &nbsp;&nbsp;<span style={{ color: '#f472b6' }}>if</span> json_data[<span style={{ color: '#a5f3fc' }}>'action'</span>] == <span style={{ color: '#a5f3fc' }}>'filter'</span>:<br/>
-              &nbsp;&nbsp;&nbsp;&nbsp;df = df[df[<span style={{ color: '#a5f3fc' }}>'col'</span>] > 50]<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;df = df[df[<span style={{ color: '#a5f3fc' }}>'col'</span>] = 50]<br/>
               <br/>
               &nbsp;&nbsp;<span style={{ color: '#f472b6' }}>return</span> df.to_json()<br/>
             </div>
