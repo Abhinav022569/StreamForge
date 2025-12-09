@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React, { useState, useCallback, useRef } from 'react';
 import FilterNode from './nodes/FilterNode';
 import ReactFlow, { 
@@ -67,6 +68,23 @@ function PipelineBuilder() {
     [reactFlowInstance]
   );
 
+  // Add this function to handle saving
+  const savePipeline = async () => {
+    // We combine nodes and edges into one object
+    const flow = { nodes, edges };
+    
+    try {
+      const response = await axios.post('http://127.0.0.1:5000/pipelines', {
+        name: "My First Project", // Hardcoded for now, you can add an input box later
+        flow: flow
+      });
+      alert('Success! Saved with ID: ' + response.data.id);
+    } catch (error) {
+      alert('Error saving pipeline');
+      console.error(error);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', height: '80vh', border: '1px solid #ccc' }}>
         <ReactFlowProvider>
@@ -76,6 +94,42 @@ function PipelineBuilder() {
 
             {/* Right: The Canvas */}
             <div className="reactflow-wrapper" ref={reactFlowWrapper} style={{ width: '100%', height: '100%' }}>
+            return (
+    <div style={{ height: '80vh', display: 'flex', flexDirection: 'column' }}>
+      
+      {/* The Toolbar */}
+      <div style={{ padding: '10px', background: '#eee', borderBottom: '1px solid #ccc' }}>
+        <button onClick={savePipeline} style={{ padding: '5px 15px', background: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer' }}>
+            💾 Save Pipeline
+        </button>
+      </div>
+
+      {/* The Existing Editor */}
+      <div style={{ display: 'flex', flexGrow: 1 }}>
+         <ReactFlowProvider>
+             {/* ... (Your existing Sidebar and ReactFlow code) ... */}
+             <Sidebar />
+             {/* ... make sure you keep the rest of your layout logic here ... */}
+             <div className="reactflow-wrapper" ref={reactFlowWrapper} style={{ width: '100%', height: '100%' }}>
+                  <ReactFlow 
+                      nodes={nodes} 
+                      edges={edges} 
+                      onNodesChange={onNodesChange} 
+                      onConnect={onConnect}
+                      nodeTypes={nodeTypes} // Don't forget your custom nodes!
+                      onInit={setReactFlowInstance}
+                      onDrop={onDrop}
+                      onDragOver={onDragOver}
+                      fitView
+                  >
+                      <Background color="#aaa" gap={16} />
+                      <Controls />
+                  </ReactFlow>
+             </div>
+         </ReactFlowProvider>
+      </div>
+    </div>
+  );
                 <ReactFlow
                     nodes={nodes}
                     edges={edges}
