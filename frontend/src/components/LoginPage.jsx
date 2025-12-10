@@ -5,7 +5,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   const handleLogin = () => {
-    // Placeholder for now - connect to backend later
+    // Placeholder logic
     alert("Login logic will be connected later!");
   };
 
