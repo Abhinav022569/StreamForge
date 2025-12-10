@@ -66,15 +66,22 @@ function PipelineBuilder() {
 
   const savePipeline = async () => {
     const flow = { nodes, edges };
+    const token = localStorage.getItem('token'); // Get the token
+
     try {
-      const response = await axios.post('http://127.0.0.1:5000/pipelines', {
-        name: "My First Project", 
-        flow: flow
-      });
+      const response = await axios.post(
+        'http://127.0.0.1:5000/pipelines', 
+        {
+          name: "My First Project", 
+          flow: flow
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
       alert('Success! Saved with ID: ' + response.data.id);
     } catch (error) {
-      alert('Error saving pipeline');
-      console.error(error);
+      alert('Error saving pipeline: ' + (error.response?.data?.msg || error.message));
     }
   };
 
