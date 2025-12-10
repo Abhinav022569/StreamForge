@@ -162,3 +162,28 @@ p.muted {
 .link:hover {
   text-decoration: underline;
 }
+/* ... existing code ... */
+
+/* FORCE REACT FLOW CONTROLS TO BE VISIBLE */
+.react-flow__controls {
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.react-flow__controls-button {
+  background-color: #27272a !important; /* Lighter gray */
+  border-bottom: 1px solid #3f3f46 !important;
+  color: white !important; /* Makes the icons white */
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 0 !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: #3f3f46 !important;
+}
+
+.react-flow__controls-button svg {
+  fill: white !important; /* Force the icon color */
+  max-width: 16px;
+  max-height: 16px;
+}

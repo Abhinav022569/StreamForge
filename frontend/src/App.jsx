@@ -4,13 +4,17 @@ import LandingPage from './components/LandingPage';
 import PipelineBuilder from './components/PipelineBuilder';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
-import Dashboard from './components/Dashboard'; // <--- Import Dashboard
+import Dashboard from './components/Dashboard';
 
+// Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
+  
   if (!token) {
+    // If not logged in, kick them back to the login page
     return <Navigate to="/login" replace />;
   }
+  
   return children;
 };
 
@@ -18,11 +22,14 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         
-        {/* NEW DASHBOARD ROUTE */}
+        {/* Protected Routes (Require Login) */}
+        
+        {/* 1. The Dashboard (Home for logged-in users) */}
         <Route 
           path="/dashboard" 
           element={
@@ -32,9 +39,9 @@ function App() {
           } 
         />
 
-        {/* BUILDER ROUTE (Renamed from /app to /builder for clarity) */}
+        {/* 2. The Builder (With optional ID parameter for editing) */}
         <Route 
-          path="/builder" 
+          path="/builder/:id?" 
           element={
             <ProtectedRoute>
               <PipelineBuilder />
@@ -42,7 +49,7 @@ function App() {
           } 
         />
 
-        {/* Redirect old /app requests to dashboard if needed */}
+        {/* 3. Redirect old /app links to the dashboard */}
         <Route path="/app" element={<Navigate to="/dashboard" replace />} />
 
       </Routes>
