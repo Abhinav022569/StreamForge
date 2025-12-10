@@ -5,6 +5,7 @@ import PipelineBuilder from './components/PipelineBuilder';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import Dashboard from './components/Dashboard';
+import AllPipelines from './components/AllPipelines'; // <--- IMPORT THIS
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children }) => {
@@ -39,7 +40,17 @@ function App() {
           } 
         />
 
-        {/* 2. The Builder (With optional ID parameter for editing) */}
+        {/* 2. All Pipelines List Page (NEW ROUTE) */}
+        <Route 
+          path="/pipelines" 
+          element={
+            <ProtectedRoute>
+              <AllPipelines />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* 3. The Builder (With optional ID parameter for editing) */}
         <Route 
           path="/builder/:id?" 
           element={
@@ -49,7 +60,7 @@ function App() {
           } 
         />
 
-        {/* 3. Redirect old /app links to the dashboard */}
+        {/* 4. Redirect old /app links to the dashboard */}
         <Route path="/app" element={<Navigate to="/dashboard" replace />} />
 
       </Routes>

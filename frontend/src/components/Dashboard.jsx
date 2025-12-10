@@ -43,21 +43,23 @@ const Dashboard = () => {
         padding: '20px',
         flexShrink: 0 
       }}>
-        {/* Logo Area */}
         <div style={{ fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px', color: 'white', marginBottom: '40px', paddingLeft: '10px' }}>
           <div style={{ width: '24px', height: '24px', background: '#10b981', borderRadius: '4px' }}></div>
           StreamForge
         </div>
 
-        {/* Navigation Links */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
           <SidebarItem label="Overview" icon="🏠" active />
-          <SidebarItem label="All Pipelines" icon="🚀" />
+          {/* UPDATED: Added onClick handler here */}
+          <SidebarItem 
+            label="All Pipelines" 
+            icon="🚀" 
+            onClick={() => navigate('/pipelines')} 
+          />
           <SidebarItem label="Data Sources" icon="🗄️" />
           <SidebarItem label="Settings" icon="⚙️" />
         </nav>
 
-        {/* BOTTOM SECTION: Profile + Logout */}
         <div style={{ 
           borderTop: '1px solid #27272a', 
           paddingTop: '20px', 
@@ -67,8 +69,6 @@ const Dashboard = () => {
           justifyContent: 'space-between', 
           gap: '10px'
         }}>
-            
-            {/* Profile Info (Left side) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
                 <div style={{ width: '32px', height: '32px', background: '#3f3f46', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>
                     👤
@@ -79,14 +79,13 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Logout Button (Right side) */}
             <button 
                 onClick={handleLogout}
                 style={{
                     background: '#27272a',
                     border: '1px solid #3f3f46',
                     color: '#ef4444', 
-                    padding: '8px 12px',  // Increased padding for text
+                    padding: '8px 12px',
                     borderRadius: '6px',
                     fontSize: '13px',
                     fontWeight: '500',
@@ -97,8 +96,6 @@ const Dashboard = () => {
                     flexShrink: 0,
                     transition: 'background 0.2s'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#3f3f46'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#27272a'}
             >
                 <span>🚪</span> Logout
             </button>
@@ -107,11 +104,7 @@ const Dashboard = () => {
 
       {/* 2. MAIN CONTENT AREA */}
       <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
-        
-        {/* Dashboard Content */}
         <div style={{ padding: '40px', width: '100%', boxSizing: 'border-box' }}>
-          
-          {/* Header Row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
             <div>
               <h1 style={{ fontSize: '32px', marginBottom: '5px' }}>Dashboard</h1>
@@ -126,19 +119,16 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Stats Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '40px' }}>
             <StatCard title="Total Pipelines" value={pipelines.length} icon="📊" />
             <StatCard title="Active Runs" value="0" icon="⚡" />
             <StatCard title="Data Processed" value="0 MB" icon="💾" />
           </div>
 
-          {/* Pipelines Table */}
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <div style={{ padding: '20px', borderBottom: '1px solid #27272a' }}>
               <h3 style={{ margin: 0, fontSize: '18px' }}>Recent Pipelines</h3>
             </div>
-            
             {pipelines.length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center' }}>
                 <p className="muted">No pipelines found. Create one to get started!</p>
@@ -176,14 +166,11 @@ const Dashboard = () => {
               </table>
             )}
           </div>
-
         </div>
       </main>
     </div>
   );
 };
-
-// --- Helper Components ---
 
 const StatCard = ({ title, value, icon }) => (
   <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -197,18 +184,24 @@ const StatCard = ({ title, value, icon }) => (
   </div>
 );
 
-const SidebarItem = ({ label, icon, active }) => (
-  <div style={{ 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    padding: '10px 15px', 
-    borderRadius: '6px', 
-    cursor: 'pointer',
-    backgroundColor: active ? '#27272a' : 'transparent',
-    color: active ? 'white' : '#9ca3af',
-    transition: 'background 0.2s'
-  }}>
+// UPDATED: Now accepts 'onClick' prop
+const SidebarItem = ({ label, icon, active, onClick }) => (
+  <div 
+    onClick={onClick}
+    style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '12px', 
+      padding: '10px 15px', 
+      borderRadius: '6px', 
+      cursor: 'pointer',
+      backgroundColor: active ? '#27272a' : 'transparent',
+      color: active ? 'white' : '#9ca3af',
+      transition: 'background 0.2s'
+    }}
+    onMouseOver={(e) => !active && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)')}
+    onMouseOut={(e) => !active && (e.currentTarget.style.backgroundColor = 'transparent')}
+  >
     <span>{icon}</span>
     <span style={{ fontSize: '14px', fontWeight: '500' }}>{label}</span>
   </div>

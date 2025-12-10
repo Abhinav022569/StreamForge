@@ -65,13 +65,10 @@ def get_pipelines():
         output.append({"id": p.id, "name": p.name, "flow": json.loads(p.structure)})
     return jsonify(output)
 
-# --- NEW ROUTES (These were missing!) ---
-
 @main.route('/pipelines/<int:id>', methods=['GET'])
 @jwt_required()
 def get_pipeline(id):
     current_user_id = int(get_jwt_identity())
-    # Find pipeline that matches ID and belongs to current user
     pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
 
     if not pipeline:
@@ -98,3 +95,17 @@ def update_pipeline(id):
 
     db.session.commit()
     return jsonify({"message": "Pipeline Updated Successfully!"})
+
+# --- NEW DELETE ROUTE ---
+@main.route('/pipelines/<int:id>', methods=['DELETE'])
+@jwt_required()
+def delete_pipeline(id):
+    current_user_id = int(get_jwt_identity())
+    pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
+
+    if not pipeline:
+        return jsonify({"error": "Pipeline not found"}), 404
+
+    db.session.delete(pipeline)
+    db.session.commit()
+    return jsonify({"message": "Pipeline deleted successfully!"})
