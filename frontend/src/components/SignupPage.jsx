@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ParticlesBackground from './ParticlesBackground';
 
 const SignupPage = () => {
   const navigate = useNavigate();
@@ -18,54 +19,63 @@ const SignupPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
-        <h2 style={{ textAlign: 'center' }}>Create Account</h2>
-        {error && <p style={{color: 'red', textAlign: 'center'}}>{error}</p>}
-        
-        <div className="input-group">
-          <label className="input-label">Full Name</label>
-          <input 
-            className="input-field" 
-            type="text" 
-            placeholder="John Doe"
-            onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-          />
-        </div>
+    <ParticlesBackground>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div className="card" style={{ 
+          width: '100%', 
+          maxWidth: '400px',
+          background: 'rgba(24, 24, 27, 0.8)', // Glassmorphism
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+        }}>
+          <h2 style={{ textAlign: 'center' }}>Create Account</h2>
+          {error && <p style={{color: '#ef4444', textAlign: 'center', fontSize: '14px', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '4px'}}>{error}</p>}
+          
+          <div className="input-group">
+            <label className="input-label">Full Name</label>
+            <input 
+              className="input-field" 
+              type="text" 
+              placeholder="John Doe"
+              onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+            />
+          </div>
 
-        <div className="input-group">
-          <label className="input-label">Email Address</label>
-          <input 
-            className="input-field" 
-            type="email" 
-            placeholder="you@example.com"
-            onChange={(e) => setFormData({...formData, email: e.target.value})}
-          />
-        </div>
+          <div className="input-group">
+            <label className="input-label">Email Address</label>
+            <input 
+              className="input-field" 
+              type="email" 
+              placeholder="you@example.com"
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+            />
+          </div>
 
-        <div className="input-group">
-          <label className="input-label">Password</label>
-          <input 
-            className="input-field" 
-            type="password" 
-            placeholder="••••••••"
-            onChange={(e) => setFormData({...formData, password: e.target.value})}
-          />
-        </div>
+          <div className="input-group">
+            <label className="input-label">Password</label>
+            <input 
+              className="input-field" 
+              type="password" 
+              placeholder="••••••••"
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+            />
+          </div>
 
-        <button className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }} onClick={handleSignup}>
-          Sign Up Free
-        </button>
+          <button className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }} onClick={handleSignup}>
+            Sign Up Free
+          </button>
 
-        <p className="muted" style={{ textAlign: 'center', fontSize: '14px', marginTop: '15px' }}>
-          Already have an account? <span className="link" onClick={() => navigate('/login')}>Log in</span>
-        </p>
-        
-        <div style={{textAlign: 'center', marginTop: '20px'}}>
-            <span className="link" style={{color: '#6b7280', fontSize: '12px'}} onClick={() => navigate('/')}>← Back to Home</span>
+          <p className="muted" style={{ textAlign: 'center', fontSize: '14px', marginTop: '15px' }}>
+            Already have an account? <span className="link" onClick={() => navigate('/login')}>Log in</span>
+          </p>
+          
+          <div style={{textAlign: 'center', marginTop: '20px'}}>
+              <span className="link" style={{color: '#6b7280', fontSize: '12px'}} onClick={() => navigate('/')}>← Back to Home</span>
+          </div>
         </div>
       </div>
-    </div>
+    </ParticlesBackground>
   );
 };
 
