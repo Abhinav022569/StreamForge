@@ -5,7 +5,8 @@ import PipelineBuilder from './components/PipelineBuilder';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import Dashboard from './components/Dashboard';
-import AllPipelines from './components/AllPipelines'; // <--- IMPORT THIS
+import AllPipelines from './components/AllPipelines';
+import DocumentationPage from './components/DocumentationPage';
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children }) => {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/docs" element={<DocumentationPage />} />
         
         {/* Protected Routes (Require Login) */}
         

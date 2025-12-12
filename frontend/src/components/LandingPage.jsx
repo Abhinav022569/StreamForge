@@ -58,7 +58,7 @@ const LandingPage = () => {
               <button className="landing-btn-primary" onClick={() => navigate('/app')}>
                 Start Building Free <span>→</span>
               </button>
-              <button className="landing-btn-secondary">
+              <button className="landing-btn-secondary" onClick={()=> navigate('/docs')}>
                 View Documentation
               </button>
             </div>
