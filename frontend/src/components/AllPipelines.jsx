@@ -81,6 +81,7 @@ const AllPipelines = () => {
           <SidebarItem label="Overview" icon="🏠" onClick={() => navigate('/dashboard')} />
           <SidebarItem label="All Pipelines" icon="🚀" active /> 
           <SidebarItem label="Data Sources" icon="🗄️" onClick={()=> navigate('/datasources')} />
+          <SidebarItem label="Processed Data" icon="📦" onClick={() => navigate('/processed')} />
           <SidebarItem label="Settings" icon="⚙️" />
         </nav>
 

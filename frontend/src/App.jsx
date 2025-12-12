@@ -8,6 +8,7 @@ import Dashboard from './components/Dashboard';
 import AllPipelines from './components/AllPipelines';
 import DocumentationPage from './components/DocumentationPage';
 import DataSources from './components/Datasources';
+import ProcessedData from './components/ProcessedData';
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children }) => {
@@ -66,6 +67,15 @@ function App() {
 
         {/* 4. Redirect old /app links to the dashboard */}
         <Route path="/app" element={<Navigate to="/dashboard" replace />} />
+
+        <Route 
+          path="/processed" 
+          element={
+            <ProtectedRoute>
+              <ProcessedData />
+            </ProtectedRoute>
+          } 
+        />
 
       </Routes>
     </Router>

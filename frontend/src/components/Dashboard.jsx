@@ -60,6 +60,7 @@ const Dashboard = () => {
             onClick={() => navigate('/pipelines')} 
           />
           <SidebarItem label="Data Sources" icon="🗄️" onClick={()=>navigate('/datasources')}/>
+          <SidebarItem label="Processed Data" icon="📦" onClick={() => navigate('/processed')} />
           <SidebarItem label="Settings" icon="⚙️" />
         </nav>
 
