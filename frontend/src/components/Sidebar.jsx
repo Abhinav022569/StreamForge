@@ -42,12 +42,32 @@ export default () => {
       {/* 1. Source Nodes */}
       <div style={{ marginBottom: '20px' }}>
         <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '10px' }}>Sources</p>
+        
+        {/* CSV Source */}
         <div 
-          onDragStart={(event) => onDragStart(event, 'input', 'Source: CSV')} 
+          onDragStart={(event) => onDragStart(event, 'source_csv', 'Source: CSV')} 
           draggable 
-          style={{ ...nodeStyle, borderLeft: '4px solid #10b981' }} // Green Accent
+          style={{ ...nodeStyle, borderLeft: '4px solid #10b981' }} 
         >
-          <span style={{ fontSize: '16px' }}>📂</span> CSV Source
+          <span style={{ fontSize: '16px' }}>📄</span> CSV Source
+        </div>
+
+        {/* JSON Source */}
+        <div 
+          onDragStart={(event) => onDragStart(event, 'source_json', 'Source: JSON')} 
+          draggable 
+          style={{ ...nodeStyle, borderLeft: '4px solid #fbbf24' }} // Amber/Yellow
+        >
+          <span style={{ fontSize: '16px' }}>{}</span> JSON Source
+        </div>
+
+        {/* Excel Source */}
+        <div 
+          onDragStart={(event) => onDragStart(event, 'source_excel', 'Source: Excel')} 
+          draggable 
+          style={{ ...nodeStyle, borderLeft: '4px solid #16a34a' }} // Green
+        >
+          <span style={{ fontSize: '16px' }}>📊</span> Excel Source
         </div>
       </div>
 
@@ -57,7 +77,7 @@ export default () => {
         <div 
           onDragStart={(event) => onDragStart(event, 'filterNode', 'Transform: Filter')} 
           draggable 
-          style={{ ...nodeStyle, borderLeft: '4px solid #3b82f6' }} // Blue Accent
+          style={{ ...nodeStyle, borderLeft: '4px solid #3b82f6' }} 
         >
           <span style={{ fontSize: '16px' }}>⚙️</span> Filter Data
         </div>
@@ -69,7 +89,7 @@ export default () => {
         <div 
           onDragStart={(event) => onDragStart(event, 'output', 'Dest: Database')} 
           draggable 
-          style={{ ...nodeStyle, borderLeft: '4px solid #f43f5e' }} // Red Accent
+          style={{ ...nodeStyle, borderLeft: '4px solid #f43f5e' }} 
         >
           <span style={{ fontSize: '16px' }}>💾</span> Save to DB
         </div>

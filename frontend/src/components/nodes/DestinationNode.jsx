@@ -32,6 +32,7 @@ export default memo(({ id, data, isConnectable }) => {
         }}
       >✕</button>
 
+      {/* Existing Handle (Left) */}
       <Handle type="target" position={Position.Left} isConnectable={isConnectable} style={{ background: '#555', width: '8px', height: '8px' }} />
 
       <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -41,6 +42,9 @@ export default memo(({ id, data, isConnectable }) => {
       <div style={{ fontSize: '12px', color: '#9ca3af' }}>
         {data.label || "Target DB"}
       </div>
+
+      {/* --- NEW HANDLE (Right) --- */}
+      <Handle type="source" position={Position.Right} isConnectable={isConnectable} style={{ background: '#555', width: '8px', height: '8px' }} />
     </div>
   );
 });

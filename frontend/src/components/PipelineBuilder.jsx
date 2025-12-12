@@ -101,16 +101,31 @@ const PipelineBuilderContent = () => {
                 y: event.clientY,
             });
 
-            // Map Drag Types to Custom Node Types
+            // Map Drag Types to Custom Node Types & Data
             let nodeType = type;
-            if (type === 'input') nodeType = 'sourceNode';
-            if (type === 'output') nodeType = 'destinationNode';
+            let fileType = 'CSV'; // Default
+
+            if (type === 'source_csv') {
+                nodeType = 'sourceNode';
+                fileType = 'CSV';
+            } else if (type === 'source_json') {
+                nodeType = 'sourceNode';
+                fileType = 'JSON';
+            } else if (type === 'source_excel') {
+                nodeType = 'sourceNode';
+                fileType = 'Excel';
+            } else if (type === 'input') {
+                nodeType = 'sourceNode';
+                fileType = 'CSV';
+            } else if (type === 'output') {
+                nodeType = 'destinationNode';
+            }
 
             const newNode = {
                 id: `node_${Date.now()}`, 
                 type: nodeType,
                 position,
-                data: { label: label },
+                data: { label: label, fileType: fileType }, // Store fileType in data
             };
 
             setNodes((nds) => nds.concat(newNode));
@@ -166,7 +181,6 @@ const PipelineBuilderContent = () => {
                 justifyContent: 'space-between',
                 padding: '0 20px'
             }}>
-                {/* LEFT: Back & Title */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <button 
                         onClick={() => navigate('/dashboard')}
@@ -183,10 +197,7 @@ const PipelineBuilderContent = () => {
                     />
                 </div>
 
-                {/* RIGHT: Actions */}
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    
-                    {/* 1. Delete Button */}
                     <button 
                         onClick={deleteSelected}
                         style={{ 
@@ -202,7 +213,6 @@ const PipelineBuilderContent = () => {
                         🗑️ Delete Selected
                     </button>
 
-                    {/* 2. Run Test Button (RESTORED) */}
                     <button 
                         onClick={handleRun}
                         style={{ 
@@ -221,12 +231,7 @@ const PipelineBuilderContent = () => {
                         ▶ Run Test
                     </button>
 
-                    {/* 3. Save Button */}
-                    <button 
-                        className="btn btn-primary" 
-                        onClick={savePipeline} 
-                        style={{ padding: '8px 16px', fontSize: '14px' }}
-                    >
+                    <button className="btn btn-primary" onClick={savePipeline} style={{ padding: '8px 16px', fontSize: '14px' }}>
                         💾 {id ? 'Update' : 'Save'}
                     </button>
                 </div>
