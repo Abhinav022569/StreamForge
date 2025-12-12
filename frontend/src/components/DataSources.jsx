@@ -53,7 +53,6 @@ const DataSources = () => {
         await axios.post('http://127.0.0.1:5000/upload', formData, {
             headers: { 
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'multipart/form-data'
             }
         });
         alert("Upload Successful!");

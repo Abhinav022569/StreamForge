@@ -7,7 +7,7 @@ import SignupPage from './components/SignupPage';
 import Dashboard from './components/Dashboard';
 import AllPipelines from './components/AllPipelines';
 import DocumentationPage from './components/DocumentationPage';
-import DataSources from './components/DataSources';
+import DataSources from './components/Datasources';
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children }) => {
