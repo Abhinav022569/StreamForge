@@ -80,7 +80,7 @@ const AllPipelines = () => {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
           <SidebarItem label="Overview" icon="🏠" onClick={() => navigate('/dashboard')} />
           <SidebarItem label="All Pipelines" icon="🚀" active /> 
-          <SidebarItem label="Data Sources" icon="🗄️" />
+          <SidebarItem label="Data Sources" icon="🗄️" onClick={()=> navigate('/datasources')} />
           <SidebarItem label="Settings" icon="⚙️" />
         </nav>
 
