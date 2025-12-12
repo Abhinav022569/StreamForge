@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import logo from '../assets/logo.png'; // <--- IMPORT YOUR LOGO
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -43,11 +44,13 @@ const Dashboard = () => {
         padding: '20px',
         flexShrink: 0 
       }}>
+        {/* Logo Area - UPDATED WITH REAL LOGO */}
         <div style={{ fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px', color: 'white', marginBottom: '40px', paddingLeft: '10px' }}>
-          <div style={{ width: '24px', height: '24px', background: '#10b981', borderRadius: '4px' }}></div>
+          <img src={logo} alt="Logo" style={{ width: '28px', height: '28px', borderRadius: '4px' }} />
           StreamForge
         </div>
 
+        {/* Navigation Links */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
           <SidebarItem label="Overview" icon="🏠" active />
           {/* UPDATED: Added onClick handler here */}
@@ -60,6 +63,7 @@ const Dashboard = () => {
           <SidebarItem label="Settings" icon="⚙️" />
         </nav>
 
+        {/* BOTTOM SECTION: Profile + Logout */}
         <div style={{ 
           borderTop: '1px solid #27272a', 
           paddingTop: '20px', 
@@ -69,6 +73,8 @@ const Dashboard = () => {
           justifyContent: 'space-between', 
           gap: '10px'
         }}>
+            
+            {/* Profile Info (Left side) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
                 <div style={{ width: '32px', height: '32px', background: '#3f3f46', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>
                     👤
@@ -79,6 +85,7 @@ const Dashboard = () => {
                 </div>
             </div>
 
+            {/* Logout Button (Right side) */}
             <button 
                 onClick={handleLogout}
                 style={{
@@ -96,6 +103,8 @@ const Dashboard = () => {
                     flexShrink: 0,
                     transition: 'background 0.2s'
                 }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#3f3f46'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#27272a'}
             >
                 <span>🚪</span> Logout
             </button>
@@ -104,7 +113,11 @@ const Dashboard = () => {
 
       {/* 2. MAIN CONTENT AREA */}
       <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
+        
+        {/* Dashboard Content */}
         <div style={{ padding: '40px', width: '100%', boxSizing: 'border-box' }}>
+          
+          {/* Header Row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
             <div>
               <h1 style={{ fontSize: '32px', marginBottom: '5px' }}>Dashboard</h1>
@@ -119,16 +132,19 @@ const Dashboard = () => {
             </button>
           </div>
 
+          {/* Stats Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '40px' }}>
             <StatCard title="Total Pipelines" value={pipelines.length} icon="📊" />
             <StatCard title="Active Runs" value="0" icon="⚡" />
             <StatCard title="Data Processed" value="0 MB" icon="💾" />
           </div>
 
+          {/* Pipelines Table */}
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <div style={{ padding: '20px', borderBottom: '1px solid #27272a' }}>
               <h3 style={{ margin: 0, fontSize: '18px' }}>Recent Pipelines</h3>
             </div>
+            
             {pipelines.length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center' }}>
                 <p className="muted">No pipelines found. Create one to get started!</p>
@@ -166,11 +182,14 @@ const Dashboard = () => {
               </table>
             )}
           </div>
+
         </div>
       </main>
     </div>
   );
 };
+
+// --- Helper Components ---
 
 const StatCard = ({ title, value, icon }) => (
   <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -184,7 +203,6 @@ const StatCard = ({ title, value, icon }) => (
   </div>
 );
 
-// UPDATED: Now accepts 'onClick' prop
 const SidebarItem = ({ label, icon, active, onClick }) => (
   <div 
     onClick={onClick}

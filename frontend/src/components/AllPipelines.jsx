@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import logo from '../assets/logo.png'; // <--- IMPORT YOUR LOGO
 
 const AllPipelines = () => {
   const navigate = useNavigate();
@@ -70,8 +71,9 @@ const AllPipelines = () => {
         padding: '20px',
         flexShrink: 0 
       }}>
+        {/* Logo Area - UPDATED WITH REAL LOGO */}
         <div style={{ fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px', color: 'white', marginBottom: '40px', paddingLeft: '10px' }}>
-          <div style={{ width: '24px', height: '24px', background: '#10b981', borderRadius: '4px' }}></div>
+          <img src={logo} alt="Logo" style={{ width: '28px', height: '28px', borderRadius: '4px' }} />
           StreamForge
         </div>
 
@@ -82,6 +84,7 @@ const AllPipelines = () => {
           <SidebarItem label="Settings" icon="⚙️" />
         </nav>
 
+        {/* BOTTOM SECTION: Profile + Logout */}
         <div style={{ 
           borderTop: '1px solid #27272a', 
           paddingTop: '20px', 

@@ -1,30 +1,35 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './LandingPage.css';
-import ParticlesBackground from './ParticlesBackground'; // <--- NEW IMPORT
+import ParticlesBackground from './ParticlesBackground';
+import logo from '../assets/logo.png'; // <--- IMPORT YOUR LOGO
 
 const LandingPage = () => {
   const navigate = useNavigate();
 
-  // Glassmorphism effect for cards to let particles show through
-  const glassCardStyle = {
-    background: 'rgba(24, 24, 27, 0.6)', 
-    backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    padding: '30px',
-    borderRadius: '12px',
-    textAlign: 'left'
+  // Glassmorphism style for cards
+  const glassStyle = {
+    background: 'rgba(24, 24, 27, 0.7)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)'
   };
 
   return (
     <ParticlesBackground>
-      {/* Background is now transparent to show particles */}
+      {/* The background is transparent here so the particles show through.
+          Padding-top is handled in CSS to account for the fixed header.
+      */}
       <div className="landing-page" style={{ backgroundColor: 'transparent' }}>
         
-        {/* 1. NAVBAR */}
-        <nav className="landing-nav" style={{ background: 'rgba(15, 17, 21, 0.8)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        {/* 1. NAVBAR (Fixed & Hazy via CSS) */}
+        <nav className="landing-nav">
           <div className="landing-logo" onClick={() => navigate('/')}>
-            <div style={{ width: '30px', height: '30px', background: '#10b981', borderRadius: '6px' }}></div>
+            {/* REPLACED GREEN SQUARE WITH LOGO */}
+            <img 
+              src={logo} 
+              alt="StreamForge Logo" 
+              style={{ width: '30px', height: '30px', marginRight: '10px', borderRadius: '6px' }} 
+            />
             StreamForge
           </div>
           
@@ -65,7 +70,7 @@ const LandingPage = () => {
           <div className="landing-container landing-grid-3">
             
             {/* Card 1 */}
-            <div style={glassCardStyle}>
+            <div className="glass-card">
               <div className="landing-icon-box">
                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>
               </div>
@@ -76,7 +81,7 @@ const LandingPage = () => {
             </div>
 
             {/* Card 2 */}
-            <div style={glassCardStyle}>
+            <div className="glass-card">
               <div className="landing-icon-box">
                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               </div>
@@ -87,7 +92,7 @@ const LandingPage = () => {
             </div>
 
             {/* Card 3 */}
-            <div style={glassCardStyle}>
+            <div className="glass-card">
               <div className="landing-icon-box">
                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
               </div>
@@ -128,7 +133,7 @@ const LandingPage = () => {
             </div>
 
             {/* Right: Code Block Visual */}
-            <div className="code-block" style={{ ...glassCardStyle, padding: '24px', fontFamily: 'monospace' }}>
+            <div className="code-block">
               <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }}></div>
                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#eab308' }}></div>
@@ -160,19 +165,19 @@ const LandingPage = () => {
             </div>
 
             <div className="landing-grid-3">
-               <div style={{...glassCardStyle, padding: '40px'}}>
+               <div className="glass-card" style={{padding: '40px'}}>
                  <h3 className="landing-h3">Data Cleaning</h3>
                  <p className="landing-p text-left" style={{fontSize: '15px'}}>
                    Automatically remove null values, fix formatting errors, and standardize text across your datasets.
                  </p>
                </div>
-               <div style={{...glassCardStyle, padding: '40px'}}>
+               <div className="glass-card" style={{padding: '40px'}}>
                  <h3 className="landing-h3">Smart Filtering</h3>
                  <p className="landing-p text-left" style={{fontSize: '15px'}}>
                    Use logic-based nodes to filter out irrelevant rows, ensuring only high-quality data reaches your destination.
                  </p>
                </div>
-               <div style={{...glassCardStyle, padding: '40px'}}>
+               <div className="glass-card" style={{padding: '40px'}}>
                  <h3 className="landing-h3">Extensible</h3>
                  <p className="landing-p text-left" style={{fontSize: '15px'}}>
                    Built on top of Pandas and Flask, allowing you to add custom Python modules easily.
@@ -184,7 +189,7 @@ const LandingPage = () => {
 
         {/* 6. BOTTOM CTA */}
         <section style={{ padding: '80px 0', marginTop: '40px' }}>
-          <div className="landing-container" style={{ ...glassCardStyle, background: 'rgba(17, 24, 39, 0.8)', padding: '60px', textAlign: 'center' }}>
+          <div className="landing-container glass-card" style={{ padding: '60px', textAlign: 'center', background: 'rgba(17, 24, 39, 0.8)' }}>
             <h2 className="landing-h2" style={{ fontSize: '32px' }}>Ready to modernize your workflow?</h2>
             <p className="landing-p mb-30">
               Join the no-code data revolution today.
