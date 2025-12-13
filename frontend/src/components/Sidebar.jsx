@@ -1,4 +1,5 @@
 import React from 'react';
+import '../App.css'; // Import shared styles
 
 export default () => {
   const onDragStart = (event, nodeType, label) => {
@@ -7,84 +8,93 @@ export default () => {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const nodeStyle = {
-    padding: '12px',
-    borderRadius: '6px',
-    marginBottom: '10px',
-    cursor: 'grab',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: 'white',
-    backgroundColor: '#27272a',
-    border: '1px solid #3f3f46',
-    transition: 'all 0.2s',
-  };
-
   return (
-    <aside style={{ 
-      width: '260px', 
-      backgroundColor: '#18181b', 
-      borderRight: '1px solid #27272a', 
-      padding: '20px',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',        // Force full height
-      overflowY: 'auto',     // Enable vertical scrolling
-      boxSizing: 'border-box' // Ensure padding doesn't break width
-    }}>
+    <aside className="sidebar scrollable">
       
       {/* Title */}
-      <div style={{ marginBottom: '20px' }}>
-        <h3 style={{ margin: 0, fontSize: '16px', color: 'white' }}>Toolbox</h3>
-        <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#9ca3af' }}>Drag nodes to the canvas</p>
+      <div className="sidebar-title-section">
+        <h3 className="sidebar-title">Toolbox</h3>
+        <p className="sidebar-subtitle">Drag nodes to the canvas</p>
       </div>
 
       {/* 1. Source Nodes */}
-      <div style={{ marginBottom: '20px' }}>
-        <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '10px' }}>Sources</p>
-        <div onDragStart={(event) => onDragStart(event, 'source_csv', 'Source: CSV')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #10b981' }}>
+      <div className="sidebar-section">
+        <p className="sidebar-section-label">Sources</p>
+        
+        <div 
+          className="sidebar-tool csv" 
+          draggable 
+          onDragStart={(event) => onDragStart(event, 'source_csv', 'Source: CSV')}
+        >
           <span style={{ fontSize: '16px' }}>📄</span> CSV Source
         </div>
-        <div onDragStart={(event) => onDragStart(event, 'source_json', 'Source: JSON')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #fbbf24' }}>
-          <span style={{ fontSize: '16px' }}>{}</span> JSON Source
+        
+        <div 
+          className="sidebar-tool json" 
+          draggable 
+          onDragStart={(event) => onDragStart(event, 'source_json', 'Source: JSON')}
+        >
+          <span style={{ fontSize: '16px' }}>{`{}`}</span> JSON Source
         </div>
-        <div onDragStart={(event) => onDragStart(event, 'source_excel', 'Source: Excel')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #16a34a' }}>
+        
+        <div 
+          className="sidebar-tool excel" 
+          draggable 
+          onDragStart={(event) => onDragStart(event, 'source_excel', 'Source: Excel')}
+        >
           <span style={{ fontSize: '16px' }}>📊</span> Excel Source
         </div>
       </div>
 
       {/* 2. Transformation Nodes */}
-      <div style={{ marginBottom: '20px' }}>
-        <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '10px' }}>Transformations</p>
-        <div onDragStart={(event) => onDragStart(event, 'filterNode', 'Transform: Filter')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #3b82f6' }}>
+      <div className="sidebar-section">
+        <p className="sidebar-section-label">Transformations</p>
+        <div 
+          className="sidebar-tool filter" 
+          draggable 
+          onDragStart={(event) => onDragStart(event, 'filterNode', 'Transform: Filter')}
+        >
           <span style={{ fontSize: '16px' }}>⚙️</span> Filter Data
         </div>
       </div>
 
       {/* 3. Destination Nodes */}
-      <div style={{ marginBottom: '20px' }}>
-        <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '10px' }}>Destinations</p>
+      <div className="sidebar-section">
+        <p className="sidebar-section-label">Destinations</p>
         
         {/* Save to DB */}
-        <div onDragStart={(event) => onDragStart(event, 'dest_db', 'Save: Database')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #a855f7' }}>
+        <div 
+          className="sidebar-tool db" 
+          draggable 
+          onDragStart={(event) => onDragStart(event, 'dest_db', 'Save: Database')}
+        >
           <span style={{ fontSize: '16px' }}>💾</span> Save to DB
         </div>
 
         {/* Save as CSV */}
-        <div onDragStart={(event) => onDragStart(event, 'dest_csv', 'Save: CSV')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #10b981' }}>
+        <div 
+          className="sidebar-tool csv" 
+          draggable 
+          onDragStart={(event) => onDragStart(event, 'dest_csv', 'Save: CSV')}
+        >
           <span style={{ fontSize: '16px' }}>📄</span> Save as CSV
         </div>
 
         {/* Save as JSON */}
-        <div onDragStart={(event) => onDragStart(event, 'dest_json', 'Save: JSON')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #fbbf24' }}>
-          <span style={{ fontSize: '16px' }}>{}</span> Save as JSON
+        <div 
+          className="sidebar-tool json" 
+          draggable 
+          onDragStart={(event) => onDragStart(event, 'dest_json', 'Save: JSON')}
+        >
+          <span style={{ fontSize: '16px' }}>{`{}`}</span> Save as JSON
         </div>
 
         {/* Save as Excel */}
-        <div onDragStart={(event) => onDragStart(event, 'dest_excel', 'Save: Excel')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #16a34a' }}>
+        <div 
+          className="sidebar-tool excel" 
+          draggable 
+          onDragStart={(event) => onDragStart(event, 'dest_excel', 'Save: Excel')}
+        >
           <span style={{ fontSize: '16px' }}>📊</span> Save as Excel
         </div>
 

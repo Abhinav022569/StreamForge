@@ -715,3 +715,34 @@
   .hl-func { color: #60a5fa; }
   .hl-str { color: #a5f3fc; }
   .hl-key { color: #f472b6; }
+
+  /* ... existing sidebar styles ... */
+
+.sidebar-title-section {
+  margin-bottom: 20px;
+}
+
+.sidebar-title {
+  margin: 0;
+  font-size: 16px;
+  color: white;
+  font-weight: bold;
+}
+
+.sidebar-subtitle {
+  margin: 5px 0 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sidebar-section {
+  margin-bottom: 20px;
+}
+
+.sidebar-section-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
