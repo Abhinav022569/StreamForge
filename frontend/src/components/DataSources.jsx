@@ -180,7 +180,7 @@ const DataSources = () => {
           >
             <div style={{ fontSize: '40px', marginBottom: '15px' }}>☁️</div>
             <h3 style={{ color: 'white', marginBottom: '10px', marginTop: 0 }}>Click or Drag file to upload</h3>
-            <p className="text-muted" style={{ fontSize: '14px', margin: 0 }}>Supports CSV, JSON, Excel (Max 10MB)</p>
+            <p className="text-muted" style={{ fontSize: '14px', margin: 0 }}>Supports CSV, JSON, Excel</p>
           </div>
 
           {/* FILES LIST */}
