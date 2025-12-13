@@ -6,6 +6,7 @@ class User(db.Model):
     username = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
+    total_processed_bytes = db.Column(db.Integer, default=0)
     
     # Relationships
     pipelines = db.relationship('Pipeline', backref='owner', lazy=True)

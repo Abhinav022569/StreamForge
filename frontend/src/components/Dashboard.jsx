@@ -4,11 +4,22 @@ import axios from 'axios';
 import logo from '../assets/logo.png';
 import '../App.css'; // Import shared styles
 
+// --- HELPER FUNCTION: Format Bytes ---
+const formatBytes = (bytes, decimals = 2) => {
+    if (!+bytes) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState({ username: 'User' });
   const [pipelines, setPipelines] = useState([]);
   const [recentPipelines, setRecentPipelines] = useState([]);
+  const [totalDataSize, setTotalDataSize] = useState('0 B'); // <--- NEW STATE
 
   useEffect(() => {
     // 1. Load User
@@ -19,8 +30,9 @@ const Dashboard = () => {
       setUser(JSON.parse(storedUser));
     }
 
-    // 2. Fetch Pipelines (Mock or Real)
+    // 2. Fetch Data
     if (token) {
+        // A. Fetch Pipelines
         axios.get('http://127.0.0.1:5000/pipelines', {
             headers: { Authorization: `Bearer ${token}` }
         })
@@ -29,6 +41,16 @@ const Dashboard = () => {
             setRecentPipelines(res.data.slice(0, 5)); // Show top 5
         })
         .catch(err => console.error("Error fetching pipelines:", err));
+
+        // B. Fetch User Stats (Total Data Processed) <--- NEW
+        axios.get('http://127.0.0.1:5000/user-stats', {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => {
+            // Format the raw bytes from DB into "MB", "GB", etc.
+            setTotalDataSize(formatBytes(res.data.total_processed_bytes));
+        })
+        .catch(err => console.error("Error fetching stats:", err));
     }
   }, []);
 
@@ -87,7 +109,6 @@ const Dashboard = () => {
               <p className="text-muted" style={{ margin: 0 }}>Welcome back, {user.username}</p>
             </div>
             
-            {/* UPDATED BUTTON: Uses btn-success (Green) instead of btn-primary */}
             <button className="btn btn-success" onClick={() => navigate('/builder')}>
               + Create New Pipeline
             </button>
@@ -97,7 +118,9 @@ const Dashboard = () => {
           <div className="flex gap-20" style={{ marginBottom: '30px' }}>
             <StatCard label="Total Pipelines" value={pipelines.length} icon="🚀" />
             <StatCard label="Active Runs" value="0" icon="⚡" />
-            <StatCard label="Data Processed" value="0 GB" icon="💾" />
+            
+            {/* UPDATED CARD */}
+            <StatCard label="Data Processed" value={totalDataSize} icon="💾" />
           </div>
 
           {/* Recent Activity Table */}

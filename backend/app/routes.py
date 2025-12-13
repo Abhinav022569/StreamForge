@@ -2,13 +2,12 @@ import json
 import os
 import pandas as pd
 from datetime import datetime
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, send_from_directory
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from . import db
 from .models import Pipeline, User, DataSource
-from flask import send_from_directory
 
 main = Blueprint('main', __name__)
 
@@ -62,7 +61,21 @@ def login():
         return jsonify({"error": "Invalid credentials"}), 401
     
     access_token = create_access_token(identity=str(user.id))
-    return jsonify({"message": "Login successful!", "token": access_token, "user": {"id": user.id, "username": user.username}})
+    return jsonify({
+        "message": "Login successful!", 
+        "token": access_token, 
+        "user": {"id": user.id, "username": user.username}
+    })
+
+@main.route('/user-stats', methods=['GET'])
+@jwt_required()
+def get_user_stats():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    return jsonify({
+        "total_processed_bytes": user.total_processed_bytes,
+        "username": user.username
+    })
 
 # --- PIPELINE MANAGEMENT ROUTES ---
 
@@ -139,8 +152,12 @@ def delete_pipeline(id):
 # --- PIPELINE EXECUTION ENGINE ---
 
 @main.route('/run-pipeline', methods=['POST'])
+@jwt_required()
 def run_pipeline():
     try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+
         req_data = request.json
         nodes = req_data.get('nodes', [])
         edges = req_data.get('edges', [])
@@ -168,6 +185,7 @@ def run_pipeline():
         # Maps node_id -> DataFrame
         data_store = {}
         execution_log = []
+        processed_bytes_in_run = 0  # Track data size for this run
 
         base_dir = os.path.abspath(os.path.dirname(__file__))
         uploads_dir = os.path.join(base_dir, '..', 'uploads')
@@ -188,7 +206,6 @@ def run_pipeline():
                     filename = node_data.get('filename')
                     
                     if not filename:
-                        # CRITICAL FIX: Warn user if no file is selected
                         raise ValueError(f"Please select a file for the '{node_data.get('label')}' node.")
 
                     file_path = os.path.join(uploads_dir, filename)
@@ -242,17 +259,26 @@ def run_pipeline():
                     if df_to_save is None: raise ValueError("No data to save")
 
                     output_name = node_data.get('outputName', 'output')
+                    file_path = ""
+                    
                     if node_type == 'dest_csv':
                         if not output_name.endswith('.csv'): output_name += '.csv'
-                        df_to_save.to_csv(os.path.join(processed_dir, output_name), index=False)
+                        file_path = os.path.join(processed_dir, output_name)
+                        df_to_save.to_csv(file_path, index=False)
                     elif node_type == 'dest_json':
                         if not output_name.endswith('.json'): output_name += '.json'
-                        df_to_save.to_json(os.path.join(processed_dir, output_name), orient='records')
+                        file_path = os.path.join(processed_dir, output_name)
+                        df_to_save.to_json(file_path, orient='records')
                     elif node_type == 'dest_excel':
                         if not output_name.endswith('.xlsx'): output_name += '.xlsx'
-                        df_to_save.to_excel(os.path.join(processed_dir, output_name), index=False)
+                        file_path = os.path.join(processed_dir, output_name)
+                        df_to_save.to_excel(file_path, index=False)
 
-                    execution_log.append(f"Saved to {output_name}")
+                    # Update size count
+                    if os.path.exists(file_path):
+                        file_size = os.path.getsize(file_path)
+                        processed_bytes_in_run += file_size
+                        execution_log.append(f"Saved to {output_name} ({get_size_format(file_size)})")
 
             except Exception as e:
                 # Capture the specific error from the node and send it back
@@ -262,7 +288,12 @@ def run_pipeline():
             if current_id in adj_list:
                 for child_id in adj_list[current_id]:
                     queue.append(child_id)
-
+        
+        # --- Update User Stats ---
+        if processed_bytes_in_run > 0:
+            user.total_processed_bytes += processed_bytes_in_run
+            db.session.commit()
+        
         return jsonify({
             "message": "Pipeline Executed Successfully", 
             "logs": execution_log
@@ -349,8 +380,7 @@ def delete_datasource(id):
 
     return jsonify({"message": "File removed successfully!"})
 
-# --- PROCESSED FILE ROUTES (Add to backend/app/routes.py) ---
-
+# --- PROCESSED FILE ROUTES ---
 
 @main.route('/processed-files', methods=['GET'])
 @jwt_required()
@@ -376,6 +406,7 @@ def get_processed_files():
                 "name": f,
                 "type": ftype,
                 "size": get_size_format(size),
+                "size_bytes": size, # Included for frontend calculation
                 "date": datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M')
             })
     
@@ -383,7 +414,6 @@ def get_processed_files():
 
 @main.route('/download/processed/<path:filename>', methods=['GET'])
 def download_processed_file(filename):
-    # Public route or protected? Ideally protected but simple for now
     base_dir = os.path.abspath(os.path.dirname(__file__))
     processed_dir = os.path.join(base_dir, '..', 'processed')
     return send_from_directory(processed_dir, filename, as_attachment=True)
