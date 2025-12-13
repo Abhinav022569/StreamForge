@@ -8,13 +8,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from . import db
 from .models import Pipeline, User, DataSource
+from flask import send_from_directory
 
 main = Blueprint('main', __name__)
 
 # --- UTILITIES ---
 
 def get_size_format(b, factor=1024, suffix="B"):
-    """Converts bytes to human readable format (e.g., 2.4 MB)"""
+    """Converts bytes to human readable format"""
     for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
         if b < factor:
             return f"{b:.2f} {unit}{suffix}"
@@ -46,7 +47,6 @@ def signup():
         return jsonify({"error": "Email already exists"}), 400
     
     hashed_password = generate_password_hash(data['password'])
-    # Note: Frontend sends 'fullName', model expects 'username'
     new_user = User(username=data['fullName'], email=data['email'], password_hash=hashed_password)
     
     db.session.add(new_user)
@@ -136,7 +136,7 @@ def delete_pipeline(id):
     db.session.commit()
     return jsonify({"message": "Pipeline deleted successfully!"})
 
-# --- PIPELINE EXECUTION ENGINE (NEW) ---
+# --- PIPELINE EXECUTION ENGINE ---
 
 @main.route('/run-pipeline', methods=['POST'])
 def run_pipeline():
@@ -148,7 +148,7 @@ def run_pipeline():
         if not nodes:
             return jsonify({"error": "No nodes provided"}), 400
 
-        # 1. Build Adjacency List
+        # Build Adjacency List
         adj_list = {node['id']: [] for node in nodes}
         node_map = {node['id']: node for node in nodes}
         
@@ -158,23 +158,21 @@ def run_pipeline():
             if source in adj_list:
                 adj_list[source].append(target)
 
-        # 2. Identify Start Nodes (Sources)
+        # Identify Sources
         in_degree = {node['id']: 0 for node in nodes}
         for edge in edges:
             in_degree[edge['target']] += 1
 
         queue = [n['id'] for n in nodes if in_degree[n['id']] == 0]
         
-        # Data store: Maps node_id -> DataFrame
+        # Maps node_id -> DataFrame
         data_store = {}
         execution_log = []
 
-        # Directories
         base_dir = os.path.abspath(os.path.dirname(__file__))
         uploads_dir = os.path.join(base_dir, '..', 'uploads')
         processed_dir = os.path.join(base_dir, '..', 'processed')
 
-        # Ensure processed directory exists
         if not os.path.exists(processed_dir):
             os.makedirs(processed_dir)
 
@@ -187,17 +185,17 @@ def run_pipeline():
             try:
                 # --- SOURCE NODES ---
                 if node_type.startswith('source_'):
-                    filename = node_data.get('filename') or node_data.get('label')
+                    filename = node_data.get('filename')
                     
                     if not filename:
-                        raise ValueError("No filename selected in source node")
+                        # CRITICAL FIX: Warn user if no file is selected
+                        raise ValueError(f"Please select a file for the '{node_data.get('label')}' node.")
 
                     file_path = os.path.join(uploads_dir, filename)
                     
                     if not os.path.exists(file_path):
-                        raise FileNotFoundError(f"File {filename} not found in uploads")
+                        raise FileNotFoundError(f"File '{filename}' not found. Please upload it in Data Sources.")
                     
-                    # Read File
                     if filename.lower().endswith('.csv'):
                         df = pd.read_csv(file_path)
                     elif filename.lower().endswith('.json'):
@@ -205,87 +203,62 @@ def run_pipeline():
                     elif filename.lower().endswith(('.xls', '.xlsx')):
                         df = pd.read_excel(file_path)
                     else:
-                        raise ValueError("Unsupported file format")
+                        raise ValueError("Unsupported format")
                     
                     data_store[current_id] = df
                     execution_log.append(f"Loaded {filename}: {len(df)} rows")
 
                 # --- FILTER NODE ---
                 elif node_type == 'filterNode':
-                    # Find parent node
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
-                    if not parent_ids:
-                        raise ValueError("Filter node is disconnected")
+                    if not parent_ids: raise ValueError("Filter node disconnected")
                     
-                    # Get Parent DataFrame
                     parent_df = data_store.get(parent_ids[0])
-                    if parent_df is None:
-                        raise ValueError("No data received for filter")
+                    if parent_df is None: raise ValueError("No data received for filter")
 
-                    # Extract Filter Params
                     col = node_data.get('column')
                     op = node_data.get('condition', '>')
                     val = safe_convert(node_data.get('value'))
 
-                    if not col:
-                        # If no column specified, pass through
-                        df = parent_df
-                        execution_log.append("Filter node skipped (no column defined)")
-                    elif col not in parent_df.columns:
-                        raise ValueError(f"Column '{col}' not found in data")
+                    if col and col in parent_df.columns:
+                        if op == '>': df = parent_df[parent_df[col] > val]
+                        elif op == '<': df = parent_df[parent_df[col] < val]
+                        elif op == '==': df = parent_df[parent_df[col] == val]
+                        elif op == '!=': df = parent_df[parent_df[col] != val]
+                        else: df = parent_df
+                        execution_log.append(f"Filtered {col} {op} {val}: {len(df)} rows")
                     else:
-                        # Apply Filtering Logic
-                        if op == '>':
-                            df = parent_df[parent_df[col] > val]
-                        elif op == '<':
-                            df = parent_df[parent_df[col] < val]
-                        elif op == '==':
-                            df = parent_df[parent_df[col] == val]
-                        elif op == '!=':
-                            df = parent_df[parent_df[col] != val]
-                        else:
-                            df = parent_df
-
-                        execution_log.append(f"Filtered {col} {op} {val}: {len(df)} rows remaining")
+                        df = parent_df
+                        execution_log.append("Filter passed through (invalid or missing column)")
                     
                     data_store[current_id] = df
 
                 # --- DESTINATION NODES ---
                 elif node_type.startswith('dest_'):
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
-                    if not parent_ids:
-                        raise ValueError("Destination node is disconnected")
+                    if not parent_ids: raise ValueError("Destination disconnected")
                     
                     df_to_save = data_store.get(parent_ids[0])
-                    if df_to_save is None:
-                        raise ValueError("No data to save")
+                    if df_to_save is None: raise ValueError("No data to save")
 
                     output_name = node_data.get('outputName', 'output')
-                    if not output_name: 
-                        output_name = "output"
-
-                    # Save logic
                     if node_type == 'dest_csv':
-                        if not output_name.lower().endswith('.csv'): output_name += '.csv'
-                        save_path = os.path.join(processed_dir, output_name)
-                        df_to_save.to_csv(save_path, index=False)
-                        
+                        if not output_name.endswith('.csv'): output_name += '.csv'
+                        df_to_save.to_csv(os.path.join(processed_dir, output_name), index=False)
                     elif node_type == 'dest_json':
-                        if not output_name.lower().endswith('.json'): output_name += '.json'
-                        save_path = os.path.join(processed_dir, output_name)
-                        df_to_save.to_json(save_path, orient='records')
-
+                        if not output_name.endswith('.json'): output_name += '.json'
+                        df_to_save.to_json(os.path.join(processed_dir, output_name), orient='records')
                     elif node_type == 'dest_excel':
-                        if not output_name.lower().endswith('.xlsx'): output_name += '.xlsx'
-                        save_path = os.path.join(processed_dir, output_name)
-                        df_to_save.to_excel(save_path, index=False)
+                        if not output_name.endswith('.xlsx'): output_name += '.xlsx'
+                        df_to_save.to_excel(os.path.join(processed_dir, output_name), index=False)
 
-                    execution_log.append(f"Saved file to processed/{output_name}")
+                    execution_log.append(f"Saved to {output_name}")
 
             except Exception as e:
-                return jsonify({"error": f"Node {node_type} failed: {str(e)}", "logs": execution_log}), 500
+                # Capture the specific error from the node and send it back
+                return jsonify({"error": f"Node '{node_data.get('label', node_type)}' Error: {str(e)}", "logs": execution_log}), 500
 
-            # Add children to queue
+            # Add children
             if current_id in adj_list:
                 for child_id in adj_list[current_id]:
                     queue.append(child_id)
@@ -315,8 +288,6 @@ def upload_file():
 
     if file:
         filename = secure_filename(file.filename)
-        
-        # Determine upload path
         base_dir = os.path.abspath(os.path.dirname(__file__))
         upload_folder = os.path.join(base_dir, '..', 'uploads')
         
@@ -326,14 +297,10 @@ def upload_file():
         file_path = os.path.join(upload_folder, filename)
         file.save(file_path)
         
-        # Get file size
         file_size = os.path.getsize(file_path)
         formatted_size = get_size_format(file_size)
-        
-        # Determine Type
         file_ext = filename.rsplit('.', 1)[1].upper() if '.' in filename else 'UNKNOWN'
 
-        # Save to DB
         new_source = DataSource(
             filename=filename,
             file_type=file_ext,
@@ -374,12 +341,61 @@ def delete_datasource(id):
     if not source:
         return jsonify({"error": "File not found"}), 404
 
-    # Remove from DB
     db.session.delete(source)
     db.session.commit()
     
-    # Remove from disk
     if os.path.exists(source.filepath):
         os.remove(source.filepath)
 
     return jsonify({"message": "File removed successfully!"})
+
+# --- PROCESSED FILE ROUTES (Add to backend/app/routes.py) ---
+
+
+@main.route('/processed-files', methods=['GET'])
+@jwt_required()
+def get_processed_files():
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    processed_dir = os.path.join(base_dir, '..', 'processed')
+    
+    if not os.path.exists(processed_dir):
+        return jsonify([])
+
+    files = []
+    for f in os.listdir(processed_dir):
+        file_path = os.path.join(processed_dir, f)
+        if os.path.isfile(file_path):
+            size = os.path.getsize(file_path)
+            ext = f.split('.')[-1].lower()
+            
+            ftype = 'CSV'
+            if ext == 'json': ftype = 'JSON'
+            elif ext in ['xls', 'xlsx']: ftype = 'Excel'
+
+            files.append({
+                "name": f,
+                "type": ftype,
+                "size": get_size_format(size),
+                "date": datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M')
+            })
+    
+    return jsonify(files)
+
+@main.route('/download/processed/<path:filename>', methods=['GET'])
+def download_processed_file(filename):
+    # Public route or protected? Ideally protected but simple for now
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    processed_dir = os.path.join(base_dir, '..', 'processed')
+    return send_from_directory(processed_dir, filename, as_attachment=True)
+
+@main.route('/processed-files/<path:filename>', methods=['DELETE'])
+@jwt_required()
+def delete_processed_file(filename):
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    file_path = os.path.join(base_dir, '..', 'processed', filename)
+    
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return jsonify({"message": "File deleted"})
+    else:
+        return jsonify({"error": "File not found"}), 404

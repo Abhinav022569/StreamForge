@@ -7,21 +7,20 @@ import '../App.css'; // Import shared styles
 const ProcessedData = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState({ username: 'User' });
-  
-  // INITIAL STATE IS NOW EMPTY ARRAY []
-  const [processedFiles, setProcessedFiles] = useState([]);
+  const [processedFiles, setProcessedFiles] = useState([]); // Will store fetched files
 
   useEffect(() => {
+    // 1. Load User
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
     
-    // FETCH REAL DATA (Uncomment this block when your backend endpoint is ready)
-    /*
+    // 2. FETCH PROCESSED FILES (Now Enabled)
     const fetchProcessedFiles = async () => {
         try {
             const token = localStorage.getItem('token');
+            // Assuming your backend has this route (we'll ensure it does in step 2)
             const res = await axios.get('http://127.0.0.1:5000/processed-files', {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -31,7 +30,7 @@ const ProcessedData = () => {
         }
     };
     fetchProcessedFiles();
-    */
+    
   }, []);
 
   const handleLogout = () => {
@@ -40,18 +39,22 @@ const ProcessedData = () => {
   };
 
   const handleDownload = (fileName) => {
-    // Backend download URL example:
-    // window.open(`http://127.0.0.1:5000/download/processed/${fileName}`, '_blank');
-    alert(`Downloading ${fileName}...`);
+    // Open in new tab to trigger download from backend
+    window.open(`http://127.0.0.1:5000/download/processed/${fileName}`, '_blank');
   };
 
-  const handleDelete = (id) => {
-    if(window.confirm("Are you sure you want to delete this output file?")) {
-        // Optimistic UI update
-        setProcessedFiles(processedFiles.filter(f => f.id !== id));
-        
-        // TODO: Call backend to delete
-        // axios.delete(`http://127.0.0.1:5000/processed-files/${id}`, ...);
+  const handleDelete = async (fileName) => {
+    if(window.confirm(`Are you sure you want to delete ${fileName}?`)) {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`http://127.0.0.1:5000/processed-files/${fileName}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Update UI
+            setProcessedFiles(processedFiles.filter(f => f.name !== fileName));
+        } catch (err) {
+            alert("Failed to delete file");
+        }
     }
   };
 
@@ -113,30 +116,27 @@ const ProcessedData = () => {
               <thead>
                 <tr className="table-header">
                   <th>File Name</th>
-                  <th>Source Pipeline</th>
                   <th>Type</th>
                   <th>Size</th>
-                  <th>Date Created</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {processedFiles.length === 0 ? (
                     <tr>
-                        <td colSpan="6" className="text-center text-muted" style={{ padding: '40px' }}>
+                        <td colSpan="4" className="text-center text-muted" style={{ padding: '40px' }}>
                             No processed files found. Run a pipeline to generate data.
                         </td>
                     </tr>
                 ) : (
-                    processedFiles.map(file => (
-                    <tr key={file.id} className="table-row">
+                    processedFiles.map((file, idx) => (
+                    <tr key={idx} className="table-row">
                         <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <span style={{ fontSize: '16px' }}>
                                 {file.type === 'Excel' ? '📊' : file.type === 'JSON' ? '{}' : '📄'}
                             </span> 
                             {file.name}
                         </td>
-                        <td className="text-muted">{file.pipeline}</td>
                         <td className="text-muted">
                             <span style={{ 
                                 background: file.type === 'Excel' ? 'rgba(22, 163, 74, 0.2)' : file.type === 'JSON' ? 'rgba(251, 191, 36, 0.2)' : 'rgba(59, 130, 246, 0.2)',
@@ -147,7 +147,6 @@ const ProcessedData = () => {
                             </span>
                         </td>
                         <td className="text-muted">{file.size}</td>
-                        <td className="text-muted">{file.date}</td>
                         <td style={{ textAlign: 'right' }}>
                             <button 
                                 onClick={() => handleDownload(file.name)}
@@ -157,7 +156,7 @@ const ProcessedData = () => {
                                 ⬇ Download
                             </button>
                             <button 
-                                onClick={() => handleDelete(file.id)}
+                                onClick={() => handleDelete(file.name)}
                                 className="btn btn-ghost" 
                                 style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--danger)', borderColor: 'var(--danger)' }}
                             >
