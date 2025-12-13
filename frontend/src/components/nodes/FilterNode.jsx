@@ -5,12 +5,17 @@ import '../../App.css'; // Import shared styles
 export default memo(({ id, data, isConnectable }) => {
   const { setNodes, deleteElements } = useReactFlow();
 
+  // Unified handler for all inputs (Column, Condition, Value)
   const updateData = useCallback((evt) => {
     const { name, value } = evt.target;
     setNodes((nodes) =>
       nodes.map((node) => {
         if (node.id === id) {
-          return { ...node, data: { ...node.data, [name]: value } };
+          // Create a new data object to trigger a re-render/update
+          return { 
+            ...node, 
+            data: { ...node.data, [name]: value } 
+          };
         }
         return node;
       })
@@ -46,15 +51,13 @@ export default memo(({ id, data, isConnectable }) => {
         
         {/* Column Input */}
         <div className="nodrag input-group" style={{ marginBottom: '10px' }}>
-            <label className="input-label" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
-                COLUMN
-            </label>
+            <label className="node-label">COLUMN</label>
             <input 
                 className="input-field" 
                 name="column" 
                 type="text" 
                 placeholder="e.g. age" 
-                defaultValue={data.column} 
+                value={data.column || ''} // Controlled input
                 onChange={updateData} 
             />
         </div>
@@ -62,32 +65,28 @@ export default memo(({ id, data, isConnectable }) => {
         {/* Condition & Value Row */}
         <div className="flex gap-10 nodrag">
             <div style={{ flex: 1 }}>
-                <label className="input-label" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
-                    CONDITION
-                </label>
+                <label className="node-label">CONDITION</label>
                 <select 
                     className="select-field" 
                     name="condition" 
-                    defaultValue={data.condition} 
+                    value={data.condition || '>'} 
                     onChange={updateData} 
-                    style={{ cursor: 'pointer' }}
                 >
-                    <option value=">">&gt; (Gt)</option>
-                    <option value="<">&lt; (Lt)</option>
-                    <option value="==">== (Eq)</option>
+                    <option value=">">&gt; (Greater)</option>
+                    <option value="<">&lt; (Less)</option>
+                    <option value="==">== (Equals)</option>
+                    <option value="!=">!= (Not Eq)</option>
                 </select>
             </div>
             
             <div style={{ flex: 1 }}>
-                <label className="input-label" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
-                    VALUE
-                </label>
+                <label className="node-label">VALUE</label>
                 <input 
                     className="input-field" 
                     name="value" 
                     type="text" 
-                    placeholder="25" 
-                    defaultValue={data.value} 
+                    placeholder="e.g. 25" 
+                    value={data.value || ''} 
                     onChange={updateData} 
                 />
             </div>

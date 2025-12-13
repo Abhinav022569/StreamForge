@@ -18,7 +18,7 @@ import Sidebar from './Sidebar';
 import FilterNode from './nodes/FilterNode';
 import SourceNode from './nodes/SourceNode';           
 import DestinationNode from './nodes/DestinationNode'; 
-import DeletableEdge from './edges/DeletableEdge';     
+import DeletableEdge from './edges/DeletableEdge';    
 
 const initialNodes = [];
 
@@ -32,19 +32,32 @@ const PipelineBuilderContent = () => {
     const [edges, setEdges] = useState([]);
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [pipelineName, setPipelineName] = useState("My New Pipeline");
+    const [isRunning, setIsRunning] = useState(false); // <--- ADDED LOADING STATE
 
-    // Register Types
+    // --- 1. REGISTER NODE TYPES ---
+    // We map specific backend types (source_csv) to the UI components (SourceNode)
     const nodeTypes = useMemo(() => ({ 
         filterNode: FilterNode,
-        sourceNode: SourceNode,          
-        destinationNode: DestinationNode 
+        
+        // Map all source variations to the SourceNode component
+        source_csv: SourceNode,
+        source_json: SourceNode,
+        source_excel: SourceNode,
+        sourceNode: SourceNode, // Fallback
+        
+        // Map all destination variations to the DestinationNode component
+        dest_db: DestinationNode,
+        dest_csv: DestinationNode,
+        dest_json: DestinationNode,
+        dest_excel: DestinationNode,
+        destinationNode: DestinationNode // Fallback
     }), []);
 
     const edgeTypes = useMemo(() => ({
         deletableEdge: DeletableEdge
     }), []);
 
-    // Load Data if editing an existing pipeline
+    // Load Data
     useEffect(() => {
         if (id) {
             const token = localStorage.getItem('token');
@@ -87,7 +100,7 @@ const PipelineBuilderContent = () => {
         event.dataTransfer.dropEffect = 'move';
     }, []);
 
-    // --- DROP HANDLER (Maps Sidebar Items to Nodes) ---
+    // --- 2. UPDATED DROP HANDLER ---
     const onDrop = useCallback(
         (event) => {
             event.preventDefault();
@@ -102,40 +115,33 @@ const PipelineBuilderContent = () => {
                 y: event.clientY,
             });
 
-            // Default Values
-            let nodeType = type;
-            let fileType = 'CSV';         // For Sources
-            let destinationType = 'DB';   // For Destinations
+            // Determine data properties based on specific type
+            let fileType = 'CSV';
+            let destinationType = 'DB';
 
-            // 1. Handle Sources
-            if (type.startsWith('source_')) {
-                nodeType = 'sourceNode';
-                if (type === 'source_csv') fileType = 'CSV';
-                if (type === 'source_json') fileType = 'JSON';
-                if (type === 'source_excel') fileType = 'Excel';
+            if (type.includes('json')) {
+                fileType = 'JSON';
+                destinationType = 'JSON';
+            } else if (type.includes('excel')) {
+                fileType = 'Excel';
+                destinationType = 'Excel';
+            } else if (type.includes('csv')) {
+                fileType = 'CSV';
+                destinationType = 'CSV';
             }
-            
-            // 2. Handle Destinations
-            else if (type.startsWith('dest_')) {
-                nodeType = 'destinationNode';
-                if (type === 'dest_csv') destinationType = 'CSV';
-                if (type === 'dest_json') destinationType = 'JSON';
-                if (type === 'dest_excel') destinationType = 'Excel';
-                if (type === 'dest_db') destinationType = 'DB';
-            }
-            
-            // 3. Handle Legacy/Other Types
-            else if (type === 'input') { nodeType = 'sourceNode'; } 
-            else if (type === 'output') { nodeType = 'destinationNode'; }
 
             const newNode = {
-                id: `node_${Date.now()}`, 
-                type: nodeType,
+                id: `${type}_${Date.now()}`, 
+                type: type, // <--- CRITICAL: Use 'source_csv' etc. so backend recognizes it
                 position,
                 data: { 
                     label: label, 
-                    fileType: fileType,             // For SourceNode
-                    destinationType: destinationType // For DestinationNode
+                    fileType: fileType,          // For SourceNode
+                    destinationType: destinationType, // For DestinationNode
+                    // Filter defaults
+                    column: '',
+                    condition: '>',
+                    value: ''
                 },
             };
 
@@ -168,8 +174,57 @@ const PipelineBuilderContent = () => {
         setEdges((eds) => eds.filter((edge) => !edge.selected));
     };
 
-    const handleRun = () => {
-        alert("Run functionality coming soon! This will trigger the backend execution.");
+    // --- 3. IMPLEMENTED RUN HANDLER ---
+    const handleRun = async () => {
+        if (nodes.length === 0) {
+            alert("Canvas is empty. Add some nodes first!");
+            return;
+        }
+
+        setIsRunning(true);
+        try {
+            const payload = {
+                nodes: nodes.map(n => ({
+                    id: n.id,
+                    type: n.type,
+                    data: n.data
+                })),
+                edges: edges.map(e => ({
+                    source: e.source,
+                    target: e.target
+                }))
+            };
+
+            const token = localStorage.getItem('token');
+            const res = await axios.post('http://127.0.0.1:5000/run-pipeline', payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+
+            console.log("Run Success:", res.data);
+            
+            const logs = res.data.logs && res.data.logs.length > 0 
+                ? res.data.logs.join('\n') 
+                : "Pipeline finished successfully.";
+            
+            alert(`✅ Success!\n\n${logs}`);
+
+        } catch (error) {
+            console.error("Run Error:", error);
+            let errMsg = "Unknown error";
+            
+            if (error.response && error.response.data) {
+                errMsg = error.response.data.error || JSON.stringify(error.response.data);
+                if (error.response.data.logs) {
+                    errMsg += `\n\nLogs:\n${error.response.data.logs.join('\n')}`;
+                }
+            } else if (error.message) {
+                errMsg = error.message;
+            }
+            
+            alert(`❌ Execution Failed:\n${errMsg}`);
+        } finally {
+            setIsRunning(false);
+        }
     };
 
     return (
@@ -221,23 +276,22 @@ const PipelineBuilderContent = () => {
 
                     <button 
                         onClick={handleRun}
+                        disabled={isRunning}
+                        className="btn btn-success" 
                         style={{ 
-                            background: '#3f3f46', 
-                            border: '1px solid #52525b', 
-                            color: 'white', 
                             padding: '8px 16px', 
                             fontSize: '14px',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '5px'
+                            gap: '5px',
+                            opacity: isRunning ? 0.7 : 1,
+                            cursor: isRunning ? 'not-allowed' : 'pointer'
                         }}
                     >
-                        ▶ Run Test
+                        {isRunning ? '⏳ Running...' : '▶ Run Pipeline'}
                     </button>
 
-                    <button className="btn btn-success" onClick={savePipeline} style={{ padding: '8px 16px', fontSize: '14px' }}>
+                    <button className="btn btn-primary" onClick={savePipeline} style={{ padding: '8px 16px', fontSize: '14px' }}>
                         💾 {id ? 'Update' : 'Save'}
                     </button>
                 </div>

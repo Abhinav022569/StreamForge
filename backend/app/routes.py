@@ -1,5 +1,6 @@
 import json
 import os
+import pandas as pd
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
 from werkzeug.utils import secure_filename
@@ -11,6 +12,7 @@ from .models import Pipeline, User, DataSource
 main = Blueprint('main', __name__)
 
 # --- UTILITIES ---
+
 def get_size_format(b, factor=1024, suffix="B"):
     """Converts bytes to human readable format (e.g., 2.4 MB)"""
     for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
@@ -18,6 +20,16 @@ def get_size_format(b, factor=1024, suffix="B"):
             return f"{b:.2f} {unit}{suffix}"
         b /= factor
     return f"{b:.2f} Y{suffix}"
+
+def safe_convert(val):
+    """Attempt to convert string value to int/float for filtering"""
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return val  # Return as string if not a number
 
 # --- CORE ROUTES ---
 
@@ -34,6 +46,7 @@ def signup():
         return jsonify({"error": "Email already exists"}), 400
     
     hashed_password = generate_password_hash(data['password'])
+    # Note: Frontend sends 'fullName', model expects 'username'
     new_user = User(username=data['fullName'], email=data['email'], password_hash=hashed_password)
     
     db.session.add(new_user)
@@ -51,7 +64,7 @@ def login():
     access_token = create_access_token(identity=str(user.id))
     return jsonify({"message": "Login successful!", "token": access_token, "user": {"id": user.id, "username": user.username}})
 
-# --- PIPELINE ROUTES ---
+# --- PIPELINE MANAGEMENT ROUTES ---
 
 @main.route('/pipelines', methods=['POST'])
 @jwt_required()
@@ -123,7 +136,170 @@ def delete_pipeline(id):
     db.session.commit()
     return jsonify({"message": "Pipeline deleted successfully!"})
 
-# --- DATA SOURCE ROUTES (NEW) ---
+# --- PIPELINE EXECUTION ENGINE (NEW) ---
+
+@main.route('/run-pipeline', methods=['POST'])
+def run_pipeline():
+    try:
+        req_data = request.json
+        nodes = req_data.get('nodes', [])
+        edges = req_data.get('edges', [])
+        
+        if not nodes:
+            return jsonify({"error": "No nodes provided"}), 400
+
+        # 1. Build Adjacency List
+        adj_list = {node['id']: [] for node in nodes}
+        node_map = {node['id']: node for node in nodes}
+        
+        for edge in edges:
+            source = edge['source']
+            target = edge['target']
+            if source in adj_list:
+                adj_list[source].append(target)
+
+        # 2. Identify Start Nodes (Sources)
+        in_degree = {node['id']: 0 for node in nodes}
+        for edge in edges:
+            in_degree[edge['target']] += 1
+
+        queue = [n['id'] for n in nodes if in_degree[n['id']] == 0]
+        
+        # Data store: Maps node_id -> DataFrame
+        data_store = {}
+        execution_log = []
+
+        # Directories
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        uploads_dir = os.path.join(base_dir, '..', 'uploads')
+        processed_dir = os.path.join(base_dir, '..', 'processed')
+
+        # Ensure processed directory exists
+        if not os.path.exists(processed_dir):
+            os.makedirs(processed_dir)
+
+        while queue:
+            current_id = queue.pop(0)
+            current_node = node_map[current_id]
+            node_type = current_node['type']
+            node_data = current_node['data']
+            
+            try:
+                # --- SOURCE NODES ---
+                if node_type.startswith('source_'):
+                    filename = node_data.get('filename') or node_data.get('label')
+                    
+                    if not filename:
+                        raise ValueError("No filename selected in source node")
+
+                    file_path = os.path.join(uploads_dir, filename)
+                    
+                    if not os.path.exists(file_path):
+                        raise FileNotFoundError(f"File {filename} not found in uploads")
+                    
+                    # Read File
+                    if filename.lower().endswith('.csv'):
+                        df = pd.read_csv(file_path)
+                    elif filename.lower().endswith('.json'):
+                        df = pd.read_json(file_path)
+                    elif filename.lower().endswith(('.xls', '.xlsx')):
+                        df = pd.read_excel(file_path)
+                    else:
+                        raise ValueError("Unsupported file format")
+                    
+                    data_store[current_id] = df
+                    execution_log.append(f"Loaded {filename}: {len(df)} rows")
+
+                # --- FILTER NODE ---
+                elif node_type == 'filterNode':
+                    # Find parent node
+                    parent_ids = [e['source'] for e in edges if e['target'] == current_id]
+                    if not parent_ids:
+                        raise ValueError("Filter node is disconnected")
+                    
+                    # Get Parent DataFrame
+                    parent_df = data_store.get(parent_ids[0])
+                    if parent_df is None:
+                        raise ValueError("No data received for filter")
+
+                    # Extract Filter Params
+                    col = node_data.get('column')
+                    op = node_data.get('condition', '>')
+                    val = safe_convert(node_data.get('value'))
+
+                    if not col:
+                        # If no column specified, pass through
+                        df = parent_df
+                        execution_log.append("Filter node skipped (no column defined)")
+                    elif col not in parent_df.columns:
+                        raise ValueError(f"Column '{col}' not found in data")
+                    else:
+                        # Apply Filtering Logic
+                        if op == '>':
+                            df = parent_df[parent_df[col] > val]
+                        elif op == '<':
+                            df = parent_df[parent_df[col] < val]
+                        elif op == '==':
+                            df = parent_df[parent_df[col] == val]
+                        elif op == '!=':
+                            df = parent_df[parent_df[col] != val]
+                        else:
+                            df = parent_df
+
+                        execution_log.append(f"Filtered {col} {op} {val}: {len(df)} rows remaining")
+                    
+                    data_store[current_id] = df
+
+                # --- DESTINATION NODES ---
+                elif node_type.startswith('dest_'):
+                    parent_ids = [e['source'] for e in edges if e['target'] == current_id]
+                    if not parent_ids:
+                        raise ValueError("Destination node is disconnected")
+                    
+                    df_to_save = data_store.get(parent_ids[0])
+                    if df_to_save is None:
+                        raise ValueError("No data to save")
+
+                    output_name = node_data.get('outputName', 'output')
+                    if not output_name: 
+                        output_name = "output"
+
+                    # Save logic
+                    if node_type == 'dest_csv':
+                        if not output_name.lower().endswith('.csv'): output_name += '.csv'
+                        save_path = os.path.join(processed_dir, output_name)
+                        df_to_save.to_csv(save_path, index=False)
+                        
+                    elif node_type == 'dest_json':
+                        if not output_name.lower().endswith('.json'): output_name += '.json'
+                        save_path = os.path.join(processed_dir, output_name)
+                        df_to_save.to_json(save_path, orient='records')
+
+                    elif node_type == 'dest_excel':
+                        if not output_name.lower().endswith('.xlsx'): output_name += '.xlsx'
+                        save_path = os.path.join(processed_dir, output_name)
+                        df_to_save.to_excel(save_path, index=False)
+
+                    execution_log.append(f"Saved file to processed/{output_name}")
+
+            except Exception as e:
+                return jsonify({"error": f"Node {node_type} failed: {str(e)}", "logs": execution_log}), 500
+
+            # Add children to queue
+            if current_id in adj_list:
+                for child_id in adj_list[current_id]:
+                    queue.append(child_id)
+
+        return jsonify({
+            "message": "Pipeline Executed Successfully", 
+            "logs": execution_log
+        })
+
+    except Exception as e:
+        print(f"Pipeline Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# --- DATA SOURCE ROUTES ---
 
 @main.route('/upload', methods=['POST'])
 @jwt_required()
@@ -154,7 +330,7 @@ def upload_file():
         file_size = os.path.getsize(file_path)
         formatted_size = get_size_format(file_size)
         
-        # Determine Type (CSV, JSON, etc)
+        # Determine Type
         file_ext = filename.rsplit('.', 1)[1].upper() if '.' in filename else 'UNKNOWN'
 
         # Save to DB
@@ -202,7 +378,7 @@ def delete_datasource(id):
     db.session.delete(source)
     db.session.commit()
     
-    # Optional: Remove from disk as well?
+    # Remove from disk
     if os.path.exists(source.filepath):
         os.remove(source.filepath)
 
