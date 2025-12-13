@@ -44,7 +44,7 @@ const PipelineBuilderContent = () => {
         deletableEdge: DeletableEdge
     }), []);
 
-    // Load Data
+    // Load Data if editing an existing pipeline
     useEffect(() => {
         if (id) {
             const token = localStorage.getItem('token');
@@ -87,6 +87,7 @@ const PipelineBuilderContent = () => {
         event.dataTransfer.dropEffect = 'move';
     }, []);
 
+    // --- DROP HANDLER (Maps Sidebar Items to Nodes) ---
     const onDrop = useCallback(
         (event) => {
             event.preventDefault();
@@ -101,31 +102,41 @@ const PipelineBuilderContent = () => {
                 y: event.clientY,
             });
 
-            // Map Drag Types to Custom Node Types & Data
+            // Default Values
             let nodeType = type;
-            let fileType = 'CSV'; // Default
+            let fileType = 'CSV';         // For Sources
+            let destinationType = 'DB';   // For Destinations
 
-            if (type === 'source_csv') {
+            // 1. Handle Sources
+            if (type.startsWith('source_')) {
                 nodeType = 'sourceNode';
-                fileType = 'CSV';
-            } else if (type === 'source_json') {
-                nodeType = 'sourceNode';
-                fileType = 'JSON';
-            } else if (type === 'source_excel') {
-                nodeType = 'sourceNode';
-                fileType = 'Excel';
-            } else if (type === 'input') {
-                nodeType = 'sourceNode';
-                fileType = 'CSV';
-            } else if (type === 'output') {
-                nodeType = 'destinationNode';
+                if (type === 'source_csv') fileType = 'CSV';
+                if (type === 'source_json') fileType = 'JSON';
+                if (type === 'source_excel') fileType = 'Excel';
             }
+            
+            // 2. Handle Destinations
+            else if (type.startsWith('dest_')) {
+                nodeType = 'destinationNode';
+                if (type === 'dest_csv') destinationType = 'CSV';
+                if (type === 'dest_json') destinationType = 'JSON';
+                if (type === 'dest_excel') destinationType = 'Excel';
+                if (type === 'dest_db') destinationType = 'DB';
+            }
+            
+            // 3. Handle Legacy/Other Types
+            else if (type === 'input') { nodeType = 'sourceNode'; } 
+            else if (type === 'output') { nodeType = 'destinationNode'; }
 
             const newNode = {
                 id: `node_${Date.now()}`, 
                 type: nodeType,
                 position,
-                data: { label: label, fileType: fileType }, // Store fileType in data
+                data: { 
+                    label: label, 
+                    fileType: fileType,             // For SourceNode
+                    destinationType: destinationType // For DestinationNode
+                },
             };
 
             setNodes((nds) => nds.concat(newNode));
@@ -138,22 +149,15 @@ const PipelineBuilderContent = () => {
         const token = localStorage.getItem('token'); 
 
         try {
-            if (id) {
-                await axios.put(
-                    `http://127.0.0.1:5000/pipelines/${id}`, 
-                    { name: pipelineName, flow: flow },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-                alert('Pipeline Updated Successfully!');
-            } else {
-                const response = await axios.post(
-                    'http://127.0.0.1:5000/pipelines', 
-                    { name: pipelineName, flow: flow },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-                alert('New Pipeline Created! ID: ' + response.data.id);
-                navigate(`/builder/${response.data.id}`);
-            }
+            const payload = { name: pipelineName, flow: flow };
+            const url = id ? `http://127.0.0.1:5000/pipelines/${id}` : 'http://127.0.0.1:5000/pipelines';
+            const method = id ? axios.put : axios.post;
+            
+            const res = await method(url, payload, { headers: { Authorization: `Bearer ${token}` } });
+            
+            alert(id ? 'Pipeline Updated!' : 'Pipeline Created! ID: ' + res.data.id);
+            if (!id) navigate(`/builder/${res.data.id}`);
+
         } catch (error) {
             alert('Error saving pipeline: ' + (error.response?.data?.msg || error.message));
         }
@@ -181,6 +185,7 @@ const PipelineBuilderContent = () => {
                 justifyContent: 'space-between',
                 padding: '0 20px'
             }}>
+                {/* LEFT: Back & Title */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <button 
                         onClick={() => navigate('/dashboard')}
@@ -197,6 +202,7 @@ const PipelineBuilderContent = () => {
                     />
                 </div>
 
+                {/* RIGHT: Actions */}
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button 
                         onClick={deleteSelected}
@@ -238,7 +244,7 @@ const PipelineBuilderContent = () => {
             </header>
 
             {/* WORKSPACE */}
-            <div style={{ display: 'flex', flexGrow: 1 }}>
+            <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
                 <Sidebar />
                 <div className="reactflow-wrapper" ref={reactFlowWrapper} style={{ width: '100%', height: '100%', backgroundColor: '#0f1115' }}>
                     <ReactFlow 

@@ -30,7 +30,10 @@ export default () => {
       borderRight: '1px solid #27272a', 
       padding: '20px',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      height: '100%',        // Force full height
+      overflowY: 'auto',     // Enable vertical scrolling
+      boxSizing: 'border-box' // Ensure padding doesn't break width
     }}>
       
       {/* Title */}
@@ -42,31 +45,13 @@ export default () => {
       {/* 1. Source Nodes */}
       <div style={{ marginBottom: '20px' }}>
         <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '10px' }}>Sources</p>
-        
-        {/* CSV Source */}
-        <div 
-          onDragStart={(event) => onDragStart(event, 'source_csv', 'Source: CSV')} 
-          draggable 
-          style={{ ...nodeStyle, borderLeft: '4px solid #10b981' }} 
-        >
+        <div onDragStart={(event) => onDragStart(event, 'source_csv', 'Source: CSV')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #10b981' }}>
           <span style={{ fontSize: '16px' }}>📄</span> CSV Source
         </div>
-
-        {/* JSON Source */}
-        <div 
-          onDragStart={(event) => onDragStart(event, 'source_json', 'Source: JSON')} 
-          draggable 
-          style={{ ...nodeStyle, borderLeft: '4px solid #fbbf24' }} // Amber/Yellow
-        >
+        <div onDragStart={(event) => onDragStart(event, 'source_json', 'Source: JSON')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #fbbf24' }}>
           <span style={{ fontSize: '16px' }}>{}</span> JSON Source
         </div>
-
-        {/* Excel Source */}
-        <div 
-          onDragStart={(event) => onDragStart(event, 'source_excel', 'Source: Excel')} 
-          draggable 
-          style={{ ...nodeStyle, borderLeft: '4px solid #16a34a' }} // Green
-        >
+        <div onDragStart={(event) => onDragStart(event, 'source_excel', 'Source: Excel')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #16a34a' }}>
           <span style={{ fontSize: '16px' }}>📊</span> Excel Source
         </div>
       </div>
@@ -74,25 +59,35 @@ export default () => {
       {/* 2. Transformation Nodes */}
       <div style={{ marginBottom: '20px' }}>
         <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '10px' }}>Transformations</p>
-        <div 
-          onDragStart={(event) => onDragStart(event, 'filterNode', 'Transform: Filter')} 
-          draggable 
-          style={{ ...nodeStyle, borderLeft: '4px solid #3b82f6' }} 
-        >
+        <div onDragStart={(event) => onDragStart(event, 'filterNode', 'Transform: Filter')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #3b82f6' }}>
           <span style={{ fontSize: '16px' }}>⚙️</span> Filter Data
         </div>
       </div>
 
       {/* 3. Destination Nodes */}
-      <div>
+      <div style={{ marginBottom: '20px' }}>
         <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '10px' }}>Destinations</p>
-        <div 
-          onDragStart={(event) => onDragStart(event, 'output', 'Dest: Database')} 
-          draggable 
-          style={{ ...nodeStyle, borderLeft: '4px solid #f43f5e' }} 
-        >
+        
+        {/* Save to DB */}
+        <div onDragStart={(event) => onDragStart(event, 'dest_db', 'Save: Database')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #a855f7' }}>
           <span style={{ fontSize: '16px' }}>💾</span> Save to DB
         </div>
+
+        {/* Save as CSV */}
+        <div onDragStart={(event) => onDragStart(event, 'dest_csv', 'Save: CSV')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #10b981' }}>
+          <span style={{ fontSize: '16px' }}>📄</span> Save as CSV
+        </div>
+
+        {/* Save as JSON */}
+        <div onDragStart={(event) => onDragStart(event, 'dest_json', 'Save: JSON')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #fbbf24' }}>
+          <span style={{ fontSize: '16px' }}>{}</span> Save as JSON
+        </div>
+
+        {/* Save as Excel */}
+        <div onDragStart={(event) => onDragStart(event, 'dest_excel', 'Save: Excel')} draggable style={{ ...nodeStyle, borderLeft: '4px solid #16a34a' }}>
+          <span style={{ fontSize: '16px' }}>📊</span> Save as Excel
+        </div>
+
       </div>
 
     </aside>
