@@ -1,9 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
 import '../../App.css';
 
 export default memo(({ id, data, isConnectable }) => {
-  const { setNodes } = useReactFlow();
+  const { setNodes, deleteElements } = useReactFlow();
 
   const onChange = (evt) => {
     const newVal = evt.target.value;
@@ -20,8 +20,18 @@ export default memo(({ id, data, isConnectable }) => {
     );
   };
 
+  // Delete Handler
+  const onDelete = useCallback((evt) => {
+    evt.stopPropagation();
+    deleteElements({ nodes: [{ id }] });
+  }, [id, deleteElements]);
+
   return (
     <div className="pipeline-node node-db">
+      
+      {/* Delete Button */}
+      <button className="node-delete-btn nodrag" onClick={onDelete}>✕</button>
+
       <Handle 
         type="target" 
         position={Position.Left} 

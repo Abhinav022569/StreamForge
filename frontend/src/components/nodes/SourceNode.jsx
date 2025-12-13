@@ -1,10 +1,10 @@
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect, useState, useCallback } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
 import axios from 'axios';
 import '../../App.css'; // Import shared styles
 
 export default memo(({ id, data, isConnectable }) => {
-  const { setNodes } = useReactFlow();
+  const { setNodes, deleteElements } = useReactFlow();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +38,7 @@ export default memo(({ id, data, isConnectable }) => {
             ...node, 
             data: { 
                 ...node.data, 
-                filename: selectedFile  // <--- Backend needs this!
+                filename: selectedFile 
             } 
           };
         }
@@ -47,8 +47,18 @@ export default memo(({ id, data, isConnectable }) => {
     );
   };
 
+  // 3. Delete Handler
+  const onDelete = useCallback((evt) => {
+    evt.stopPropagation();
+    deleteElements({ nodes: [{ id }] });
+  }, [id, deleteElements]);
+
   return (
     <div className={`pipeline-node node-csv`}>
+      
+      {/* Delete Button */}
+      <button className="node-delete-btn nodrag" onClick={onDelete}>✕</button>
+
       {/* Hidden input handle for layout consistency */}
       <Handle 
         type="target" 
