@@ -1,6 +1,6 @@
-import sqlite3  # <--- Add this at the top with other imports
 import json
 import os
+import sqlite3  # <--- NEW: For Database Export
 import pandas as pd
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app, send_from_directory
@@ -103,7 +103,13 @@ def get_pipelines():
     pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
     output = []
     for p in pipelines:
-        output.append({"id": p.id, "name": p.name, "flow": json.loads(p.structure)})
+        output.append({
+            "id": p.id,
+            "name": p.name,
+            "flow": json.loads(p.structure),
+            "status": p.status,  # <--- NEW: Include Status
+            "created_at": p.created_at.strftime('%Y-%m-%d %H:%M')
+        })
     return jsonify(output)
 
 @main.route('/pipelines/<int:id>', methods=['GET'])
@@ -118,7 +124,8 @@ def get_pipeline(id):
     return jsonify({
         "id": pipeline.id,
         "name": pipeline.name,
-        "flow": json.loads(pipeline.structure)
+        "flow": json.loads(pipeline.structure),
+        "status": pipeline.status
     })
 
 @main.route('/pipelines/<int:id>', methods=['PUT'])
@@ -155,6 +162,7 @@ def delete_pipeline(id):
 @main.route('/run-pipeline', methods=['POST'])
 @jwt_required()
 def run_pipeline():
+    pipeline_entry = None
     try:
         current_user_id = int(get_jwt_identity())
         user = User.query.get(current_user_id)
@@ -162,6 +170,14 @@ def run_pipeline():
         req_data = request.json
         nodes = req_data.get('nodes', [])
         edges = req_data.get('edges', [])
+        pipeline_id = req_data.get('pipelineId')  # <--- NEW: Get ID to update status
+
+        # 1. SET STATUS TO ACTIVE
+        if pipeline_id:
+            pipeline_entry = Pipeline.query.get(pipeline_id)
+            if pipeline_entry:
+                pipeline_entry.status = 'Active'
+                db.session.commit()
         
         if not nodes:
             return jsonify({"error": "No nodes provided"}), 400
@@ -262,18 +278,25 @@ def run_pipeline():
                     output_name = node_data.get('outputName', 'output')
                     file_path = ""
                     
+                    # 1. Handle CSV
                     if node_type == 'dest_csv':
                         if not output_name.endswith('.csv'): output_name += '.csv'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_csv(file_path, index=False)
+
+                    # 2. Handle JSON
                     elif node_type == 'dest_json':
                         if not output_name.endswith('.json'): output_name += '.json'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_json(file_path, orient='records')
+
+                    # 3. Handle Excel
                     elif node_type == 'dest_excel':
                         if not output_name.endswith('.xlsx'): output_name += '.xlsx'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_excel(file_path, index=False)
+                    
+                    # 4. Handle Database (SQLite) - NEW
                     elif node_type == 'dest_db':
                         if not output_name.endswith('.db'): output_name += '.db'
                         file_path = os.path.join(processed_dir, output_name)
@@ -291,6 +314,10 @@ def run_pipeline():
 
             except Exception as e:
                 # Capture the specific error from the node and send it back
+                # Reset Status on Error
+                if pipeline_entry:
+                    pipeline_entry.status = 'Ready'
+                    db.session.commit()
                 return jsonify({"error": f"Node '{node_data.get('label', node_type)}' Error: {str(e)}", "logs": execution_log}), 500
 
             # Add children
@@ -302,6 +329,11 @@ def run_pipeline():
         if processed_bytes_in_run > 0:
             user.total_processed_bytes += processed_bytes_in_run
             db.session.commit()
+
+        # 2. SET STATUS BACK TO READY (Success)
+        if pipeline_entry:
+            pipeline_entry.status = 'Ready'
+            db.session.commit()
         
         return jsonify({
             "message": "Pipeline Executed Successfully", 
@@ -309,6 +341,11 @@ def run_pipeline():
         })
 
     except Exception as e:
+        # 3. SET STATUS BACK TO READY (General Error)
+        if pipeline_entry:
+            pipeline_entry.status = 'Ready'
+            db.session.commit()
+            
         print(f"Pipeline Error: {e}")
         return jsonify({"error": str(e)}), 500
 
@@ -410,7 +447,7 @@ def get_processed_files():
             ftype = 'CSV'
             if ext == 'json': ftype = 'JSON'
             elif ext in ['xls', 'xlsx']: ftype = 'Excel'
-            elif ext == 'db': ftype = 'Database'
+            elif ext == 'db': ftype = 'Database'  # <--- NEW: Handle DB files
 
             files.append({
                 "name": f,

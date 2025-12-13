@@ -19,7 +19,10 @@ const Dashboard = () => {
   const [user, setUser] = useState({ username: 'User' });
   const [pipelines, setPipelines] = useState([]);
   const [recentPipelines, setRecentPipelines] = useState([]);
-  const [totalDataSize, setTotalDataSize] = useState('0 B'); // <--- NEW STATE
+  
+  // --- NEW STATES ---
+  const [totalDataSize, setTotalDataSize] = useState('0 B'); 
+  const [activeRuns, setActiveRuns] = useState(0);
 
   useEffect(() => {
     // 1. Load User
@@ -32,22 +35,26 @@ const Dashboard = () => {
 
     // 2. Fetch Data
     if (token) {
-        // A. Fetch Pipelines
+        // A. Fetch Pipelines (For List + Active Count)
         axios.get('http://127.0.0.1:5000/pipelines', {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => {
-            setPipelines(res.data);
-            setRecentPipelines(res.data.slice(0, 5)); // Show top 5
+            const allPipelines = res.data;
+            setPipelines(allPipelines);
+            setRecentPipelines(allPipelines.slice(0, 5)); // Show top 5
+            
+            // Calculate Active Runs
+            const runningCount = allPipelines.filter(p => p.status === 'Active').length;
+            setActiveRuns(runningCount);
         })
         .catch(err => console.error("Error fetching pipelines:", err));
 
-        // B. Fetch User Stats (Total Data Processed) <--- NEW
+        // B. Fetch User Stats (Total Data Processed)
         axios.get('http://127.0.0.1:5000/user-stats', {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => {
-            // Format the raw bytes from DB into "MB", "GB", etc.
             setTotalDataSize(formatBytes(res.data.total_processed_bytes));
         })
         .catch(err => console.error("Error fetching stats:", err));
@@ -117,9 +124,11 @@ const Dashboard = () => {
           {/* Stats Cards */}
           <div className="flex gap-20" style={{ marginBottom: '30px' }}>
             <StatCard label="Total Pipelines" value={pipelines.length} icon="🚀" />
-            <StatCard label="Active Runs" value="0" icon="⚡" />
             
-            {/* UPDATED CARD */}
+            {/* Active Runs Card */}
+            <StatCard label="Active Runs" value={activeRuns} icon="⚡" />
+            
+            {/* Data Processed Card */}
             <StatCard label="Data Processed" value={totalDataSize} icon="💾" />
           </div>
 
@@ -134,7 +143,7 @@ const Dashboard = () => {
                 <tr>
                   <th>Pipeline Name</th>
                   <th>Status</th>
-                  <th>Last Run</th>
+                  <th>Created</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -149,8 +158,18 @@ const Dashboard = () => {
                     recentPipelines.map(pipe => (
                         <tr key={pipe.id}>
                             <td className="font-medium">{pipe.name}</td>
-                            <td><span className="status-badge status-active">Active</span></td>
-                            <td className="text-muted">Just now</td>
+                            <td>
+                                {/* DYNAMIC STATUS BADGE */}
+                                <span className={`status-badge ${pipe.status === 'Active' ? 'status-active' : 'status-ready'}`}
+                                      style={{
+                                          background: pipe.status === 'Active' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                                          color: pipe.status === 'Active' ? '#22c55e' : '#64748b',
+                                          padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '500'
+                                      }}>
+                                    {pipe.status || 'Ready'}
+                                </span>
+                            </td>
+                            <td className="text-muted">{pipe.created_at || 'Just now'}</td>
                             <td>
                                 <button 
                                     className="btn btn-ghost" 

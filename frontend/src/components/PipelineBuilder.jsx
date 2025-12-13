@@ -32,10 +32,9 @@ const PipelineBuilderContent = () => {
     const [edges, setEdges] = useState([]);
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [pipelineName, setPipelineName] = useState("My New Pipeline");
-    const [isRunning, setIsRunning] = useState(false); // <--- ADDED LOADING STATE
+    const [isRunning, setIsRunning] = useState(false); 
 
     // --- 1. REGISTER NODE TYPES ---
-    // We map specific backend types (source_csv) to the UI components (SourceNode)
     const nodeTypes = useMemo(() => ({ 
         filterNode: FilterNode,
         
@@ -46,7 +45,7 @@ const PipelineBuilderContent = () => {
         sourceNode: SourceNode, // Fallback
         
         // Map all destination variations to the DestinationNode component
-        dest_db: DestinationNode,
+        dest_db: DestinationNode, // <--- Handles 'Save to DB'
         dest_csv: DestinationNode,
         dest_json: DestinationNode,
         dest_excel: DestinationNode,
@@ -100,7 +99,7 @@ const PipelineBuilderContent = () => {
         event.dataTransfer.dropEffect = 'move';
     }, []);
 
-    // --- 2. UPDATED DROP HANDLER ---
+    // --- 2. DROP HANDLER ---
     const onDrop = useCallback(
         (event) => {
             event.preventDefault();
@@ -117,7 +116,7 @@ const PipelineBuilderContent = () => {
 
             // Determine data properties based on specific type
             let fileType = 'CSV';
-            let destinationType = 'DB';
+            let destinationType = 'DB'; // Default for dest_db
 
             if (type.includes('json')) {
                 fileType = 'JSON';
@@ -132,12 +131,12 @@ const PipelineBuilderContent = () => {
 
             const newNode = {
                 id: `${type}_${Date.now()}`, 
-                type: type, // <--- CRITICAL: Use 'source_csv' etc. so backend recognizes it
+                type: type, 
                 position,
                 data: { 
                     label: label, 
-                    fileType: fileType,          // For SourceNode
-                    destinationType: destinationType, // For DestinationNode
+                    fileType: fileType,          
+                    destinationType: destinationType, 
                     // Filter defaults
                     column: '',
                     condition: '>',
@@ -174,7 +173,7 @@ const PipelineBuilderContent = () => {
         setEdges((eds) => eds.filter((edge) => !edge.selected));
     };
 
-    // --- 3. IMPLEMENTED RUN HANDLER ---
+    // --- 3. UPDATED RUN HANDLER ---
     const handleRun = async () => {
         if (nodes.length === 0) {
             alert("Canvas is empty. Add some nodes first!");
@@ -192,7 +191,8 @@ const PipelineBuilderContent = () => {
                 edges: edges.map(e => ({
                     source: e.source,
                     target: e.target
-                }))
+                })),
+                pipelineId: id // <--- CRITICAL: Send ID so backend can update Status
             };
 
             const token = localStorage.getItem('token');
