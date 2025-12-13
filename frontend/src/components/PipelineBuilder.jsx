@@ -237,7 +237,7 @@ const PipelineBuilderContent = () => {
                         ▶ Run Test
                     </button>
 
-                    <button className="btn btn-primary" onClick={savePipeline} style={{ padding: '8px 16px', fontSize: '14px' }}>
+                    <button className="btn btn-success" onClick={savePipeline} style={{ padding: '8px 16px', fontSize: '14px' }}>
                         💾 {id ? 'Update' : 'Save'}
                     </button>
                 </div>

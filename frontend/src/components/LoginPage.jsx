@@ -53,7 +53,7 @@ const LoginPage = () => {
             />
           </div>
 
-          <button className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }} onClick={handleLogin}>
+          <button className="btn btn-success" style={{ width: '100%', marginTop: '10px' }} onClick={handleLogin}>
             Log In
           </button>
 

@@ -259,6 +259,15 @@
     flex-shrink: 0;
     transition: background 0.2s;
   }
+
+  .btn-success {
+    background-color: var(--success); /* Green #10b981 */
+    color: #000; /* Black text for better contrast on bright green */
+  }
+  .btn-success:hover {
+    opacity: 0.9;
+  }
+
   .btn-sidebar-logout:hover {
     background: #3f3f46;
   }

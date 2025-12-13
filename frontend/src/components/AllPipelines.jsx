@@ -117,7 +117,7 @@ const AllPipelines = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <button className="btn btn-primary" onClick={() => navigate('/builder')}>
+                <button className="btn btn-success" onClick={() => navigate('/builder')}>
                   + Create New
                 </button>
             </div>
