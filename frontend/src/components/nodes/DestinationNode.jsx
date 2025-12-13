@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
+import '../../App.css'; // Import shared styles
 
 export default memo(({ id, data, isConnectable }) => {
   const { deleteElements, setNodes } = useReactFlow();
@@ -22,84 +23,74 @@ export default memo(({ id, data, isConnectable }) => {
     );
   }, [id, setNodes]);
 
-  // Determine styling based on type
+  // Determine styling & content based on type
   const type = data.destinationType || 'DB';
   
-  let borderColor = '#a855f7'; // Default DB Purple
+  let nodeClass = 'node-db';
+  let textClass = 'text-db';
   let icon = '💾';
   let placeholder = 'Table Name';
 
   if (type === 'CSV') {
-    borderColor = '#10b981'; // Green
+    nodeClass = 'node-csv';
+    textClass = 'text-csv';
     icon = '📄';
     placeholder = 'output.csv';
   } else if (type === 'JSON') {
-    borderColor = '#fbbf24'; // Amber
+    nodeClass = 'node-json';
+    textClass = 'text-json';
     icon = '{}';
     placeholder = 'output.json';
   } else if (type === 'Excel') {
-    borderColor = '#16a34a'; // Dark Green
+    nodeClass = 'node-excel';
+    textClass = 'text-excel';
     icon = '📊';
     placeholder = 'output.xlsx';
   }
 
   return (
-    <div style={{ 
-      background: '#18181b', 
-      border: `1px solid ${borderColor}`, 
-      borderRadius: '8px', 
-      padding: '15px', 
-      minWidth: '200px',
-      color: 'white',
-      position: 'relative',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-    }}>
+    <div className={`pipeline-node ${nodeClass}`}>
+      
       {/* Delete Button */}
-      <button 
-        className="nodrag" 
-        onClick={onDelete} 
-        style={{ 
-          position: 'absolute', top: '-10px', right: '-10px', 
-          background: '#ef4444', color: 'white', border: '3px solid #0f1115', 
-          borderRadius: '50%', width: '24px', height: '24px', 
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-          fontSize: '12px', fontWeight: 'bold' 
-        }}
-      >✕</button>
+      <button className="node-delete-btn nodrag" onClick={onDelete}>✕</button>
 
-      {/* Handle (Left) */}
-      <Handle type="target" position={Position.Left} isConnectable={isConnectable} style={{ background: '#555', width: '8px', height: '8px' }} />
+      {/* Input Handle */}
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        isConnectable={isConnectable} 
+        className="node-handle"
+      />
 
-      <div style={{ fontWeight: 'bold', marginBottom: '10px', color: borderColor, display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* Header */}
+      <div className={`node-header ${textClass}`}>
         <span style={{ fontSize: '16px' }}>{icon}</span> Save as {type}
       </div>
       
-      {/* Filename Input */}
-      <div className="nodrag">
-        <label style={{ fontSize: '10px', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>
+      {/* Body */}
+      <div className="node-body nodrag">
+        <label 
+            className="input-label" 
+            style={{ fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}
+        >
             {type === 'DB' ? 'TABLE NAME' : 'OUTPUT FILENAME'}
         </label>
         <input 
+            className="input-field"
             type="text" 
             placeholder={placeholder}
             defaultValue={data.outputName || ""}
             onChange={onChange}
-            style={{
-                width: '100%',
-                background: '#27272a',
-                border: '1px solid #3f3f46',
-                color: 'white',
-                padding: '6px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                outline: 'none',
-                boxSizing: 'border-box'
-            }}
         />
       </div>
 
-      {/* Handle (Right) - for chaining */}
-      <Handle type="source" position={Position.Right} isConnectable={isConnectable} style={{ background: '#555', width: '8px', height: '8px' }} />
+      {/* Output Handle */}
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        isConnectable={isConnectable} 
+        className="node-handle"
+      />
     </div>
   );
 });

@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useState, useCallback } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
 import axios from 'axios';
+import '../../App.css'; // Import shared styles
 
 export default memo(({ id, data, isConnectable }) => {
   const { deleteElements, setNodes } = useReactFlow();
@@ -10,10 +11,22 @@ export default memo(({ id, data, isConnectable }) => {
   // Default to CSV if not specified
   const requiredType = data.fileType || 'CSV';
 
-  // Define border color based on type
-  const borderColor = requiredType === 'JSON' ? '#fbbf24' : (requiredType === 'Excel' ? '#16a34a' : '#10b981');
-  const icon = requiredType === 'JSON' ? '{}' : (requiredType === 'Excel' ? '📊' : '📄');
+  // Determine styling based on type
+  let nodeClass = 'node-csv';
+  let textClass = 'text-csv';
+  let icon = '📄';
 
+  if (requiredType === 'JSON') {
+    nodeClass = 'node-json';
+    textClass = 'text-json';
+    icon = '{}';
+  } else if (requiredType === 'Excel') {
+    nodeClass = 'node-excel';
+    textClass = 'text-excel';
+    icon = '📊';
+  }
+
+  // Fetch Files
   useEffect(() => {
     const fetchFiles = async () => {
       try {
@@ -22,7 +35,7 @@ export default memo(({ id, data, isConnectable }) => {
             headers: { Authorization: `Bearer ${token}` }
         });
         
-        // --- DYNAMIC FILTERING LOGIC ---
+        // Filter logic based on requiredType
         const filteredFiles = res.data.filter(f => {
             const name = f.name.toLowerCase();
             const type = f.type ? f.type.toUpperCase() : '';
@@ -47,8 +60,9 @@ export default memo(({ id, data, isConnectable }) => {
       }
     };
     fetchFiles();
-  }, [requiredType]); // Re-run if type changes
+  }, [requiredType]);
 
+  // Handle Selection Change
   const onChange = useCallback((evt) => {
     const selectedFile = evt.target.value;
     setNodes((nodes) =>
@@ -67,57 +81,34 @@ export default memo(({ id, data, isConnectable }) => {
   };
 
   return (
-    <div style={{ 
-      background: '#18181b', 
-      border: `1px solid ${borderColor}`, 
-      borderRadius: '8px', 
-      padding: '15px', 
-      minWidth: '200px',
-      color: 'white',
-      position: 'relative',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' 
-    }}>
-      <button 
-        className="nodrag" 
-        onClick={onDelete} 
-        style={{ 
-          position: 'absolute', top: '-10px', right: '-10px', 
-          background: '#ef4444', color: 'white', border: '3px solid #0f1115', 
-          borderRadius: '50%', width: '24px', height: '24px', 
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-          fontSize: '12px', fontWeight: 'bold' 
-        }}
-      >✕</button>
+    <div className={`pipeline-node ${nodeClass}`}>
+      
+      {/* Delete Button */}
+      <button className="node-delete-btn nodrag" onClick={onDelete}>✕</button>
 
+      {/* Input Handle */}
       <Handle 
         type="target" 
         position={Position.Left} 
         isConnectable={isConnectable} 
-        style={{ background: '#555', width: '8px', height: '8px' }} 
+        className="node-handle"
       />
       
-      <div style={{ fontWeight: 'bold', marginBottom: '10px', color: borderColor, display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* Header */}
+      <div className={`node-header ${textClass}`}>
         <span style={{ fontSize: '16px' }}>{icon}</span> Source: {requiredType}
       </div>
       
-      <div className="nodrag">
+      {/* Body: Dropdown */}
+      <div className="node-body nodrag">
         {loading ? (
-           <span style={{ fontSize: '12px', color: '#666' }}>Loading...</span>
+           <span className="text-muted" style={{ fontSize: '12px' }}>Loading files...</span>
         ) : (
             <select 
+                className="select-field"
                 onChange={onChange} 
                 value={data.filename || ""}
-                style={{
-                    width: '100%',
-                    background: '#27272a',
-                    border: '1px solid #3f3f46',
-                    color: 'white',
-                    padding: '6px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    outline: 'none',
-                    cursor: 'pointer'
-                }}
+                style={{ cursor: 'pointer' }}
             >
                 <option value="" disabled>-- Select {requiredType} File --</option>
                 {files.length === 0 ? (
@@ -133,11 +124,12 @@ export default memo(({ id, data, isConnectable }) => {
         )}
       </div>
       
+      {/* Output Handle */}
       <Handle 
         type="source" 
         position={Position.Right} 
         isConnectable={isConnectable} 
-        style={{ background: '#555', width: '8px', height: '8px' }} 
+        className="node-handle"
       />
     </div>
   );

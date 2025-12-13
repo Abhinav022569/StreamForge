@@ -1,5 +1,6 @@
 import React from 'react';
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useReactFlow } from 'reactflow';
+import '../../App.css'; // Import shared styles
 
 export default function DeletableEdge({
   id,
@@ -40,21 +41,8 @@ export default function DeletableEdge({
           className="nodrag nopan"
         >
           <button
+            className="edge-delete-btn"
             onClick={onEdgeClick}
-            style={{
-              width: '20px',
-              height: '20px',
-              background: '#18181b',
-              border: '1px solid #ef4444',
-              color: '#ef4444',
-              cursor: 'pointer',
-              borderRadius: '50%',
-              fontSize: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 0,
-            }}
             title="Delete Connection"
           >
             ✕

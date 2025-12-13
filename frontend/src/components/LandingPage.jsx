@@ -1,39 +1,28 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import './LandingPage.css';
 import ParticlesBackground from './ParticlesBackground';
-import logo from '../assets/logo.png'; // <--- IMPORT YOUR LOGO
+import logo from '../assets/logo.png';
+import '../App.css'; // Updated to use the global stylesheet
 
 const LandingPage = () => {
   const navigate = useNavigate();
 
-  // Glassmorphism style for cards
-  const glassStyle = {
-    background: 'rgba(24, 24, 27, 0.7)',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.1)'
-  };
-
   return (
     <ParticlesBackground>
-      {/* The background is transparent here so the particles show through.
-          Padding-top is handled in CSS to account for the fixed header.
-      */}
-      <div className="landing-page" style={{ backgroundColor: 'transparent' }}>
+      <div className="landing-page">
         
-        {/* 1. NAVBAR (Fixed & Hazy via CSS) */}
+        {/* 1. NAVBAR */}
         <nav className="landing-nav">
           <div className="landing-logo" onClick={() => navigate('/')}>
-            {/* REPLACED GREEN SQUARE WITH LOGO */}
             <img 
               src={logo} 
               alt="StreamForge Logo" 
-              style={{ width: '30px', height: '30px', marginRight: '10px', borderRadius: '6px' }} 
+              className="landing-logo-img"
             />
             StreamForge
           </div>
           
-          <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+          <div className="landing-nav-actions">
             <button onClick={() => navigate('/login')} className="landing-btn-nav-login">
               Log in
             </button>
@@ -44,7 +33,7 @@ const LandingPage = () => {
         </nav>
 
         {/* 2. HERO SECTION */}
-        <section style={{ padding: '80px 0 60px', textAlign: 'center' }}>
+        <section className="landing-hero-section">
           <div className="landing-container">
             <h1 className="landing-h1">
               Stop Writing Scripts.<br />
@@ -66,11 +55,11 @@ const LandingPage = () => {
         </section>
 
         {/* 3. THREE FEATURE CARDS */}
-        <section style={{ padding: '40px 0' }}>
+        <section className="landing-features-section">
           <div className="landing-container landing-grid-3">
             
             {/* Card 1 */}
-            <div className="glass-card">
+            <div className="landing-glass-card">
               <div className="landing-icon-box">
                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>
               </div>
@@ -81,7 +70,7 @@ const LandingPage = () => {
             </div>
 
             {/* Card 2 */}
-            <div className="glass-card">
+            <div className="landing-glass-card">
               <div className="landing-icon-box">
                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               </div>
@@ -92,7 +81,7 @@ const LandingPage = () => {
             </div>
 
             {/* Card 3 */}
-            <div className="glass-card">
+            <div className="landing-glass-card">
               <div className="landing-icon-box">
                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
               </div>
@@ -106,12 +95,12 @@ const LandingPage = () => {
         </section>
 
         {/* 4. SPLIT SECTION: HOW IT WORKS */}
-        <section style={{ padding: '80px 0' }}>
+        <section className="landing-how-it-works-section">
           <div className="landing-container landing-grid-2">
             
             {/* Left: Text */}
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ color: '#10b981', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>
+            <div className="landing-text-content">
+              <p className="landing-subtitle">
                 How it works
               </p>
               <h2 className="landing-h2" style={{ lineHeight: '1.2' }}>
@@ -122,10 +111,10 @@ const LandingPage = () => {
                 Don't choose between a drag-and-drop interface and powerful data processing. StreamForge gives you both.
               </p>
               
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <ul className="landing-list">
                 {['Design pipelines visually', 'Execute via Flask API', 'Process with Pandas'].map((item, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', color: '#fff', fontWeight: '500' }}>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', fontSize: '12px' }}>✓</div>
+                  <li key={i} className="landing-list-item">
+                    <div className="landing-checkmark">✓</div>
                     {item}
                   </li>
                 ))}
@@ -134,22 +123,22 @@ const LandingPage = () => {
 
             {/* Right: Code Block Visual */}
             <div className="code-block">
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }}></div>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#eab308' }}></div>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e' }}></div>
+              <div className="code-dots">
+                <div className="code-dot red"></div>
+                <div className="code-dot yellow"></div>
+                <div className="code-dot green"></div>
               </div>
               
-              <div style={{ lineHeight: '1.6' }}>
-                <span style={{ color: '#6b7280' }}># StreamForge Engine Logic</span><br/>
-                <span style={{ color: '#eab308' }}>def</span> <span style={{ color: '#60a5fa' }}>run_pipeline</span>(json_data):<br/>
-                &nbsp;&nbsp;<span style={{ color: '#6b7280' }}>"""Executes the visual flow"""</span><br/>
-                &nbsp;&nbsp;df = pd.read_csv(json_data[<span style={{ color: '#a5f3fc' }}>'source'</span>])<br/>
+              <div className="code-content">
+                <span className="hl-comment"># StreamForge Engine Logic</span><br/>
+                <span className="hl-def">def</span> <span className="hl-func">run_pipeline</span>(json_data):<br/>
+                &nbsp;&nbsp;<span className="hl-comment">"""Executes the visual flow"""</span><br/>
+                &nbsp;&nbsp;df = pd.read_csv(json_data[<span className="hl-str">'source'</span>])<br/>
                 <br/>
-                &nbsp;&nbsp;<span style={{ color: '#f472b6' }}>if</span> json_data[<span style={{ color: '#a5f3fc' }}>'action'</span>] == <span style={{ color: '#a5f3fc' }}>'filter'</span>:<br/>
-                &nbsp;&nbsp;&nbsp;&nbsp;df = df[df[<span style={{ color: '#a5f3fc' }}>'col'</span>] &gt; 50]<br/>
+                &nbsp;&nbsp;<span className="hl-key">if</span> json_data[<span className="hl-str">'action'</span>] == <span className="hl-str">'filter'</span>:<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;df = df[df[<span className="hl-str">'col'</span>] &gt; 50]<br/>
                 <br/>
-                &nbsp;&nbsp;<span style={{ color: '#f472b6' }}>return</span> df.to_json()<br/>
+                &nbsp;&nbsp;<span className="hl-key">return</span> df.to_json()<br/>
               </div>
             </div>
 
@@ -157,27 +146,27 @@ const LandingPage = () => {
         </section>
 
         {/* 5. DESIGNED FOR SCALE */}
-        <section style={{ padding: '60px 0' }}>
+        <section className="landing-everything-section">
           <div className="landing-container">
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <div className="landing-section-header">
               <h2 className="landing-h2">Everything you need</h2>
               <p className="landing-p">From simple CSV cleanups to complex data workflows.</p>
             </div>
 
             <div className="landing-grid-3">
-               <div className="glass-card" style={{padding: '40px'}}>
+               <div className="landing-glass-card landing-glass-card-large">
                  <h3 className="landing-h3">Data Cleaning</h3>
                  <p className="landing-p text-left" style={{fontSize: '15px'}}>
                    Automatically remove null values, fix formatting errors, and standardize text across your datasets.
                  </p>
                </div>
-               <div className="glass-card" style={{padding: '40px'}}>
+               <div className="landing-glass-card landing-glass-card-large">
                  <h3 className="landing-h3">Smart Filtering</h3>
                  <p className="landing-p text-left" style={{fontSize: '15px'}}>
                    Use logic-based nodes to filter out irrelevant rows, ensuring only high-quality data reaches your destination.
                  </p>
                </div>
-               <div className="glass-card" style={{padding: '40px'}}>
+               <div className="landing-glass-card landing-glass-card-large">
                  <h3 className="landing-h3">Extensible</h3>
                  <p className="landing-p text-left" style={{fontSize: '15px'}}>
                    Built on top of Pandas and Flask, allowing you to add custom Python modules easily.
@@ -188,9 +177,9 @@ const LandingPage = () => {
         </section>
 
         {/* 6. BOTTOM CTA */}
-        <section style={{ padding: '80px 0', marginTop: '40px' }}>
-          <div className="landing-container glass-card" style={{ padding: '60px', textAlign: 'center', background: 'rgba(17, 24, 39, 0.8)' }}>
-            <h2 className="landing-h2" style={{ fontSize: '32px' }}>Ready to modernize your workflow?</h2>
+        <section className="landing-cta-section">
+          <div className="landing-container landing-glass-card landing-cta-card">
+            <h2 className="landing-h2 landing-cta-title">Ready to modernize your workflow?</h2>
             <p className="landing-p mb-30">
               Join the no-code data revolution today.
             </p>
@@ -201,7 +190,7 @@ const LandingPage = () => {
         </section>
 
         {/* 7. FOOTER */}
-        <footer style={{ textAlign: 'center', padding: '50px', color: '#555', borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '50px', background: 'rgba(15, 17, 21, 0.8)' }}>
+        <footer className="landing-footer">
           © 2025 StreamForge. Built for builders.
         </footer>
 

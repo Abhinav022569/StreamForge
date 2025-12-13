@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
+import '../../App.css'; // Import shared styles
 
 export default memo(({ id, data, isConnectable }) => {
   const { setNodes, deleteElements } = useReactFlow();
@@ -21,69 +22,86 @@ export default memo(({ id, data, isConnectable }) => {
     deleteElements({ nodes: [{ id }] });
   }, [id, deleteElements]);
 
-  const inputStyle = {
-    background: '#27272a',
-    border: '1px solid #3f3f46',
-    color: 'white',
-    fontSize: '12px',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box'
-  };
-
   return (
-    <div style={{ 
-      background: '#18181b', 
-      border: '1px solid #3b82f6', 
-      borderRadius: '8px', 
-      padding: '15px', 
-      minWidth: '200px',
-      color: 'white',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-      position: 'relative' 
-    }}>
-      <button 
-        className="nodrag" 
-        onClick={onDelete}
-        style={{
-            position: 'absolute', top: '-10px', right: '-10px',
-            background: '#ef4444', color: 'white', border: '3px solid #0f1115',
-            borderRadius: '50%', width: '24px', height: '24px',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '12px', fontWeight: 'bold'
-        }}
-      >✕</button>
+    <div className="pipeline-node node-filter">
+      
+      {/* Delete Button */}
+      <button className="node-delete-btn nodrag" onClick={onDelete}>✕</button>
 
-      <Handle type="target" position={Position.Left} isConnectable={isConnectable} style={{ background: '#555', width: '8px', height: '8px' }} />
+      {/* Input Handle */}
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        isConnectable={isConnectable} 
+        className="node-handle"
+      />
 
-      <div style={{ fontWeight: 'bold', marginBottom: '15px', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span>⚙️</span> Filter Data
+      {/* Header */}
+      <div className="node-header text-filter">
+        <span style={{ fontSize: '16px' }}>⚙️</span> Filter Data
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div>
-            <label style={{ fontSize: '10px', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>COLUMN</label>
-            <input className="nodrag" name="column" type="text" placeholder="e.g. age" defaultValue={data.column} onChange={updateData} style={inputStyle} />
+      {/* Body */}
+      <div className="node-body">
+        
+        {/* Column Input */}
+        <div className="nodrag input-group" style={{ marginBottom: '10px' }}>
+            <label className="input-label" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                COLUMN
+            </label>
+            <input 
+                className="input-field" 
+                name="column" 
+                type="text" 
+                placeholder="e.g. age" 
+                defaultValue={data.column} 
+                onChange={updateData} 
+            />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <div>
-                <label style={{ fontSize: '10px', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>CONDITION</label>
-                <select className="nodrag" name="condition" defaultValue={data.condition} onChange={updateData} style={{ ...inputStyle, cursor: 'pointer' }}>
+
+        {/* Condition & Value Row */}
+        <div className="flex gap-10 nodrag">
+            <div style={{ flex: 1 }}>
+                <label className="input-label" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                    CONDITION
+                </label>
+                <select 
+                    className="select-field" 
+                    name="condition" 
+                    defaultValue={data.condition} 
+                    onChange={updateData} 
+                    style={{ cursor: 'pointer' }}
+                >
                     <option value=">">&gt; (Gt)</option>
                     <option value="<">&lt; (Lt)</option>
                     <option value="==">== (Eq)</option>
                 </select>
             </div>
-            <div>
-                <label style={{ fontSize: '10px', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>VALUE</label>
-                <input className="nodrag" name="value" type="text" placeholder="25" defaultValue={data.value} onChange={updateData} style={inputStyle} />
+            
+            <div style={{ flex: 1 }}>
+                <label className="input-label" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                    VALUE
+                </label>
+                <input 
+                    className="input-field" 
+                    name="value" 
+                    type="text" 
+                    placeholder="25" 
+                    defaultValue={data.value} 
+                    onChange={updateData} 
+                />
             </div>
         </div>
+
       </div>
 
-      <Handle type="source" position={Position.Right} isConnectable={isConnectable} style={{ background: '#555', width: '8px', height: '8px' }} />
+      {/* Output Handle */}
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        isConnectable={isConnectable} 
+        className="node-handle"
+      />
     </div>
   );
 });
