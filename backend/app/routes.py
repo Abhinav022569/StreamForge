@@ -1,3 +1,4 @@
+import sqlite3  # <--- Add this at the top with other imports
 import json
 import os
 import pandas as pd
@@ -273,6 +274,14 @@ def run_pipeline():
                         if not output_name.endswith('.xlsx'): output_name += '.xlsx'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_excel(file_path, index=False)
+                    elif node_type == 'dest_db':
+                        if not output_name.endswith('.db'): output_name += '.db'
+                        file_path = os.path.join(processed_dir, output_name)
+                        
+                        # Connect to (or create) the SQLite database file
+                        with sqlite3.connect(file_path) as conn:
+                            # Save data to a table named 'export_data'
+                            df_to_save.to_sql('export_data', conn, if_exists='replace', index=False)
 
                     # Update size count
                     if os.path.exists(file_path):
@@ -401,6 +410,7 @@ def get_processed_files():
             ftype = 'CSV'
             if ext == 'json': ftype = 'JSON'
             elif ext in ['xls', 'xlsx']: ftype = 'Excel'
+            elif ext == 'db': ftype = 'Database'
 
             files.append({
                 "name": f,

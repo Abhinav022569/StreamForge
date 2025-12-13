@@ -132,15 +132,17 @@ const ProcessedData = () => {
                     processedFiles.map((file, idx) => (
                     <tr key={idx} className="table-row">
                         <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '16px' }}>
-                                {file.type === 'Excel' ? '📊' : file.type === 'JSON' ? '{}' : '📄'}
-                            </span> 
+                        <span style={{ fontSize: '16px' }}>
+                          {file.type === 'Excel' ? '📊' : 
+                          file.type === 'JSON' ? '{}' : 
+                          file.type === 'Database' ? '🗄️' : '📄'}
+                        </span>
                             {file.name}
                         </td>
                         <td className="text-muted">
                             <span style={{ 
-                                background: file.type === 'Excel' ? 'rgba(22, 163, 74, 0.2)' : file.type === 'JSON' ? 'rgba(251, 191, 36, 0.2)' : 'rgba(59, 130, 246, 0.2)',
-                                color: file.type === 'Excel' ? '#16a34a' : file.type === 'JSON' ? '#fbbf24' : '#3b82f6',
+                                background: file.type === 'Excel' ? 'rgba(22, 163, 74, 0.2)' : file.type === 'JSON' ? 'rgba(251, 191, 36, 0.2)' :file.type === 'Database' ? 'rgba(139, 92, 246, 0.2)': 'rgba(59, 130, 246, 0.2)',
+                                color: file.type === 'Excel' ? '#16a34a' : file.type === 'JSON' ? '#fbbf24' :file.type === 'Database' ? '#8b5cf6': '#3b82f6',
                                 padding: '2px 8px', borderRadius: '4px', fontSize: '12px' 
                             }}>
                                 {file.type}
