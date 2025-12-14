@@ -1,0 +1,101 @@
+[
+  {
+    "id": 1,
+    "name": "Alice Johnson",
+    "department": "HR",
+    "age": 30,
+    "salary": 50000,
+    "score": 85,
+    "joined_date": "2020-01-15"
+  },
+  {
+    "id": 2,
+    "name": "Bob Smith",
+    "department": "Engineering",
+    "age": 24,
+    "salary": 80000,
+    "score": null,
+    "joined_date": "2021-05-20"
+  },
+  {
+    "id": 3,
+    "name": "Charlie Brown",
+    "department": "Engineering",
+    "age": 29,
+    "salary": 82000,
+    "score": 90,
+    "joined_date": "2019-11-11"
+  },
+  {
+    "id": 4,
+    "name": "David Lee",
+    "department": "HR",
+    "age": 35,
+    "salary": 52000,
+    "score": 88,
+    "joined_date": "2018-03-22"
+  },
+  {
+    "id": 5,
+    "name": "Eve Davis",
+    "department": "Marketing",
+    "age": null,
+    "salary": 60000,
+    "score": 92,
+    "joined_date": "2022-07-01"
+  },
+  {
+    "id": 6,
+    "name": "Frank White",
+    "department": "Sales",
+    "age": 40,
+    "salary": 70000,
+    "score": 80,
+    "joined_date": "2017-09-30"
+  },
+  {
+    "id": 2,
+    "name": "Bob Smith",
+    "department": "Engineering",
+    "age": 24,
+    "salary": 80000,
+    "score": null,
+    "joined_date": "2021-05-20"
+  },
+  {
+    "id": 7,
+    "name": "Grace Green",
+    "department": "Sales",
+    "age": 22,
+    "salary": 68000,
+    "score": 95,
+    "joined_date": "2023-01-10"
+  },
+  {
+    "id": 8,
+    "name": "Hank Miller",
+    "department": "Marketing",
+    "age": 28,
+    "salary": 62000,
+    "score": 78,
+    "joined_date": "2020-08-14"
+  },
+  {
+    "id": 9,
+    "name": "Ivy Wilson",
+    "department": "Engineering",
+    "age": 32,
+    "salary": 85000,
+    "score": 91,
+    "joined_date": "2016-12-05"
+  },
+  {
+    "id": 10,
+    "name": "Jack King",
+    "department": "HR",
+    "age": 45,
+    "salary": 55000,
+    "score": 82,
+    "joined_date": "2015-06-18"
+  }
+]

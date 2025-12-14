@@ -73,7 +73,7 @@ const ProcessedData = () => {
           <SidebarItem label="All Pipelines" icon="🚀" onClick={() => navigate('/pipelines')} />
           <SidebarItem label="Data Sources" icon="🗄️" onClick={() => navigate('/datasources')} />
           <SidebarItem label="Processed Data" icon="📦" active /> 
-          <SidebarItem label="Settings" icon="⚙️" />
+          <SidebarItem label="Settings" icon="⚙️" onClick={() => navigate('/settings')}/>
         </nav>
 
         {/* Profile Section */}
