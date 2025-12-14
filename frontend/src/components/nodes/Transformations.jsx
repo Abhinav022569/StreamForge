@@ -225,3 +225,33 @@ export const ConstantNode = memo(({ id, data, isConnectable }) => {
         </NodeShell>
     );
 });
+
+// --- NEW VISUALIZATION NODE ---
+export const ChartNode = memo(({ id, data, isConnectable }) => {
+    const { update, remove } = useNodeState(id, data);
+    return (
+        <NodeShell title="Visualize" icon="📊" color="#8b5cf6" id={id} isConnectable={isConnectable} onDelete={remove}>
+            <label className="node-label">CHART TYPE</label>
+            <select className="input-field" value={data.chartType || 'bar'} onChange={(e) => update('chartType', e.target.value)}>
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Chart</option>
+                <option value="scatter">Scatter Plot</option>
+                <option value="pie">Pie Chart</option>
+                <option value="hist">Histogram</option>
+            </select>
+            
+            <label className="node-label" style={{ marginTop: '8px' }}>X AXIS (Column)</label>
+            <input className="input-field" type="text" value={data.x_col || ''} onChange={(e) => update('x_col', e.target.value)} placeholder="e.g. Date" />
+            
+            {data.chartType !== 'hist' && (
+                <>
+                    <label className="node-label" style={{ marginTop: '5px' }}>Y AXIS (Column)</label>
+                    <input className="input-field" type="text" value={data.y_col || ''} onChange={(e) => update('y_col', e.target.value)} placeholder="e.g. Sales" />
+                </>
+            )}
+
+            <label className="node-label" style={{ marginTop: '8px' }}>OUTPUT FILENAME</label>
+            <input className="input-field" type="text" value={data.outputName || 'chart'} onChange={(e) => update('outputName', e.target.value)} placeholder="chart_output" />
+        </NodeShell>
+    );
+});

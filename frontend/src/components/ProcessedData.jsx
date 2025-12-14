@@ -135,7 +135,8 @@ const ProcessedData = () => {
                         <span style={{ fontSize: '16px' }}>
                           {file.type === 'Excel' ? '📊' : 
                           file.type === 'JSON' ? '{}' : 
-                          file.type === 'Database' ? '🗄️' : '📄'}
+                          file.type === 'Database' ? '🗄️' :
+                          file.type === 'Image' ? '🖼️' :'📄'}
                         </span>
                             {file.name}
                         </td>

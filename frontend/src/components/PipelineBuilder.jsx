@@ -20,10 +20,10 @@ import SourceNode from './nodes/SourceNode';
 import DestinationNode from './nodes/DestinationNode'; 
 import DeletableEdge from './edges/DeletableEdge';    
 
-// IMPORT ALL TRANSFORMATIONS
+// IMPORT ALL TRANSFORMATIONS (Consolidated Import)
 import { 
     SortNode, SelectNode, RenameNode, DedupeNode, FillNaNode, GroupByNode, JoinNode,
-    CastNode, StringNode, CalcNode, LimitNode, ConstantNode 
+    CastNode, StringNode, CalcNode, LimitNode, ConstantNode, ChartNode 
 } from './nodes/Transformations';
 
 const initialNodes = [];
@@ -55,12 +55,15 @@ const PipelineBuilderContent = () => {
         trans_group: GroupByNode,
         trans_join: JoinNode,
         
-        // NEW NODES
+        // ADVANCED NODES
         trans_cast: CastNode,
         trans_string: StringNode,
         trans_calc: CalcNode,
         trans_limit: LimitNode,
         trans_constant: ConstantNode,
+        
+        // VISUALIZATION
+        vis_chart: ChartNode,
     }), []);
 
     const edgeTypes = useMemo(() => ({
@@ -95,7 +98,7 @@ const PipelineBuilderContent = () => {
     const onConnect = useCallback((params) => setEdges((eds) => addEdge({ ...params, type: 'deletableEdge' }, eds)), []);
     const onDragOver = useCallback((event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }, []);
 
-    // --- 2. UPDATED DROP HANDLER ---
+    // --- 2. DROP HANDLER ---
     const onDrop = useCallback(
         (event) => {
             event.preventDefault();
@@ -131,6 +134,14 @@ const PipelineBuilderContent = () => {
             if (type === 'trans_calc') { defaultData.colA = ''; defaultData.colB = ''; defaultData.op = '+'; defaultData.newCol = 'Result'; }
             if (type === 'trans_limit') { defaultData.limit = 100; }
             if (type === 'trans_constant') { defaultData.colName = 'New_Col'; defaultData.value = 'Value'; }
+            
+            // CHART DEFAULT
+            if (type === 'vis_chart') { 
+                defaultData.chartType = 'bar'; 
+                defaultData.x_col = ''; 
+                defaultData.y_col = '';
+                defaultData.outputName = 'my_chart';
+            }
 
             const newNode = {
                 id: `${type}_${Date.now()}`, 

@@ -90,9 +90,27 @@ export default () => {
           <span style={{ fontSize: '16px' }}>➕</span> Add Column
         </div>
 
+        <div className="sidebar-tool" style={{ borderColor: '#34d399', color: '#34d399' }} draggable onDragStart={(event) => onDragStart(event, 'trans_constant', 'Add Column')}>
+          <span style={{ fontSize: '16px' }}>➕</span> Add Column
+        </div>
+
       </div>
 
-      {/* 3. Destination Nodes */}
+      {/* 3. Visualization Nodes (NEW SECTION or add to transformations) */}
+      <div className="sidebar-section">
+        <p className="sidebar-section-label">Visualization</p>
+        
+        <div 
+            className="sidebar-tool" 
+            style={{ borderColor: '#8b5cf6', color: '#8b5cf6' }} 
+            draggable 
+            onDragStart={(event) => onDragStart(event, 'vis_chart', 'Create Chart')}
+        >
+          <span style={{ fontSize: '16px' }}>📊</span> Create Chart
+        </div>
+      </div>
+
+      {/* 4. Destination Nodes */}
       <div className="sidebar-section">
         <p className="sidebar-section-label">Destinations</p>
         <div className="sidebar-tool db" draggable onDragStart={(event) => onDragStart(event, 'dest_db', 'Save: Database')}>
