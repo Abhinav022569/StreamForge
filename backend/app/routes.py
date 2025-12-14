@@ -93,12 +93,111 @@ def login():
             "user": {
                 "id": user.id, 
                 "username": user.username,
+                "email": user.email,
                 "is_admin": user.is_admin 
             }
         })
     except Exception as e:
         print(f"DEBUG: Server Error during login: {str(e)}")
         return jsonify({"error": "Server error"}), 500
+
+# --- USER SETTINGS ROUTES ---
+
+@main.route('/user/profile', methods=['PUT'])
+@jwt_required()
+def update_profile():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json()
+    
+    # Update fields if provided
+    if 'username' in data:
+        user.username = data['username']
+    
+    # Email update (check for duplicates)
+    if 'email' in data and data['email'] != user.email:
+        existing = User.query.filter_by(email=data['email']).first()
+        if existing:
+            return jsonify({"error": "Email already in use"}), 400
+        user.email = data['email']
+
+    db.session.commit()
+    
+    return jsonify({
+        "message": "Profile updated", 
+        "user": {
+            "id": user.id, 
+            "username": user.username,
+            "email": user.email,
+            "is_admin": user.is_admin 
+        }
+    })
+
+@main.route('/user/password', methods=['PUT'])
+@jwt_required()
+def change_password():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    data = request.get_json()
+    
+    current_pass = data.get('currentPassword')
+    new_pass = data.get('newPassword')
+    
+    if not check_password_hash(user.password_hash, current_pass):
+        return jsonify({"error": "Incorrect current password"}), 401
+        
+    user.password_hash = generate_password_hash(new_pass)
+    db.session.commit()
+    
+    return jsonify({"message": "Password changed successfully"})
+
+@main.route('/user/account', methods=['DELETE'])
+@jwt_required()
+def delete_account():
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # 1. Delete Pipelines
+        Pipeline.query.filter_by(user_id=current_user_id).delete()
+
+        # 2. Delete DataSources (Files + DB)
+        datasources = DataSource.query.filter_by(user_id=current_user_id).all()
+        for ds in datasources:
+            if ds.filepath and os.path.exists(ds.filepath):
+                try:
+                    os.remove(ds.filepath)
+                except Exception as e:
+                    print(f"Error deleting file {ds.filepath}: {e}")
+            db.session.delete(ds)
+
+        # 3. Delete ProcessedFiles (Files + DB)
+        processed = ProcessedFile.query.filter_by(user_id=current_user_id).all()
+        for pf in processed:
+            if pf.filepath and os.path.exists(pf.filepath):
+                try:
+                    os.remove(pf.filepath)
+                except Exception as e:
+                    print(f"Error deleting file {pf.filepath}: {e}")
+            db.session.delete(pf)
+
+        # 4. Delete User
+        db.session.delete(user)
+        db.session.commit()
+        
+        return jsonify({"message": "Account deleted successfully"})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Delete Account Error: {str(e)}")
+        # Returning a 500 with proper headers should prevent 'Network Error' in axios
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 # --- ADMIN ROUTES ---
 

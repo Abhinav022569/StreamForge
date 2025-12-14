@@ -10,7 +10,8 @@ import DocumentationPage from './components/DocumentationPage';
 import DataSources from './components/DataSources';
 import ProcessedData from './components/ProcessedData';
 import AdminDashboard from './components/AdminDashboard';
-import AdminUsers from './components/AdminUsers'; // Import new component
+import AdminUsers from './components/AdminUsers';
+import SettingsPage from './components/SettingsPage'; // Import Settings Page
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -81,6 +82,16 @@ function App() {
           element={
             <ProtectedRoute>
               <ProcessedData />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* SETTINGS PAGE */}
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
             </ProtectedRoute>
           } 
         />
