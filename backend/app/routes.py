@@ -13,7 +13,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from . import db
-from .models import Pipeline, User, DataSource
+from .models import Pipeline, User, DataSource, ProcessedFile  # Ensure ProcessedFile is imported
 
 main = Blueprint('main', __name__)
 
@@ -51,7 +51,9 @@ def signup():
     if User.query.filter_by(email=data['email']).first():
         return jsonify({"error": "Email already exists"}), 400
     
+    # Use standard hashing (pbkdf2:sha256 is default in modern werkzeug)
     hashed_password = generate_password_hash(data['password'])
+    
     new_user = User(username=data['fullName'], email=data['email'], password_hash=hashed_password)
     
     db.session.add(new_user)
@@ -60,17 +62,73 @@ def signup():
 
 @main.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    user = User.query.filter_by(email=data['email']).first()
+    try:
+        data = request.get_json()
+        print(f"DEBUG: Login attempt for email: {data.get('email')}")
+        
+        user = User.query.filter_by(email=data['email']).first()
+        
+        if not user:
+            print("DEBUG: User not found in DB")
+            return jsonify({"error": "Invalid credentials"}), 401
+            
+        print(f"DEBUG: User found: {user.username}, ID: {user.id}, Is Admin: {user.is_admin}")
+        
+        # Check password
+        is_valid = check_password_hash(user.password_hash, data['password'])
+        
+        if not is_valid:
+            print("DEBUG: Password mismatch")
+            return jsonify({"error": "Invalid credentials"}), 401
+        
+        access_token = create_access_token(identity=str(user.id))
+        return jsonify({
+            "message": "Login successful!", 
+            "token": access_token, 
+            "user": {
+                "id": user.id, 
+                "username": user.username,
+                "is_admin": user.is_admin 
+            }
+        })
+    except Exception as e:
+        print(f"DEBUG: Server Error during login: {str(e)}")
+        return jsonify({"error": "Server error"}), 500
+
+@main.route('/admin/stats', methods=['GET'])
+@jwt_required()
+def get_admin_stats():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
     
-    if not user or not check_password_hash(user.password_hash, data['password']):
-        return jsonify({"error": "Invalid credentials"}), 401
+    if not user or not user.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # Gather System-Wide Stats
+    total_users = User.query.count()
+    total_pipelines = Pipeline.query.count()
+    active_pipelines = Pipeline.query.filter_by(status='Active').count()
     
-    access_token = create_access_token(identity=str(user.id))
+    # Calculate global data processed
+    all_users = User.query.all()
+    global_bytes = sum(u.total_processed_bytes for u in all_users)
+
+    # Get recent users
+    recent_users = []
+    for u in User.query.order_by(User.id.desc()).limit(5).all():
+        recent_users.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "pipelines": len(u.pipelines)
+        })
+
     return jsonify({
-        "message": "Login successful!", 
-        "token": access_token, 
-        "user": {"id": user.id, "username": user.username}
+        "total_users": total_users,
+        "total_pipelines": total_pipelines,
+        "active_pipelines": active_pipelines,
+        "total_processed_bytes": global_bytes,
+        "recent_users": recent_users
     })
 
 @main.route('/user-stats', methods=['GET'])
@@ -486,10 +544,21 @@ def run_pipeline():
                         # Pass DataFrame through just in case user connects another node
                         data_store[current_id] = df
                         
-                        # Add file size to stats since we created a file
+                        # SAVE TO DB (Chart)
                         if os.path.exists(save_path):
                             file_size = os.path.getsize(save_path)
                             processed_bytes_in_run += file_size
+                            
+                            new_file = ProcessedFile(
+                                filename=output_name,
+                                file_type='Image',
+                                file_size_bytes=file_size,
+                                file_size_display=get_size_format(file_size),
+                                filepath=save_path,
+                                user_id=current_user_id
+                            )
+                            db.session.add(new_file)
+                            db.session.commit()
 
                     except Exception as e:
                         plt.close()
@@ -505,24 +574,28 @@ def run_pipeline():
 
                     output_name = node_data.get('outputName', 'output')
                     file_path = ""
+                    ftype = 'UNKNOWN'
                     
                     # 1. Handle CSV
                     if node_type == 'dest_csv':
                         if not output_name.endswith('.csv'): output_name += '.csv'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_csv(file_path, index=False)
+                        ftype = 'CSV'
 
                     # 2. Handle JSON
                     elif node_type == 'dest_json':
                         if not output_name.endswith('.json'): output_name += '.json'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_json(file_path, orient='records')
+                        ftype = 'JSON'
 
                     # 3. Handle Excel
                     elif node_type == 'dest_excel':
                         if not output_name.endswith('.xlsx'): output_name += '.xlsx'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_excel(file_path, index=False)
+                        ftype = 'Excel'
                     
                     # 4. Handle Database (SQLite)
                     elif node_type == 'dest_db':
@@ -533,12 +606,24 @@ def run_pipeline():
                         with sqlite3.connect(file_path) as conn:
                             # Save data to a table named 'export_data'
                             df_to_save.to_sql('export_data', conn, if_exists='replace', index=False)
+                        ftype = 'Database'
 
-                    # Update size count
+                    # SAVE TO DB (Data File)
                     if os.path.exists(file_path):
                         file_size = os.path.getsize(file_path)
                         processed_bytes_in_run += file_size
                         execution_log.append(f"Saved to {output_name} ({get_size_format(file_size)})")
+                        
+                        new_file = ProcessedFile(
+                            filename=output_name,
+                            file_type=ftype,
+                            file_size_bytes=file_size,
+                            file_size_display=get_size_format(file_size),
+                            filepath=file_path,
+                            user_id=current_user_id
+                        )
+                        db.session.add(new_file)
+                        db.session.commit()
 
             except Exception as e:
                 # Capture the specific error from the node and send it back
@@ -659,34 +744,25 @@ def delete_datasource(id):
 @main.route('/processed-files', methods=['GET'])
 @jwt_required()
 def get_processed_files():
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    processed_dir = os.path.join(base_dir, '..', 'processed')
+    current_user_id = int(get_jwt_identity())
     
-    if not os.path.exists(processed_dir):
-        return jsonify([])
+    # Fetch from DB instead of File System
+    files = ProcessedFile.query.filter_by(user_id=current_user_id).order_by(ProcessedFile.created_at.desc()).all()
 
-    files = []
-    for f in os.listdir(processed_dir):
-        file_path = os.path.join(processed_dir, f)
-        if os.path.isfile(file_path):
-            size = os.path.getsize(file_path)
-            ext = f.split('.')[-1].lower()
-            
-            ftype = 'CSV'
-            if ext == 'json': ftype = 'JSON'
-            elif ext in ['xls', 'xlsx']: ftype = 'Excel'
-            elif ext == 'db': ftype = 'Database'
-            elif ext == 'png': ftype = 'Image' # <--- Handle PNGs
-
-            files.append({
-                "name": f,
-                "type": ftype,
-                "size": get_size_format(size),
-                "size_bytes": size, # Included for frontend calculation
-                "date": datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M')
+    output = []
+    for f in files:
+        # Check if file exists on disk
+        if os.path.exists(f.filepath):
+            output.append({
+                "id": f.id, 
+                "name": f.filename,
+                "type": f.file_type,
+                "size": f.file_size_display,
+                "size_bytes": f.file_size_bytes,
+                "date": f.created_at.strftime('%Y-%m-%d %H:%M')
             })
     
-    return jsonify(files)
+    return jsonify(output)
 
 @main.route('/download/processed/<path:filename>', methods=['GET'])
 def download_processed_file(filename):
@@ -694,14 +770,21 @@ def download_processed_file(filename):
     processed_dir = os.path.join(base_dir, '..', 'processed')
     return send_from_directory(processed_dir, filename, as_attachment=True)
 
-@main.route('/processed-files/<path:filename>', methods=['DELETE'])
+@main.route('/processed-files/<int:id>', methods=['DELETE'])
 @jwt_required()
-def delete_processed_file(filename):
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    file_path = os.path.join(base_dir, '..', 'processed', filename)
+def delete_processed_file(id):
+    current_user_id = int(get_jwt_identity())
+    file_entry = ProcessedFile.query.filter_by(id=id, user_id=current_user_id).first()
     
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        return jsonify({"message": "File deleted"})
-    else:
+    if not file_entry:
         return jsonify({"error": "File not found"}), 404
+
+    # Remove from Disk
+    if os.path.exists(file_entry.filepath):
+        os.remove(file_entry.filepath)
+    
+    # Remove from DB
+    db.session.delete(file_entry)
+    db.session.commit()
+
+    return jsonify({"message": "File deleted"})

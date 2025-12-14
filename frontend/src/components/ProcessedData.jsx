@@ -7,7 +7,7 @@ import '../App.css'; // Import shared styles
 const ProcessedData = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState({ username: 'User' });
-  const [processedFiles, setProcessedFiles] = useState([]); // Will store fetched files
+  const [processedFiles, setProcessedFiles] = useState([]); // Stores fetched files from DB
 
   useEffect(() => {
     // 1. Load User
@@ -16,11 +16,10 @@ const ProcessedData = () => {
       setUser(JSON.parse(storedUser));
     }
     
-    // 2. FETCH PROCESSED FILES (Now Enabled)
+    // 2. FETCH PROCESSED FILES FROM DB
     const fetchProcessedFiles = async () => {
         try {
             const token = localStorage.getItem('token');
-            // Assuming your backend has this route (we'll ensure it does in step 2)
             const res = await axios.get('http://127.0.0.1:5000/processed-files', {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -43,15 +42,16 @@ const ProcessedData = () => {
     window.open(`http://127.0.0.1:5000/download/processed/${fileName}`, '_blank');
   };
 
-  const handleDelete = async (fileName) => {
+  const handleDelete = async (id, fileName) => {
     if(window.confirm(`Are you sure you want to delete ${fileName}?`)) {
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://127.0.0.1:5000/processed-files/${fileName}`, {
+            // USE ID IN URL to delete from DB and Disk
+            await axios.delete(`http://127.0.0.1:5000/processed-files/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             // Update UI
-            setProcessedFiles(processedFiles.filter(f => f.name !== fileName));
+            setProcessedFiles(processedFiles.filter(f => f.id !== id));
         } catch (err) {
             alert("Failed to delete file");
         }
@@ -118,38 +118,48 @@ const ProcessedData = () => {
                   <th>File Name</th>
                   <th>Type</th>
                   <th>Size</th>
-                  <th>Actions</th>
+                  <th>Created</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {processedFiles.length === 0 ? (
                     <tr>
-                        <td colSpan="4" className="text-center text-muted" style={{ padding: '40px' }}>
+                        <td colSpan="5" className="text-center text-muted" style={{ padding: '40px' }}>
                             No processed files found. Run a pipeline to generate data.
                         </td>
                     </tr>
                 ) : (
-                    processedFiles.map((file, idx) => (
-                    <tr key={idx} className="table-row">
+                    processedFiles.map((file) => (
+                    <tr key={file.id} className="table-row">
                         <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '16px' }}>
-                          {file.type === 'Excel' ? '📊' : 
-                          file.type === 'JSON' ? '{}' : 
-                          file.type === 'Database' ? '🗄️' :
-                          file.type === 'Image' ? '🖼️' :'📄'}
-                        </span>
+                            <span style={{ fontSize: '16px' }}>
+                                {file.type === 'Excel' ? '📊' : 
+                                 file.type === 'JSON' ? '{}' : 
+                                 file.type === 'Database' ? '🗄️' : 
+                                 file.type === 'Image' ? '🖼️' : '📄'}
+                            </span> 
                             {file.name}
                         </td>
                         <td className="text-muted">
                             <span style={{ 
-                                background: file.type === 'Excel' ? 'rgba(22, 163, 74, 0.2)' : file.type === 'JSON' ? 'rgba(251, 191, 36, 0.2)' :file.type === 'Database' ? 'rgba(139, 92, 246, 0.2)': 'rgba(59, 130, 246, 0.2)',
-                                color: file.type === 'Excel' ? '#16a34a' : file.type === 'JSON' ? '#fbbf24' :file.type === 'Database' ? '#8b5cf6': '#3b82f6',
+                                background: file.type === 'Excel' ? 'rgba(22, 163, 74, 0.2)' : 
+                                            file.type === 'JSON' ? 'rgba(251, 191, 36, 0.2)' : 
+                                            file.type === 'Database' ? 'rgba(139, 92, 246, 0.2)' : 
+                                            file.type === 'Image' ? 'rgba(236, 72, 153, 0.2)' :
+                                            'rgba(59, 130, 246, 0.2)',
+                                color: file.type === 'Excel' ? '#16a34a' : 
+                                       file.type === 'JSON' ? '#fbbf24' : 
+                                       file.type === 'Database' ? '#8b5cf6' : 
+                                       file.type === 'Image' ? '#ec4899' :
+                                       '#3b82f6',
                                 padding: '2px 8px', borderRadius: '4px', fontSize: '12px' 
                             }}>
                                 {file.type}
                             </span>
                         </td>
                         <td className="text-muted">{file.size}</td>
+                        <td className="text-muted">{file.date}</td>
                         <td style={{ textAlign: 'right' }}>
                             <button 
                                 onClick={() => handleDownload(file.name)}
@@ -159,7 +169,7 @@ const ProcessedData = () => {
                                 ⬇ Download
                             </button>
                             <button 
-                                onClick={() => handleDelete(file.name)}
+                                onClick={() => handleDelete(file.id, file.name)}
                                 className="btn btn-ghost" 
                                 style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--danger)', borderColor: 'var(--danger)' }}
                             >

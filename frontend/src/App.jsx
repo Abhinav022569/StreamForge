@@ -9,14 +9,21 @@ import AllPipelines from './components/AllPipelines';
 import DocumentationPage from './components/DocumentationPage';
 import DataSources from './components/Datasources';
 import ProcessedData from './components/ProcessedData';
+import AdminDashboard from './components/AdminDashboard'; // Import AdminDashboard
 
 // Security Guard: Checks for a token before letting you in
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, adminOnly = false }) => {
   const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   
   if (!token) {
     // If not logged in, kick them back to the login page
     return <Navigate to="/login" replace />;
+  }
+
+  if (adminOnly && !user.is_admin) {
+      // If route is admin-only but user is not admin, go to dashboard
+      return <Navigate to="/dashboard" replace />;
   }
   
   return children;
@@ -31,9 +38,9 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/docs" element={<DocumentationPage />} />
-        <Route path="/datasources" element={<ProtectedRoute><DataSources /></ProtectedRoute>} />
         
         {/* Protected Routes (Require Login) */}
+        <Route path="/datasources" element={<ProtectedRoute><DataSources /></ProtectedRoute>} />
         
         {/* 1. The Dashboard (Home for logged-in users) */}
         <Route 
@@ -45,7 +52,7 @@ function App() {
           } 
         />
 
-        {/* 2. All Pipelines List Page (NEW ROUTE) */}
+        {/* 2. All Pipelines List Page */}
         <Route 
           path="/pipelines" 
           element={
@@ -73,6 +80,16 @@ function App() {
           element={
             <ProtectedRoute>
               <ProcessedData />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* NEW ADMIN ROUTE */}
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute adminOnly={true}>
+              <AdminDashboard />
             </ProtectedRoute>
           } 
         />
