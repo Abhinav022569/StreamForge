@@ -164,7 +164,7 @@ const AdminUsers = () => {
                                 {u.is_suspended ? 'Suspended' : 'Active'}
                             </span>
                         </td>
-                        <td className="text-muted">{u.is_admin ? 'Admin' : 'Engineer'}</td>
+                        <td className="text-muted">{u.is_admin ? 'Admin' : 'User'}</td>
                         <td className="text-muted font-bold">{u.pipelines_count} pipelines</td>
                         <td className="text-muted">{u.processed_bytes}</td>
                         <td style={{ textAlign: 'right' }}>

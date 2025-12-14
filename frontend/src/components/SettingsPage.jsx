@@ -120,7 +120,6 @@ const SettingsPage = () => {
                 <div className="profile-avatar">👤</div>
                 <div style={{ overflow: 'hidden' }}>
                     <p style={{ margin: 0, fontSize: '14px', fontWeight: '500', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '85px' }}>{user.username}</p>
-                    <p className="text-muted" style={{ margin: 0, fontSize: '12px' }}>Free Plan</p>
                 </div>
             </div>
             <button onClick={handleLogout} className="btn-sidebar-logout"><span>🚪</span> Logout</button>
