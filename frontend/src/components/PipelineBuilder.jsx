@@ -32,6 +32,8 @@ const PipelineBuilderContent = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const reactFlowWrapper = useRef(null);
+    // Reference for the hidden file input
+    const fileInputRef = useRef(null);
     const { getNodes, getEdges } = useReactFlow(); 
 
     const [nodes, setNodes] = useState(initialNodes);
@@ -174,9 +176,56 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    const deleteSelected = () => {
-        setNodes((nds) => nds.filter((node) => !node.selected));
-        setEdges((eds) => eds.filter((edge) => !edge.selected));
+    // --- IMPORT / EXPORT HANDLERS ---
+
+    const handleExport = () => {
+        const exportData = {
+            name: pipelineName,
+            nodes: nodes,
+            edges: edges
+        };
+        
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `${pipelineName.replace(/\s+/g, '_')}_pipeline.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleImportFile = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const json = JSON.parse(e.target.result);
+                
+                // Basic validation
+                if (json.nodes && Array.isArray(json.nodes)) {
+                    // Update state
+                    setNodes(json.nodes);
+                    setEdges(json.edges || []);
+                    if (json.name) setPipelineName(json.name);
+                    
+                    alert("Pipeline imported successfully!");
+                } else {
+                    alert("Invalid JSON format: Missing 'nodes' array.");
+                }
+            } catch (err) {
+                console.error("Error parsing JSON:", err);
+                alert("Failed to parse JSON file.");
+            }
+        };
+        reader.readAsText(file);
+        // Reset so same file can be selected again
+        event.target.value = null;
     };
 
     const handleRun = async () => {
@@ -220,6 +269,15 @@ const PipelineBuilderContent = () => {
     return (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1115' }}>
             
+            {/* Hidden Input for Import */}
+            <input 
+                type="file" 
+                accept=".json" 
+                ref={fileInputRef} 
+                style={{ display: 'none' }} 
+                onChange={handleImportFile}
+            />
+
             {/* HEADER */}
             <header style={{ height: '60px', borderBottom: '1px solid #27272a', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -228,7 +286,23 @@ const PipelineBuilderContent = () => {
                     <input type="text" value={pipelineName} onChange={(e) => setPipelineName(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '16px', fontWeight: '600', outline: 'none', width: '300px' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={deleteSelected} style={{ background: '#27272a', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 16px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer' }}>🗑️ Delete Selected</button>
+                    
+                    {/* NEW: Import/Export Buttons (Replaced Delete) */}
+                    <button 
+                        onClick={handleImportClick} 
+                        style={{ background: '#27272a', border: '1px solid #3f3f46', color: '#fff', padding: '8px 16px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer' }}
+                        title="Import JSON pipeline file"
+                    >
+                        📥 Import
+                    </button>
+                    <button 
+                        onClick={handleExport} 
+                        style={{ background: '#27272a', border: '1px solid #3f3f46', color: '#fff', padding: '8px 16px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer' }}
+                        title="Export pipeline to JSON"
+                    >
+                        📤 Export
+                    </button>
+
                     <button onClick={handleRun} disabled={isRunning} className="btn btn-success" style={{ padding: '8px 16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '5px', opacity: isRunning ? 0.7 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>{isRunning ? '⏳ Running...' : '▶ Run Pipeline'}</button>
                     <button className="btn btn-primary" onClick={savePipeline} style={{ padding: '8px 16px', fontSize: '14px' }}>💾 {id ? 'Update' : 'Save'}</button>
                 </div>
