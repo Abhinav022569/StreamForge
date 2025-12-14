@@ -86,7 +86,6 @@ const AdminUsers = () => {
         <nav className="sidebar-nav">
           <div className="sidebar-item" onClick={() => navigate('/admin')}><span>🏠</span> Overview</div>
           <div className="sidebar-item active"><span>👥</span> Users</div>
-          <div className="sidebar-item"><span>⚙️</span> Settings</div>
         </nav>
 
         <div className="sidebar-profile">
