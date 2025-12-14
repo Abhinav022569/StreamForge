@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useBeforeUnload } from 'react-router-dom';
 import ReactFlow, { 
   Controls, 
   Background, 
@@ -26,6 +26,9 @@ import {
     CastNode, StringNode, CalcNode, LimitNode, ConstantNode, ChartNode 
 } from './nodes/Transformations';
 
+// IMPORT TEMPLATES
+import { TEMPLATES } from '../data/templates';
+
 const initialNodes = [];
 
 const PipelineBuilderContent = () => {
@@ -41,6 +44,12 @@ const PipelineBuilderContent = () => {
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [pipelineName, setPipelineName] = useState("My New Pipeline");
     const [isRunning, setIsRunning] = useState(false); 
+    
+    // NEW: Template Modal State
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    
+    // NEW: Track unsaved changes
+    const [isDirty, setIsDirty] = useState(false);
 
     // --- 1. REGISTER NODE TYPES ---
     const nodeTypes = useMemo(() => ({ 
@@ -91,6 +100,7 @@ const PipelineBuilderContent = () => {
                     }));
                     setEdges(dbEdges);
                 }
+                setIsDirty(false); // Reset dirty state after load
             })
             .catch(err => {
                 console.error("Error loading pipeline:", err);
@@ -99,10 +109,46 @@ const PipelineBuilderContent = () => {
         }
     }, [id]);
 
-    // Handlers
-    const onNodesChange = useCallback((changes) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
-    const onEdgesChange = useCallback((changes) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
-    const onConnect = useCallback((params) => setEdges((eds) => addEdge({ ...params, type: 'deletableEdge' }, eds)), []);
+    // NEW: Handle Browser Reload/Close Warning
+    useBeforeUnload(
+        React.useCallback(
+            (e) => {
+                if (isDirty) {
+                    e.preventDefault();
+                    e.returnValue = ''; // Trigger browser warning
+                }
+            },
+            [isDirty]
+        )
+    );
+
+    // NEW: Handle "Back" Button Click
+    const handleBack = () => {
+        if (isDirty) {
+            if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
+                navigate('/dashboard');
+            }
+        } else {
+            navigate('/dashboard');
+        }
+    };
+
+    // Handlers (Set Dirty to True on changes)
+    const onNodesChange = useCallback((changes) => {
+        setNodes((nds) => applyNodeChanges(changes, nds));
+        setIsDirty(true);
+    }, []);
+
+    const onEdgesChange = useCallback((changes) => {
+        setEdges((eds) => applyEdgeChanges(changes, eds));
+        setIsDirty(true);
+    }, []);
+
+    const onConnect = useCallback((params) => {
+        setEdges((eds) => addEdge({ ...params, type: 'deletableEdge' }, eds));
+        setIsDirty(true);
+    }, []);
+
     const onDragOver = useCallback((event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }, []);
 
     // --- 2. DROP HANDLER ---
@@ -158,6 +204,7 @@ const PipelineBuilderContent = () => {
             };
 
             setNodes((nds) => nds.concat(newNode));
+            setIsDirty(true);
         },
         [reactFlowInstance]
     );
@@ -174,6 +221,7 @@ const PipelineBuilderContent = () => {
             const res = await method(url, payload, { headers: { Authorization: `Bearer ${token}` } });
             
             alert(id ? 'Pipeline Updated!' : 'Pipeline Created! ID: ' + res.data.id);
+            setIsDirty(false); // Reset dirty state on save
             if (!id) navigate(`/builder/${res.data.id}`);
 
         } catch (error) {
@@ -226,6 +274,7 @@ const PipelineBuilderContent = () => {
 
                     if (json.name) setPipelineName(json.name);
                     
+                    setIsDirty(true);
                     alert("Pipeline imported successfully!");
                 } else {
                     alert("Invalid JSON format: Missing 'nodes' array.");
@@ -238,6 +287,37 @@ const PipelineBuilderContent = () => {
         reader.readAsText(file);
         // Reset so same file can be selected again
         event.target.value = null;
+    };
+
+    // --- TEMPLATE HANDLER ---
+    const handleLoadTemplate = (template) => {
+        if (nodes.length > 0) {
+            if (!window.confirm("Loading a template will replace your current canvas. Continue?")) return;
+        }
+
+        // Generate unique IDs for the template nodes to avoid conflict on re-import
+        const idMap = {};
+        const timestamp = Date.now();
+        
+        const newNodes = template.nodes.map(n => {
+            const newId = `${n.id}_${timestamp}`;
+            idMap[n.id] = newId;
+            return { ...n, id: newId };
+        });
+
+        const newEdges = template.edges.map(e => ({
+            ...e,
+            id: `e_${e.source}_${e.target}_${timestamp}`,
+            source: idMap[e.source],
+            target: idMap[e.target],
+            type: 'deletableEdge'
+        }));
+
+        setNodes(newNodes);
+        setEdges(newEdges);
+        setPipelineName(template.name);
+        setIsDirty(true);
+        setShowTemplateModal(false);
     };
 
     const handleRun = async () => {
@@ -293,13 +373,30 @@ const PipelineBuilderContent = () => {
             {/* HEADER */}
             <header style={{ height: '60px', borderBottom: '1px solid #27272a', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <button onClick={() => navigate('/dashboard')} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '5px' }}>← Back</button>
+                    <button onClick={handleBack} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '5px' }}>← Back</button>
                     <div style={{ width: '1px', height: '20px', background: '#3f3f46' }}></div>
-                    <input type="text" value={pipelineName} onChange={(e) => setPipelineName(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '16px', fontWeight: '600', outline: 'none', width: '300px' }} />
+                    <input 
+                        type="text" 
+                        value={pipelineName} 
+                        onChange={(e) => { setPipelineName(e.target.value); setIsDirty(true); }} 
+                        style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '16px', fontWeight: '600', outline: 'none', width: '300px' }} 
+                    />
+                    {isDirty && <span style={{ fontSize: '12px', color: '#fbbf24', marginLeft: '-10px' }}>● Unsaved</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     
-                    {/* NEW: Import/Export Buttons (Replaced Delete) */}
+                    {/* NEW: Templates Button */}
+                    <button 
+                        onClick={() => setShowTemplateModal(true)} 
+                        style={{ background: '#27272a', border: '1px solid #3f3f46', color: '#60a5fa', padding: '8px 16px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer', display: 'flex', gap: '5px' }}
+                        title="Load from Template"
+                    >
+                        📋 Templates
+                    </button>
+
+                    <div style={{ width: '1px', height: '20px', background: '#3f3f46', alignSelf: 'center' }}></div>
+
+                    {/* Import/Export Buttons */}
                     <button 
                         onClick={handleImportClick} 
                         style={{ background: '#27272a', border: '1px solid #3f3f46', color: '#fff', padding: '8px 16px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer' }}
@@ -334,6 +431,54 @@ const PipelineBuilderContent = () => {
                     </ReactFlow>
                 </div>
             </div>
+
+            {/* TEMPLATE GALLERY MODAL */}
+            {showTemplateModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
+                    zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center'
+                }}>
+                    <div style={{
+                        width: '800px', maxHeight: '80vh', backgroundColor: '#18181b',
+                        border: '1px solid #3f3f46', borderRadius: '12px', padding: '24px',
+                        display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Pipeline Templates</h2>
+                            <button onClick={() => setShowTemplateModal(false)} style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
+                        </div>
+
+                        <div style={{ overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', padding: '4px' }}>
+                            {TEMPLATES.map(tpl => (
+                                <div 
+                                    key={tpl.id} 
+                                    onClick={() => handleLoadTemplate(tpl)}
+                                    style={{
+                                        backgroundColor: '#27272a', border: '1px solid #3f3f46', borderRadius: '8px', padding: '16px',
+                                        cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                    className="template-card"
+                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#60a5fa'; e.currentTarget.style.backgroundColor = '#3f3f46'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#3f3f46'; e.currentTarget.style.backgroundColor = '#27272a'; }}
+                                >
+                                    <h3 style={{ margin: '0 0 8px 0', color: 'white', fontSize: '16px' }}>{tpl.name}</h3>
+                                    <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px', lineHeight: '1.4' }}>{tpl.description}</p>
+                                    <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                                        {tpl.nodes.slice(0, 3).map((n, i) => (
+                                            <span key={i} style={{ fontSize: '10px', background: '#52525b', padding: '2px 6px', borderRadius: '4px', color: '#e4e4e7' }}>
+                                                {n.type.replace('trans_', '').replace('source_', '').replace('dest_', '')}
+                                            </span>
+                                        ))}
+                                        {tpl.nodes.length > 3 && <span style={{ fontSize: '10px', color: '#9ca3af' }}>+{tpl.nodes.length - 3} more</span>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };
