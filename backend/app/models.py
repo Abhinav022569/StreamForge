@@ -9,6 +9,9 @@ class User(db.Model):
     password_hash = db.Column(db.String(256)) 
     total_processed_bytes = db.Column(db.Integer, default=0)
     is_admin = db.Column(db.Boolean, default=False)
+    
+    # NEW: Account Suspension Status
+    is_suspended = db.Column(db.Boolean, default=False)
 
     pipelines = db.relationship('Pipeline', backref='owner', lazy=True)
     datasources = db.relationship('DataSource', backref='owner', lazy=True)

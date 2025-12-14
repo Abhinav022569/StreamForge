@@ -7,9 +7,10 @@ import SignupPage from './components/SignupPage';
 import Dashboard from './components/Dashboard';
 import AllPipelines from './components/AllPipelines';
 import DocumentationPage from './components/DocumentationPage';
-import DataSources from './components/Datasources';
+import DataSources from './components/DataSources';
 import ProcessedData from './components/ProcessedData';
-import AdminDashboard from './components/AdminDashboard'; // Import AdminDashboard
+import AdminDashboard from './components/AdminDashboard';
+import AdminUsers from './components/AdminUsers'; // Import new component
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -84,12 +85,21 @@ function App() {
           } 
         />
 
-        {/* NEW ADMIN ROUTE */}
+        {/* ADMIN ROUTES */}
         <Route 
           path="/admin" 
           element={
             <ProtectedRoute adminOnly={true}>
               <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/admin/users" 
+          element={
+            <ProtectedRoute adminOnly={true}>
+              <AdminUsers />
             </ProtectedRoute>
           } 
         />

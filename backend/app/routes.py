@@ -72,6 +72,11 @@ def login():
             print("DEBUG: User not found in DB")
             return jsonify({"error": "Invalid credentials"}), 401
             
+        # CHECK SUSPENSION
+        if user.is_suspended:
+            print(f"DEBUG: User {user.username} is suspended")
+            return jsonify({"error": "Your account has been suspended. Please contact the administrator."}), 403
+
         print(f"DEBUG: User found: {user.username}, ID: {user.id}, Is Admin: {user.is_admin}")
         
         # Check password
@@ -94,6 +99,8 @@ def login():
     except Exception as e:
         print(f"DEBUG: Server Error during login: {str(e)}")
         return jsonify({"error": "Server error"}), 500
+
+# --- ADMIN ROUTES ---
 
 @main.route('/admin/stats', methods=['GET'])
 @jwt_required()
@@ -130,6 +137,54 @@ def get_admin_stats():
         "total_processed_bytes": global_bytes,
         "recent_users": recent_users
     })
+
+@main.route('/admin/users', methods=['GET'])
+@jwt_required()
+def get_all_users():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    
+    if not user or not user.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    all_users = User.query.all()
+    output = []
+    for u in all_users:
+        output.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "is_admin": u.is_admin,
+            "is_suspended": u.is_suspended,
+            "pipelines_count": len(u.pipelines),
+            "processed_bytes": get_size_format(u.total_processed_bytes)
+        })
+    
+    return jsonify(output)
+
+@main.route('/admin/users/<int:user_id>/suspend', methods=['PUT'])
+@jwt_required()
+def suspend_user(user_id):
+    current_user_id = int(get_jwt_identity())
+    admin = User.query.get(current_user_id)
+    
+    if not admin or not admin.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    user_to_mod = User.query.get(user_id)
+    if not user_to_mod:
+        return jsonify({"error": "User not found"}), 404
+        
+    # Prevent self-suspension
+    if user_to_mod.id == admin.id:
+        return jsonify({"error": "Cannot suspend yourself"}), 400
+
+    data = request.get_json()
+    user_to_mod.is_suspended = data.get('is_suspended', True)
+    db.session.commit()
+    
+    action = "suspended" if user_to_mod.is_suspended else "activated"
+    return jsonify({"message": f"User {action} successfully", "is_suspended": user_to_mod.is_suspended})
 
 @main.route('/user-stats', methods=['GET'])
 @jwt_required()
