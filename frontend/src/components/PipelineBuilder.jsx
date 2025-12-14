@@ -84,7 +84,12 @@ const PipelineBuilderContent = () => {
                 setPipelineName(name);
                 if (flow) {
                     setNodes(flow.nodes || []);
-                    setEdges(flow.edges || []);
+                    // Ensure edges from DB also have the correct type
+                    const dbEdges = (flow.edges || []).map(edge => ({
+                        ...edge,
+                        type: 'deletableEdge'
+                    }));
+                    setEdges(dbEdges);
                 }
             })
             .catch(err => {
@@ -211,7 +216,14 @@ const PipelineBuilderContent = () => {
                 if (json.nodes && Array.isArray(json.nodes)) {
                     // Update state
                     setNodes(json.nodes);
-                    setEdges(json.edges || []);
+                    
+                    // FIX: Force edges to be 'deletableEdge' type
+                    const importedEdges = (json.edges || []).map(edge => ({
+                        ...edge,
+                        type: 'deletableEdge' // <--- THIS LINE ADDS THE CROSS
+                    }));
+                    setEdges(importedEdges);
+
                     if (json.name) setPipelineName(json.name);
                     
                     alert("Pipeline imported successfully!");
