@@ -50,6 +50,9 @@ const PipelineBuilderContent = () => {
     
     // NEW: Track unsaved changes
     const [isDirty, setIsDirty] = useState(false);
+    
+    // Ref to track if initial load is complete to prevent false dirty states
+    const isLoadedRef = useRef(false);
 
     // --- 1. REGISTER NODE TYPES ---
     const nodeTypes = useMemo(() => ({ 
@@ -84,6 +87,7 @@ const PipelineBuilderContent = () => {
     // Load Data
     useEffect(() => {
         if (id) {
+            isLoadedRef.current = false; // Reset on ID change
             const token = localStorage.getItem('token');
             axios.get(`http://127.0.0.1:5000/pipelines/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -100,12 +104,21 @@ const PipelineBuilderContent = () => {
                     }));
                     setEdges(dbEdges);
                 }
-                setIsDirty(false); // Reset dirty state after load
+                
+                // Delay enabling dirty tracking to allow ReactFlow to settle initial dimensions
+                setTimeout(() => {
+                    setIsDirty(false);
+                    isLoadedRef.current = true;
+                }, 500);
             })
             .catch(err => {
                 console.error("Error loading pipeline:", err);
                 alert("Could not load pipeline.");
+                isLoadedRef.current = true; // Enable anyway so user can retry/edit
             });
+        } else {
+            // New Pipeline
+            isLoadedRef.current = true;
         }
     }, [id]);
 
@@ -133,20 +146,20 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    // Handlers (Set Dirty to True on changes)
+    // Handlers (Set Dirty to True on changes, guarded by isLoadedRef)
     const onNodesChange = useCallback((changes) => {
         setNodes((nds) => applyNodeChanges(changes, nds));
-        setIsDirty(true);
+        if (isLoadedRef.current) setIsDirty(true);
     }, []);
 
     const onEdgesChange = useCallback((changes) => {
         setEdges((eds) => applyEdgeChanges(changes, eds));
-        setIsDirty(true);
+        if (isLoadedRef.current) setIsDirty(true);
     }, []);
 
     const onConnect = useCallback((params) => {
         setEdges((eds) => addEdge({ ...params, type: 'deletableEdge' }, eds));
-        setIsDirty(true);
+        if (isLoadedRef.current) setIsDirty(true);
     }, []);
 
     const onDragOver = useCallback((event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }, []);
@@ -227,6 +240,12 @@ const PipelineBuilderContent = () => {
         } catch (error) {
             alert('Error saving pipeline: ' + (error.response?.data?.msg || error.message));
         }
+    };
+
+    const deleteSelected = () => {
+        setNodes((nds) => nds.filter((node) => !node.selected));
+        setEdges((eds) => eds.filter((edge) => !edge.selected));
+        setIsDirty(true);
     };
 
     // --- IMPORT / EXPORT HANDLERS ---
@@ -375,13 +394,33 @@ const PipelineBuilderContent = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <button onClick={handleBack} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '5px' }}>← Back</button>
                     <div style={{ width: '1px', height: '20px', background: '#3f3f46' }}></div>
-                    <input 
-                        type="text" 
-                        value={pipelineName} 
-                        onChange={(e) => { setPipelineName(e.target.value); setIsDirty(true); }} 
-                        style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '16px', fontWeight: '600', outline: 'none', width: '300px' }} 
-                    />
-                    {isDirty && <span style={{ fontSize: '12px', color: '#fbbf24', marginLeft: '-10px' }}>● Unsaved</span>}
+                    
+                    {/* PIPELINE NAME BOX (ENCLOSED) */}
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        background: '#27272a', 
+                        border: '1px solid #3f3f46', 
+                        borderRadius: '6px', 
+                        padding: '4px 12px' 
+                    }}>
+                        <input 
+                            type="text" 
+                            value={pipelineName} 
+                            onChange={(e) => { setPipelineName(e.target.value); setIsDirty(true); }} 
+                            style={{ 
+                                background: 'transparent', 
+                                border: 'none', 
+                                color: 'white', 
+                                fontSize: '14px', 
+                                fontWeight: '600', 
+                                outline: 'none', 
+                                width: '250px' 
+                            }} 
+                        />
+                        {isDirty && <span style={{ fontSize: '12px', color: '#fbbf24', marginLeft: '10px' }}>● Unsaved</span>}
+                    </div>
+
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     
