@@ -11,7 +11,8 @@ import DataSources from './components/DataSources';
 import ProcessedData from './components/ProcessedData';
 import AdminDashboard from './components/AdminDashboard';
 import AdminUsers from './components/AdminUsers';
-import SettingsPage from './components/SettingsPage'; // Import Settings Page
+import SettingsPage from './components/SettingsPage'; 
+import CollaborationPage from './components/CollaborationPage'; // Import new page
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -82,6 +83,16 @@ function App() {
           element={
             <ProtectedRoute>
               <ProcessedData />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* COLLABORATION PAGE */}
+        <Route 
+          path="/collaboration" 
+          element={
+            <ProtectedRoute>
+              <CollaborationPage />
             </ProtectedRoute>
           } 
         />

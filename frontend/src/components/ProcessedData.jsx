@@ -71,6 +71,7 @@ const ProcessedData = () => {
         <nav className="sidebar-nav">
           <SidebarItem label="Overview" icon="🏠" onClick={() => navigate('/dashboard')} />
           <SidebarItem label="All Pipelines" icon="🚀" onClick={() => navigate('/pipelines')} />
+          <SidebarItem label="Collaboration" icon="🤝" onClick={() => navigate('/collaboration')} />
           <SidebarItem label="Data Sources" icon="🗄️" onClick={() => navigate('/datasources')} />
           <SidebarItem label="Processed Data" icon="📦" active /> 
           <SidebarItem label="Settings" icon="⚙️" onClick={() => navigate('/settings')}/>

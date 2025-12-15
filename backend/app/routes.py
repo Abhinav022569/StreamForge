@@ -13,7 +13,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from . import db
-from .models import Pipeline, User, DataSource, ProcessedFile  # Ensure ProcessedFile is imported
+from .models import Pipeline, User, DataSource, ProcessedFile, SharedPipeline  # Added SharedPipeline
 
 main = Blueprint('main', __name__)
 
@@ -51,7 +51,6 @@ def signup():
     if User.query.filter_by(email=data['email']).first():
         return jsonify({"error": "Email already exists"}), 400
     
-    # Use standard hashing (pbkdf2:sha256 is default in modern werkzeug)
     hashed_password = generate_password_hash(data['password'])
     
     new_user = User(username=data['fullName'], email=data['email'], password_hash=hashed_password)
@@ -72,14 +71,12 @@ def login():
             print("DEBUG: User not found in DB")
             return jsonify({"error": "Invalid credentials"}), 401
             
-        # CHECK SUSPENSION
         if user.is_suspended:
             print(f"DEBUG: User {user.username} is suspended")
             return jsonify({"error": "Your account has been suspended. Please contact the administrator."}), 403
 
         print(f"DEBUG: User found: {user.username}, ID: {user.id}, Is Admin: {user.is_admin}")
         
-        # Check password
         is_valid = check_password_hash(user.password_hash, data['password'])
         
         if not is_valid:
@@ -114,11 +111,9 @@ def update_profile():
 
     data = request.get_json()
     
-    # Update fields if provided
     if 'username' in data:
         user.username = data['username']
     
-    # Email update (check for duplicates)
     if 'email' in data and data['email'] != user.email:
         existing = User.query.filter_by(email=data['email']).first()
         if existing:
@@ -165,10 +160,8 @@ def delete_account():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # 1. Delete Pipelines
         Pipeline.query.filter_by(user_id=current_user_id).delete()
 
-        # 2. Delete DataSources (Files + DB)
         datasources = DataSource.query.filter_by(user_id=current_user_id).all()
         for ds in datasources:
             if ds.filepath and os.path.exists(ds.filepath):
@@ -178,7 +171,6 @@ def delete_account():
                     print(f"Error deleting file {ds.filepath}: {e}")
             db.session.delete(ds)
 
-        # 3. Delete ProcessedFiles (Files + DB)
         processed = ProcessedFile.query.filter_by(user_id=current_user_id).all()
         for pf in processed:
             if pf.filepath and os.path.exists(pf.filepath):
@@ -188,7 +180,6 @@ def delete_account():
                     print(f"Error deleting file {pf.filepath}: {e}")
             db.session.delete(pf)
 
-        # 4. Delete User
         db.session.delete(user)
         db.session.commit()
         
@@ -196,8 +187,148 @@ def delete_account():
     except Exception as e:
         db.session.rollback()
         print(f"Delete Account Error: {str(e)}")
-        # Returning a 500 with proper headers should prevent 'Network Error' in axios
         return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+# --- COLLABORATION ROUTES (NEW) ---
+
+@main.route('/collaboration/stats', methods=['GET'])
+@jwt_required()
+def get_collab_stats():
+    current_user_id = int(get_jwt_identity())
+    
+    # 1. Count Shared With Me
+    shared_with_me_count = SharedPipeline.query.filter_by(user_id=current_user_id).count()
+    
+    # 2. Count My Shared Pipelines (distinct pipelines I own that are shared)
+    my_shared_count = db.session.query(SharedPipeline.pipeline_id)\
+        .join(Pipeline)\
+        .filter(Pipeline.user_id == current_user_id)\
+        .distinct().count()
+    
+    # 3. Team Members (Approximate: Unique users I interact with via shares)
+    # Users who shared with me
+    sharers = db.session.query(Pipeline.user_id)\
+        .join(SharedPipeline, Pipeline.id == SharedPipeline.pipeline_id)\
+        .filter(SharedPipeline.user_id == current_user_id)
+    
+    # Users I shared with
+    recipients = db.session.query(SharedPipeline.user_id)\
+        .join(Pipeline, Pipeline.id == SharedPipeline.pipeline_id)\
+        .filter(Pipeline.user_id == current_user_id)
+    
+    team_members = sharers.union(recipients).distinct().count()
+
+    return jsonify({
+        "shared_with_me": shared_with_me_count,
+        "my_shared_pipelines": my_shared_count,
+        "team_members": team_members
+    })
+
+@main.route('/collaboration/shared-with-me', methods=['GET'])
+@jwt_required()
+def get_shared_with_me():
+    current_user_id = int(get_jwt_identity())
+    
+    shares = SharedPipeline.query.filter_by(user_id=current_user_id).all()
+    output = []
+    
+    for share in shares:
+        p = share.pipeline
+        owner = p.owner
+        output.append({
+            "id": p.id,
+            "name": p.name,
+            "owner_name": owner.username,
+            "owner_email": owner.email,
+            "role": share.role,
+            "updated_at": p.created_at.strftime('%Y-%m-%d %H:%M'), # Simplified
+            "version": "1.0", # Mock version
+            "share_id": share.id
+        })
+    return jsonify(output)
+
+@main.route('/collaboration/shared-by-me', methods=['GET'])
+@jwt_required()
+def get_shared_by_me():
+    current_user_id = int(get_jwt_identity())
+    
+    # Find pipelines owned by me that have shares
+    pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
+    output = []
+    
+    for p in pipelines:
+        if p.shares:
+            # Group shares by pipeline
+            shared_users = []
+            for s in p.shares:
+                shared_users.append({
+                    "share_id": s.id,
+                    "username": s.recipient.username,
+                    "email": s.recipient.email,
+                    "role": s.role
+                })
+            
+            output.append({
+                "id": p.id,
+                "name": p.name,
+                "status": p.status,
+                "shared_users": shared_users,
+                "user_count": len(shared_users)
+            })
+            
+    return jsonify(output)
+
+@main.route('/pipelines/share', methods=['POST'])
+@jwt_required()
+def share_pipeline():
+    current_user_id = int(get_jwt_identity())
+    data = request.get_json()
+    
+    pipeline_id = data.get('pipeline_id')
+    email = data.get('email')
+    role = data.get('role', 'viewer')
+    
+    pipeline = Pipeline.query.filter_by(id=pipeline_id, user_id=current_user_id).first()
+    if not pipeline:
+        return jsonify({"error": "Pipeline not found or you are not the owner"}), 404
+        
+    recipient = User.query.filter_by(email=email).first()
+    if not recipient:
+        return jsonify({"error": "User with this email not found"}), 404
+        
+    if recipient.id == current_user_id:
+        return jsonify({"error": "Cannot share with yourself"}), 400
+        
+    # Check if already shared
+    existing = SharedPipeline.query.filter_by(pipeline_id=pipeline.id, user_id=recipient.id).first()
+    if existing:
+        return jsonify({"error": "Pipeline already shared with this user"}), 400
+        
+    new_share = SharedPipeline(pipeline_id=pipeline.id, user_id=recipient.id, role=role)
+    db.session.add(new_share)
+    db.session.commit()
+    
+    return jsonify({"message": f"Pipeline shared with {recipient.username}"})
+
+@main.route('/pipelines/share/<int:share_id>', methods=['DELETE'])
+@jwt_required()
+def revoke_share(share_id):
+    current_user_id = int(get_jwt_identity())
+    
+    share = SharedPipeline.query.get(share_id)
+    if not share:
+        return jsonify({"error": "Share record not found"}), 404
+    
+    # Allow deletion if:
+    # 1. I am the owner of the pipeline
+    # 2. I am the recipient (leaving a share)
+    
+    if share.pipeline.user_id == current_user_id or share.user_id == current_user_id:
+        db.session.delete(share)
+        db.session.commit()
+        return jsonify({"message": "Access revoked"})
+    
+    return jsonify({"error": "Unauthorized"}), 403
 
 # --- ADMIN ROUTES ---
 
@@ -210,16 +341,13 @@ def get_admin_stats():
     if not user or not user.is_admin:
         return jsonify({"error": "Unauthorized"}), 403
 
-    # Gather System-Wide Stats
     total_users = User.query.count()
     total_pipelines = Pipeline.query.count()
     active_pipelines = Pipeline.query.filter_by(status='Active').count()
     
-    # Calculate global data processed
     all_users = User.query.all()
     global_bytes = sum(u.total_processed_bytes for u in all_users)
 
-    # Get recent users
     recent_users = []
     for u in User.query.order_by(User.id.desc()).limit(5).all():
         recent_users.append({
@@ -274,7 +402,6 @@ def suspend_user(user_id):
     if not user_to_mod:
         return jsonify({"error": "User not found"}), 404
         
-    # Prevent self-suspension
     if user_to_mod.id == admin.id:
         return jsonify({"error": "Cannot suspend yourself"}), 400
 
@@ -317,26 +444,55 @@ def create_pipeline():
 @jwt_required()
 def get_pipelines():
     current_user_id = int(get_jwt_identity())
+    
+    # 1. My Pipelines
     pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
     output = []
+    
     for p in pipelines:
         output.append({
             "id": p.id,
             "name": p.name,
             "flow": json.loads(p.structure),
             "status": p.status, 
-            "created_at": p.created_at.strftime('%Y-%m-%d %H:%M')
+            "created_at": p.created_at.strftime('%Y-%m-%d %H:%M'),
+            "is_shared": False,
+            "permission": "owner"
         })
+        
+    # 2. Pipelines Shared With Me
+    shares = SharedPipeline.query.filter_by(user_id=current_user_id).all()
+    for share in shares:
+        p = share.pipeline
+        output.append({
+            "id": p.id,
+            "name": f"{p.name} (Shared)",
+            "flow": json.loads(p.structure),
+            "status": p.status,
+            "created_at": p.created_at.strftime('%Y-%m-%d %H:%M'),
+            "is_shared": True,
+            "permission": share.role, # 'viewer' or 'editor'
+            "owner": p.owner.username
+        })
+        
     return jsonify(output)
 
 @main.route('/pipelines/<int:id>', methods=['GET'])
 @jwt_required()
 def get_pipeline(id):
     current_user_id = int(get_jwt_identity())
+    
+    # Check ownership
     pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
-
+    
+    # If not owner, check shares
     if not pipeline:
-        return jsonify({"error": "Pipeline not found"}), 404
+        share = SharedPipeline.query.filter_by(pipeline_id=id, user_id=current_user_id).first()
+        if share:
+            pipeline = share.pipeline
+    
+    if not pipeline:
+        return jsonify({"error": "Pipeline not found or access denied"}), 404
 
     return jsonify({
         "id": pipeline.id,
@@ -349,10 +505,18 @@ def get_pipeline(id):
 @jwt_required()
 def update_pipeline(id):
     current_user_id = int(get_jwt_identity())
+    
+    # Check ownership
     pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
-
+    
+    # If not owner, check if editor
     if not pipeline:
-        return jsonify({"error": "Pipeline not found"}), 404
+        share = SharedPipeline.query.filter_by(pipeline_id=id, user_id=current_user_id).first()
+        if share and share.role == 'editor':
+            pipeline = share.pipeline
+    
+    if not pipeline:
+        return jsonify({"error": "Pipeline not found or read-only access"}), 404
 
     data = request.get_json()
     pipeline.name = data.get('name', pipeline.name)
@@ -368,7 +532,7 @@ def delete_pipeline(id):
     pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
 
     if not pipeline:
-        return jsonify({"error": "Pipeline not found"}), 404
+        return jsonify({"error": "Pipeline not found or unauthorized"}), 404
 
     db.session.delete(pipeline)
     db.session.commit()
@@ -389,10 +553,18 @@ def run_pipeline():
         edges = req_data.get('edges', [])
         pipeline_id = req_data.get('pipelineId') 
 
-        # 1. SET STATUS TO ACTIVE
         if pipeline_id:
+            # Check access rights
             pipeline_entry = Pipeline.query.get(pipeline_id)
-            if pipeline_entry:
+            # Allow run if owner OR shared (viewer/editor)
+            allowed = False
+            if pipeline_entry.user_id == current_user_id:
+                allowed = True
+            else:
+                share = SharedPipeline.query.filter_by(pipeline_id=pipeline_id, user_id=current_user_id).first()
+                if share: allowed = True
+                
+            if allowed and pipeline_entry:
                 pipeline_entry.status = 'Active'
                 db.session.commit()
         
@@ -416,10 +588,9 @@ def run_pipeline():
 
         queue = [n['id'] for n in nodes if in_degree[n['id']] == 0]
         
-        # Maps node_id -> DataFrame
         data_store = {}
         execution_log = []
-        processed_bytes_in_run = 0  # Track data size for this run
+        processed_bytes_in_run = 0
 
         base_dir = os.path.abspath(os.path.dirname(__file__))
         uploads_dir = os.path.join(base_dir, '..', 'uploads')
@@ -435,7 +606,6 @@ def run_pipeline():
             node_data = current_node['data']
             
             try:
-                # --- SOURCE NODES ---
                 if node_type.startswith('source_'):
                     filename = node_data.get('filename')
                     
@@ -459,7 +629,6 @@ def run_pipeline():
                     data_store[current_id] = df
                     execution_log.append(f"Loaded {filename}: {len(df)} rows")
 
-                # --- 1. FILTER NODE ---
                 elif node_type == 'filterNode':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     if not parent_ids: raise ValueError("Disconnected node")
@@ -477,7 +646,6 @@ def run_pipeline():
                         execution_log.append(f"Filtered {col} {op} {val}: {len(df)} rows")
                     data_store[current_id] = df
 
-                # --- 2. SORT NODE ---
                 elif node_type == 'trans_sort':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -489,7 +657,6 @@ def run_pipeline():
                         execution_log.append(f"Sorted by {col}")
                     data_store[current_id] = df
 
-                # --- 3. SELECT COLUMNS ---
                 elif node_type == 'trans_select':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -501,7 +668,6 @@ def run_pipeline():
                         execution_log.append(f"Selected columns: {target_cols}")
                     data_store[current_id] = df
 
-                # --- 4. RENAME NODE ---
                 elif node_type == 'trans_rename':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -513,7 +679,6 @@ def run_pipeline():
                         execution_log.append(f"Renamed {old} to {new}")
                     data_store[current_id] = df
 
-                # --- 5. DEDUPLICATE NODE ---
                 elif node_type == 'trans_dedupe':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -522,7 +687,6 @@ def run_pipeline():
                     execution_log.append(f"Removed {before - len(df)} duplicates")
                     data_store[current_id] = df
 
-                # --- 6. FILL MISSING ---
                 elif node_type == 'trans_fillna':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -533,11 +697,10 @@ def run_pipeline():
                         df[col] = df[col].fillna(val)
                         execution_log.append(f"Filled missing in {col} with {val}")
                     elif not col:
-                        df = df.fillna(val) # Fill all
+                        df = df.fillna(val) 
                         execution_log.append(f"Filled all missing with {val}")
                     data_store[current_id] = df
 
-                # --- 7. GROUP BY ---
                 elif node_type == 'trans_group':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -554,7 +717,6 @@ def run_pipeline():
                         execution_log.append(f"Grouped {target_col} by {group_col} ({op})")
                     data_store[current_id] = df
 
-                # --- 8. JOIN / MERGE ---
                 elif node_type == 'trans_join':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     if len(parent_ids) < 2:
@@ -572,7 +734,6 @@ def run_pipeline():
                         raise ValueError(f"Join key '{key}' not found in both datasets")
                     data_store[current_id] = df
 
-                # --- 9. CAST (Convert Type) ---
                 elif node_type == 'trans_cast':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -591,7 +752,6 @@ def run_pipeline():
                         execution_log.append(f"Converted {col} to {target_type}")
                     data_store[current_id] = df
 
-                # --- 10. STRING OPS ---
                 elif node_type == 'trans_string':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -606,7 +766,6 @@ def run_pipeline():
                         execution_log.append(f"Applied {op} to {col}")
                     data_store[current_id] = df
 
-                # --- 11. CALC ---
                 elif node_type == 'trans_calc':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -616,7 +775,6 @@ def run_pipeline():
                     newCol = node_data.get('newCol')
 
                     if colA in df.columns and colB in df.columns:
-                        # Ensure numeric
                         valA = pd.to_numeric(df[colA], errors='coerce').fillna(0)
                         valB = pd.to_numeric(df[colB], errors='coerce').fillna(0)
                         
@@ -627,7 +785,6 @@ def run_pipeline():
                         execution_log.append(f"Calculated {newCol} = {colA} {op} {colB}")
                     data_store[current_id] = df
 
-                # --- 12. LIMIT ---
                 elif node_type == 'trans_limit':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -636,7 +793,6 @@ def run_pipeline():
                     execution_log.append(f"Limited to top {limit} rows")
                     data_store[current_id] = df
 
-                # --- 13. CONSTANT ---
                 elif node_type == 'trans_constant':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -648,7 +804,6 @@ def run_pipeline():
                         execution_log.append(f"Added column {colName} with value '{value}'")
                     data_store[current_id] = df
 
-                # --- 14. VISUALIZATION NODE ---
                 elif node_type == 'vis_chart':
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     df = data_store.get(parent_ids[0])
@@ -661,7 +816,7 @@ def run_pipeline():
                     if not output_name.endswith('.png'): output_name += '.png'
                     save_path = os.path.join(processed_dir, output_name)
 
-                    plt.figure(figsize=(10, 6)) # Set chart size
+                    plt.figure(figsize=(10, 6))
                     
                     try:
                         if x_col and x_col in df.columns:
@@ -683,7 +838,7 @@ def run_pipeline():
                                 plt.title(f'{chart_type.title()} Chart: {y_col} vs {x_col}')
                                 plt.xlabel(x_col)
                                 plt.ylabel(y_col)
-                                plt.xticks(rotation=45) # Rotate x labels if messy
+                                plt.xticks(rotation=45)
                             else:
                                 raise ValueError("Y Column missing or invalid")
                         else:
@@ -691,14 +846,11 @@ def run_pipeline():
 
                         plt.tight_layout()
                         plt.savefig(save_path)
-                        plt.close() # Close plot to free memory
+                        plt.close()
                         
                         execution_log.append(f"Generated chart: {output_name}")
-                        
-                        # Pass DataFrame through just in case user connects another node
                         data_store[current_id] = df
                         
-                        # SAVE TO DB (Chart)
                         if os.path.exists(save_path):
                             file_size = os.path.getsize(save_path)
                             processed_bytes_in_run += file_size
@@ -718,7 +870,6 @@ def run_pipeline():
                         plt.close()
                         raise ValueError(f"Chart Error: {str(e)}")
 
-                # --- DESTINATION NODES ---
                 elif node_type.startswith('dest_'):
                     parent_ids = [e['source'] for e in edges if e['target'] == current_id]
                     if not parent_ids: raise ValueError("Destination disconnected")
@@ -730,39 +881,31 @@ def run_pipeline():
                     file_path = ""
                     ftype = 'UNKNOWN'
                     
-                    # 1. Handle CSV
                     if node_type == 'dest_csv':
                         if not output_name.endswith('.csv'): output_name += '.csv'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_csv(file_path, index=False)
                         ftype = 'CSV'
 
-                    # 2. Handle JSON
                     elif node_type == 'dest_json':
                         if not output_name.endswith('.json'): output_name += '.json'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_json(file_path, orient='records')
                         ftype = 'JSON'
 
-                    # 3. Handle Excel
                     elif node_type == 'dest_excel':
                         if not output_name.endswith('.xlsx'): output_name += '.xlsx'
                         file_path = os.path.join(processed_dir, output_name)
                         df_to_save.to_excel(file_path, index=False)
                         ftype = 'Excel'
                     
-                    # 4. Handle Database (SQLite)
                     elif node_type == 'dest_db':
                         if not output_name.endswith('.db'): output_name += '.db'
                         file_path = os.path.join(processed_dir, output_name)
-                        
-                        # Connect to (or create) the SQLite database file
                         with sqlite3.connect(file_path) as conn:
-                            # Save data to a table named 'export_data'
                             df_to_save.to_sql('export_data', conn, if_exists='replace', index=False)
                         ftype = 'Database'
 
-                    # SAVE TO DB (Data File)
                     if os.path.exists(file_path):
                         file_size = os.path.getsize(file_path)
                         processed_bytes_in_run += file_size
@@ -780,24 +923,19 @@ def run_pipeline():
                         db.session.commit()
 
             except Exception as e:
-                # Capture the specific error from the node and send it back
-                # Reset Status on Error
                 if pipeline_entry:
                     pipeline_entry.status = 'Ready'
                     db.session.commit()
                 return jsonify({"error": f"Node '{node_data.get('label', node_type)}' Error: {str(e)}", "logs": execution_log}), 500
 
-            # Add children
             if current_id in adj_list:
                 for child_id in adj_list[current_id]:
                     queue.append(child_id)
         
-        # --- Update User Stats ---
         if processed_bytes_in_run > 0:
             user.total_processed_bytes += processed_bytes_in_run
             db.session.commit()
 
-        # 2. SET STATUS BACK TO READY (Success)
         if pipeline_entry:
             pipeline_entry.status = 'Ready'
             db.session.commit()
@@ -808,7 +946,6 @@ def run_pipeline():
         })
 
     except Exception as e:
-        # 3. SET STATUS BACK TO READY (General Error)
         if pipeline_entry:
             pipeline_entry.status = 'Ready'
             db.session.commit()
@@ -900,12 +1037,10 @@ def delete_datasource(id):
 def get_processed_files():
     current_user_id = int(get_jwt_identity())
     
-    # Fetch from DB instead of File System
     files = ProcessedFile.query.filter_by(user_id=current_user_id).order_by(ProcessedFile.created_at.desc()).all()
 
     output = []
     for f in files:
-        # Check if file exists on disk
         if os.path.exists(f.filepath):
             output.append({
                 "id": f.id, 
@@ -933,11 +1068,9 @@ def delete_processed_file(id):
     if not file_entry:
         return jsonify({"error": "File not found"}), 404
 
-    # Remove from Disk
     if os.path.exists(file_entry.filepath):
         os.remove(file_entry.filepath)
     
-    # Remove from DB
     db.session.delete(file_entry)
     db.session.commit()
 

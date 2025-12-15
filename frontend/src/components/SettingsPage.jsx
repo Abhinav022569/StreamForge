@@ -110,6 +110,7 @@ const SettingsPage = () => {
         <nav className="sidebar-nav">
           <div className="sidebar-item" onClick={() => navigate('/dashboard')}><span>🏠</span> Overview</div>
           <div className="sidebar-item" onClick={() => navigate('/pipelines')}><span>🚀</span> All Pipelines</div>
+          <div className="sidebar-item" onClick={() => navigate('/collaboration')}><span>🤝</span> Collaboration</div>
           <div className="sidebar-item" onClick={() => navigate('/datasources')}><span>🗄️</span> Data Sources</div>
           <div className="sidebar-item" onClick={() => navigate('/processed')}><span>📦</span> Processed Data</div>
           <div className="sidebar-item active"><span>⚙️</span> Settings</div>

@@ -71,6 +71,7 @@ const AllPipelines = () => {
         <nav className="sidebar-nav">
           <SidebarItem label="Overview" icon="🏠" onClick={() => navigate('/dashboard')} />
           <SidebarItem label="All Pipelines" icon="🚀" active /> 
+          <SidebarItem label="Collaboration" icon="🤝" onClick={() => navigate('/collaboration')} />
           <SidebarItem label="Data Sources" icon="🗄️" onClick={()=> navigate('/datasources')} />
           <SidebarItem label="Processed Data" icon="📦" onClick={() => navigate('/processed')} />
           <SidebarItem label="Settings" icon="⚙️" onClick={() => navigate('/settings')}/>
