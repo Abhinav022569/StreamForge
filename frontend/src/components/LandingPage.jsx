@@ -31,11 +31,14 @@ const LandingPage = () => {
         {/* 1. NAVBAR */}
         <nav className="landing-nav" style={{ borderBottom: '1px solid rgba(16, 185, 129, 0.1)' }}>
           <div className="landing-logo" onClick={() => navigate('/')}>
-            <img 
+            {/* ANIMATED LOGO */}
+            <motion.img 
               src={logo} 
               alt="StreamForge Logo" 
               className="landing-logo-img"
               style={{ boxShadow: '0 0 10px rgba(16,185,129,0.4)' }}
+              whileHover={{ rotate: 360, scale: 1.1 }}
+              transition={{ duration: 0.8 }}
             />
             StreamForge
           </div>
