@@ -17,7 +17,12 @@ import {
   FileText,
   FileSpreadsheet,
   FileJson,
-  Image as ImageIcon
+  Image as ImageIcon,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 import '../App.css'; 
@@ -26,6 +31,15 @@ const ProcessedData = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState({ username: 'User' });
   const [processedFiles, setProcessedFiles] = useState([]); 
+
+  // --- NEW: Notification & Modal State ---
+  const [notification, setNotification] = useState(null);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, fileName: '' });
+
+  const showToast = (message, type = 'success') => {
+      setNotification({ message, type });
+      setTimeout(() => setNotification(null), 4000);
+  };
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -42,6 +56,7 @@ const ProcessedData = () => {
             setProcessedFiles(res.data);
         } catch (err) {
             console.error("Error fetching processed files:", err);
+            showToast("Failed to load files", "error");
         }
     };
     fetchProcessedFiles();
@@ -54,20 +69,29 @@ const ProcessedData = () => {
   };
 
   const handleDownload = (fileName) => {
+    showToast("Download started...", "info");
     window.open(`http://127.0.0.1:5000/download/processed/${fileName}`, '_blank');
   };
 
-  const handleDelete = async (id, fileName) => {
-    if(window.confirm(`Are you sure you want to delete ${fileName}?`)) {
-        try {
-            const token = localStorage.getItem('token');
-            await axios.delete(`http://127.0.0.1:5000/processed-files/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setProcessedFiles(processedFiles.filter(f => f.id !== id));
-        } catch (err) {
-            alert("Failed to delete file");
-        }
+  // 1. Open Modal
+  const initiateDelete = (id, fileName) => {
+      setDeleteModal({ isOpen: true, id, fileName });
+  };
+
+  // 2. Perform Delete
+  const confirmDelete = async () => {
+    const { id } = deleteModal;
+    try {
+        const token = localStorage.getItem('token');
+        await axios.delete(`http://127.0.0.1:5000/processed-files/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        setProcessedFiles(processedFiles.filter(f => f.id !== id));
+        showToast("File deleted successfully", "success");
+    } catch (err) {
+        showToast("Failed to delete file", "error");
+    } finally {
+        setDeleteModal({ isOpen: false, id: null, fileName: '' });
     }
   };
 
@@ -90,14 +114,111 @@ const ProcessedData = () => {
     visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
   };
 
+  // --- HELPER: Toast Component ---
+  const ToastNotification = () => (
+    <AnimatePresence>
+        {notification && (
+            <motion.div 
+                initial={{ opacity: 0, y: -50, x: '-50%' }} 
+                animate={{ opacity: 1, y: 20, x: '-50%' }} 
+                exit={{ opacity: 0, y: -20, x: '-50%' }}
+                style={{
+                    position: 'fixed', left: '50%', top: 0, zIndex: 2000,
+                    background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 
+                                notification.type === 'info' ? 'rgba(59, 130, 246, 0.9)' : 
+                                'rgba(16, 185, 129, 0.9)',
+                    color: 'white', padding: '12px 24px', borderRadius: '50px',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center'
+                }}
+            >
+                {notification.type === 'error' ? <AlertCircle size={20} /> : 
+                 notification.type === 'info' ? <Info size={20} /> :
+                 <CheckCircle2 size={20} />}
+                <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
+                <button 
+                    onClick={() => setNotification(null)}
+                    style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
+                >
+                    <X size={16} />
+                </button>
+            </motion.div>
+        )}
+    </AnimatePresence>
+  );
+
   return (
     <div className="app-container" style={{ background: '#0f1115', position: 'relative', overflow: 'hidden', height: '100vh', display: 'flex' }}>
       
+      {/* Toast Notification */}
+      <ToastNotification />
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteModal.isOpen && (
+            <motion.div 
+                style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
+                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+                <motion.div 
+                    style={{
+                        width: '400px', background: '#18181b', 
+                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
+                        padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    }}
+                    initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px' }}>
+                        <div style={{ 
+                            width: '60px', height: '60px', borderRadius: '50%', 
+                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                            <AlertTriangle size={32} />
+                        </div>
+                        
+                        <h3 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Delete Output File?</h3>
+                        
+                        <p style={{ margin: 0, color: '#a1a1aa', fontSize: '14px', lineHeight: '1.5' }}>
+                            Are you sure you want to delete <b style={{ color: 'white' }}>"{deleteModal.fileName}"</b>? 
+                            <br/>This action cannot be undone.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '10px' }}>
+                            <button 
+                                onClick={() => setDeleteModal({ isOpen: false, id: null, fileName: '' })}
+                                className="btn btn-ghost"
+                                style={{ flex: 1, justifyContent: 'center' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={confirmDelete}
+                                className="btn"
+                                style={{ 
+                                    flex: 1, justifyContent: 'center', 
+                                    background: '#ef4444', color: 'white', border: 'none', fontWeight: '600' 
+                                }}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Background Decor */}
       <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
       <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
 
-      {/* 1. SIDEBAR - NON-SCROLLABLE */}
+      {/* 1. SIDEBAR */}
       <motion.aside 
         className="sidebar"
         initial={{ x: -20, opacity: 0 }}
@@ -291,7 +412,7 @@ const ProcessedData = () => {
                                     <Download size={14} /> Download
                                 </motion.button>
                                 <motion.button 
-                                    onClick={() => handleDelete(file.id, file.name)}
+                                    onClick={() => initiateDelete(file.id, file.name)}
                                     className="btn btn-ghost" 
                                     style={{ 
                                         padding: '6px 12px', fontSize: '12px', 

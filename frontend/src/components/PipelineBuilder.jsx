@@ -22,7 +22,8 @@ import {
   Loader2, 
   AlertCircle, 
   CheckCircle2,
-  X
+  X,
+  Info
 } from 'lucide-react';
 
 import Sidebar from './Sidebar';
@@ -58,6 +59,15 @@ const PipelineBuilderContent = () => {
     const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
     const isLoadedRef = useRef(false);
+
+    // --- NEW: Notification State ---
+    const [notification, setNotification] = useState(null); // { message, type: 'success' | 'error' | 'info' }
+
+    const showToast = (message, type = 'success') => {
+        setNotification({ message, type });
+        // Auto-dismiss after 4 seconds
+        setTimeout(() => setNotification(null), 4000);
+    };
 
     // --- REGISTER NODE TYPES ---
     const nodeTypes = useMemo(() => ({ 
@@ -95,7 +105,7 @@ const PipelineBuilderContent = () => {
             })
             .catch(err => {
                 console.error("Error loading pipeline:", err);
-                alert("Could not load pipeline.");
+                showToast("Could not load pipeline.", "error");
                 isLoadedRef.current = true; 
             });
         } else {
@@ -150,7 +160,6 @@ const PipelineBuilderContent = () => {
             });
 
             let defaultData = { label: label };
-            // (Keep existing logic for default data...)
             if (type.includes('source')) defaultData.fileType = type.split('_')[1]?.toUpperCase() || 'CSV';
             if (type.includes('dest')) defaultData.destinationType = type.split('_')[1]?.toUpperCase() || 'DB';
             if (type === 'filterNode') { defaultData.column = ''; defaultData.condition = '>'; defaultData.value = ''; }
@@ -180,13 +189,12 @@ const PipelineBuilderContent = () => {
             
             const res = await method(url, payload, { headers: { Authorization: `Bearer ${token}` } });
             
-            // Replaced alert with custom UI logic or just console for now to keep it clean
-            alert(id ? 'Pipeline Updated!' : 'Pipeline Created! ID: ' + res.data.id);
+            showToast(id ? 'Pipeline Updated Successfully!' : 'Pipeline Created Successfully!', 'success');
             setIsDirty(false); 
             if (!id) navigate(`/builder/${res.data.id}`);
 
         } catch (error) {
-            alert('Error saving pipeline: ' + (error.response?.data?.msg || error.message));
+            showToast('Error saving pipeline: ' + (error.response?.data?.msg || error.message), 'error');
         }
     };
 
@@ -199,6 +207,7 @@ const PipelineBuilderContent = () => {
         document.body.appendChild(downloadAnchorNode);
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
+        showToast("Pipeline exported to JSON", 'info');
     };
 
     const handleImportClick = () => { fileInputRef.current.click(); };
@@ -216,10 +225,11 @@ const PipelineBuilderContent = () => {
                     setEdges(importedEdges);
                     if (json.name) setPipelineName(json.name);
                     setIsDirty(true);
+                    showToast("Pipeline imported successfully!", 'success');
                 } else {
-                    alert("Invalid JSON format");
+                    showToast("Invalid JSON format", 'error');
                 }
-            } catch (err) { alert("Failed to parse JSON file."); }
+            } catch (err) { showToast("Failed to parse JSON file.", 'error'); }
         };
         reader.readAsText(file);
         event.target.value = null;
@@ -246,10 +256,11 @@ const PipelineBuilderContent = () => {
         setPipelineName(template.name);
         setIsDirty(true);
         setShowTemplateModal(false);
+        showToast(`Template '${template.name}' loaded`, 'success');
     };
 
     const handleRun = async () => {
-        if (nodes.length === 0) { alert("Canvas is empty."); return; }
+        if (nodes.length === 0) { showToast("Canvas is empty.", 'error'); return; }
         setIsRunning(true);
         try {
             const payload = {
@@ -261,20 +272,57 @@ const PipelineBuilderContent = () => {
             const res = await axios.post('http://127.0.0.1:5000/run-pipeline', payload, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
-            const logs = res.data.logs && res.data.logs.length > 0 ? res.data.logs.join('\n') : "Pipeline finished successfully.";
-            alert(`✅ Success!\n\n${logs}`);
+            // Detailed logs can still be viewed in console or a separate logs panel if needed
+            console.log(res.data.logs); 
+            showToast("Pipeline executed successfully!", 'success');
         } catch (error) {
             let errMsg = error.response?.data?.error || error.message;
-            if (error.response?.data?.logs) errMsg += `\n\nLogs:\n${error.response.data.logs.join('\n')}`;
-            alert(`❌ Execution Failed:\n${errMsg}`);
+            showToast(`Execution Failed: ${errMsg}`, 'error');
         } finally {
             setIsRunning(false);
         }
     };
 
+    // --- HELPER: Toast Component ---
+    const ToastNotification = () => (
+        <AnimatePresence>
+            {notification && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -50, x: '-50%' }} 
+                    animate={{ opacity: 1, y: 20, x: '-50%' }} 
+                    exit={{ opacity: 0, y: -20, x: '-50%' }}
+                    style={{
+                        position: 'fixed', left: '50%', top: 0, zIndex: 2000,
+                        background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 
+                                    notification.type === 'info' ? 'rgba(59, 130, 246, 0.9)' : 
+                                    'rgba(16, 185, 129, 0.9)',
+                        color: 'white', padding: '12px 24px', borderRadius: '50px',
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center'
+                    }}
+                >
+                    {notification.type === 'error' ? <AlertCircle size={20} /> : 
+                     notification.type === 'info' ? <Info size={20} /> :
+                     <CheckCircle2 size={20} />}
+                    <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
+                    <button 
+                        onClick={() => setNotification(null)}
+                        style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
+                    >
+                        <X size={16} />
+                    </button>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+
     return (
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1115' }}>
+        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1115', position: 'relative' }}>
             
+            {/* NOTIFICATION OVERLAY */}
+            <ToastNotification />
+
             <input type="file" accept=".json" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportFile} />
 
             {/* HEADER */}

@@ -16,16 +16,32 @@ import {
   Plus,
   Trash2,
   ExternalLink,
-  Layers
+  Layers,
+  AlertCircle, 
+  CheckCircle2,
+  Info,
+  X,
+  AlertTriangle // Added for the warning modal
 } from 'lucide-react';
 import logo from '../assets/logo.png';
-import '../App.css'; // Import shared styles
+import '../App.css'; 
 
 const AllPipelines = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState({ username: 'User' });
   const [pipelines, setPipelines] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // --- Notification State ---
+  const [notification, setNotification] = useState(null); 
+
+  // --- NEW: Delete Modal State ---
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, name: '' });
+
+  const showToast = (message, type = 'success') => {
+      setNotification({ message, type });
+      setTimeout(() => setNotification(null), 4000);
+  };
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -45,7 +61,10 @@ const AllPipelines = () => {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => setPipelines(res.data))
-    .catch(err => console.error("Error fetching pipelines:", err));
+    .catch(err => {
+        console.error("Error fetching pipelines:", err);
+        showToast("Failed to load pipelines", "error");
+    });
   };
 
   const handleLogout = () => {
@@ -53,20 +72,27 @@ const AllPipelines = () => {
     navigate('/login');
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this pipeline? This cannot be undone.")) {
-        return;
-    }
+  // 1. REPLACEMENT: Instead of window.confirm, open the custom modal
+  const openDeleteModal = (id, name) => {
+      setDeleteModal({ isOpen: true, id, name });
+  };
 
+  // 2. NEW: Actual Delete Logic called by the modal
+  const confirmDelete = async () => {
+    const { id } = deleteModal;
     const token = localStorage.getItem('token');
+    
     try {
         await axios.delete(`http://127.0.0.1:5000/pipelines/${id}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setPipelines(pipelines.filter(p => p.id !== id));
+        showToast("Pipeline deleted successfully", "success");
     } catch (err) {
-        alert("Failed to delete pipeline");
         console.error(err);
+        showToast("Failed to delete pipeline", "error");
+    } finally {
+        setDeleteModal({ isOpen: false, id: null, name: '' });
     }
   };
 
@@ -85,14 +111,110 @@ const AllPipelines = () => {
     visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
   };
 
+  // --- HELPER: Toast Component ---
+  const ToastNotification = () => (
+    <AnimatePresence>
+        {notification && (
+            <motion.div 
+                initial={{ opacity: 0, y: -50, x: '-50%' }} 
+                animate={{ opacity: 1, y: 20, x: '-50%' }} 
+                exit={{ opacity: 0, y: -20, x: '-50%' }}
+                style={{
+                    position: 'fixed', left: '50%', top: 0, zIndex: 2000,
+                    background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 
+                                notification.type === 'info' ? 'rgba(59, 130, 246, 0.9)' : 
+                                'rgba(16, 185, 129, 0.9)',
+                    color: 'white', padding: '12px 24px', borderRadius: '50px',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center'
+                }}
+            >
+                {notification.type === 'error' ? <AlertCircle size={20} /> : 
+                 notification.type === 'info' ? <Info size={20} /> :
+                 <CheckCircle2 size={20} />}
+                <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
+                <button 
+                    onClick={() => setNotification(null)}
+                    style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
+                >
+                    <X size={16} />
+                </button>
+            </motion.div>
+        )}
+    </AnimatePresence>
+  );
+
   return (
     <div className="app-container" style={{ background: '#0f1115', position: 'relative', overflow: 'hidden' }}>
       
+      <ToastNotification />
+
+      {/* 3. NEW: Custom Delete Modal Overlay */}
+      <AnimatePresence>
+        {deleteModal.isOpen && (
+            <motion.div 
+                style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
+                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+                <motion.div 
+                    style={{
+                        width: '400px', background: '#18181b', 
+                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
+                        padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    }}
+                    initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px' }}>
+                        <div style={{ 
+                            width: '60px', height: '60px', borderRadius: '50%', 
+                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                            <AlertTriangle size={32} />
+                        </div>
+                        
+                        <h3 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Delete Pipeline?</h3>
+                        
+                        <p style={{ margin: 0, color: '#a1a1aa', fontSize: '14px', lineHeight: '1.5' }}>
+                            Are you sure you want to delete <b style={{ color: 'white' }}>"{deleteModal.name}"</b>? 
+                            <br/>This action cannot be undone.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '10px' }}>
+                            <button 
+                                onClick={() => setDeleteModal({ isOpen: false, id: null, name: '' })}
+                                className="btn btn-ghost"
+                                style={{ flex: 1, justifyContent: 'center' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={confirmDelete}
+                                className="btn"
+                                style={{ 
+                                    flex: 1, justifyContent: 'center', 
+                                    background: '#ef4444', color: 'white', border: 'none', fontWeight: '600' 
+                                }}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Background Decor */}
       <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
       <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
 
-      {/* 1. SIDEBAR (Exact Match to Dashboard) */}
+      {/* 1. SIDEBAR */}
       <motion.aside 
         className="sidebar"
         initial={{ x: -20, opacity: 0 }}
@@ -125,7 +247,7 @@ const AllPipelines = () => {
             </nav>
         </div>
 
-        {/* BOTTOM SECTION: Grounded Footer */}
+        {/* BOTTOM SECTION */}
         <div style={{ 
             padding: '20px', 
             borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
@@ -190,7 +312,6 @@ const AllPipelines = () => {
           animate="visible"
         >
           
-          {/* Header Row */}
           <motion.div 
             className="flex justify-between items-end" 
             style={{ marginBottom: '30px' }}
@@ -202,7 +323,6 @@ const AllPipelines = () => {
             </div>
             
             <div className="flex gap-15 items-center">
-                {/* Search Input */}
                 <div style={{ position: 'relative' }}>
                   <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
                   <input 
@@ -226,7 +346,6 @@ const AllPipelines = () => {
                   />
                 </div>
 
-                {/* Create Button */}
                 <motion.button 
                   className="btn btn-success" 
                   onClick={() => navigate('/builder')}
@@ -240,7 +359,6 @@ const AllPipelines = () => {
             </div>
           </motion.div>
 
-          {/* Table Card */}
           <motion.div 
             className="card"
             variants={itemVariants}
@@ -313,7 +431,6 @@ const AllPipelines = () => {
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                            {/* OPEN BUTTON */}
                             <motion.button 
                                 className="btn btn-ghost" 
                                 style={{ fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
@@ -324,7 +441,6 @@ const AllPipelines = () => {
                                 <ExternalLink size={12} /> Open
                             </motion.button>
 
-                            {/* DELETE BUTTON */}
                             <motion.button 
                                 className="btn" 
                                 style={{ 
@@ -334,7 +450,7 @@ const AllPipelines = () => {
                                   border: '1px solid rgba(239, 68, 68, 0.2)',
                                   display: 'flex', alignItems: 'center', gap: '4px'
                                 }}
-                                onClick={() => handleDelete(pipe.id)}
+                                onClick={() => openDeleteModal(pipe.id, pipe.name)}
                                 whileHover={{ background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
                                 whileTap={{ scale: 0.95 }}
                             >

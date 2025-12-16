@@ -16,7 +16,12 @@ import {
   FileText,
   Trash2,
   FileSpreadsheet,
-  FileJson
+  FileJson,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 import '../App.css'; 
@@ -26,6 +31,15 @@ const DataSources = () => {
   const [user, setUser] = useState({ username: 'User' });
   const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null); 
+
+  // --- NEW: Notification & Modal State ---
+  const [notification, setNotification] = useState(null);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
+
+  const showToast = (message, type = 'success') => {
+      setNotification({ message, type });
+      setTimeout(() => setNotification(null), 4000);
+  };
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -48,6 +62,7 @@ const DataSources = () => {
       setFiles(res.data);
     } catch (err) {
       console.error("Error fetching files:", err);
+      showToast("Failed to fetch files", "error");
     }
   };
 
@@ -72,11 +87,11 @@ const DataSources = () => {
                 'Authorization': `Bearer ${token}`,
             }
         });
-        alert("Upload Successful!");
+        showToast("Upload Successful!", "success");
         fetchFiles(token); 
     } catch (error) {
         console.error("Upload failed", error);
-        alert("Upload failed. Check console for details.");
+        showToast("Upload failed. Check console for details.", "error");
     }
   };
 
@@ -109,16 +124,25 @@ const DataSources = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if(!window.confirm("Delete this file?")) return;
+  // 1. Open Modal
+  const confirmDelete = (id) => {
+      setDeleteModal({ isOpen: true, id });
+  };
+
+  // 2. Perform Delete
+  const handleDelete = async () => {
+    const { id } = deleteModal;
     const token = localStorage.getItem('token');
     try {
         await axios.delete(`http://127.0.0.1:5000/datasources/${id}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setFiles(files.filter(f => f.id !== id));
+        showToast("File deleted successfully", "success");
     } catch (err) {
-        alert("Delete failed");
+        showToast("Delete failed", "error");
+    } finally {
+        setDeleteModal({ isOpen: false, id: null });
     }
   };
 
@@ -140,14 +164,110 @@ const DataSources = () => {
     visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
   };
 
+  // --- HELPER: Toast Component ---
+  const ToastNotification = () => (
+    <AnimatePresence>
+        {notification && (
+            <motion.div 
+                initial={{ opacity: 0, y: -50, x: '-50%' }} 
+                animate={{ opacity: 1, y: 20, x: '-50%' }} 
+                exit={{ opacity: 0, y: -20, x: '-50%' }}
+                style={{
+                    position: 'fixed', left: '50%', top: 0, zIndex: 2000,
+                    background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 
+                                notification.type === 'info' ? 'rgba(59, 130, 246, 0.9)' : 
+                                'rgba(16, 185, 129, 0.9)',
+                    color: 'white', padding: '12px 24px', borderRadius: '50px',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center'
+                }}
+            >
+                {notification.type === 'error' ? <AlertCircle size={20} /> : 
+                 notification.type === 'info' ? <Info size={20} /> :
+                 <CheckCircle2 size={20} />}
+                <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
+                <button 
+                    onClick={() => setNotification(null)}
+                    style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
+                >
+                    <X size={16} />
+                </button>
+            </motion.div>
+        )}
+    </AnimatePresence>
+  );
+
   return (
     <div className="app-container" style={{ background: '#0f1115', position: 'relative', overflow: 'hidden', height: '100vh', display: 'flex' }}>
       
+      {/* Notifications & Modals */}
+      <ToastNotification />
+
+      <AnimatePresence>
+        {deleteModal.isOpen && (
+            <motion.div 
+                style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
+                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+                <motion.div 
+                    style={{
+                        width: '400px', background: '#18181b', 
+                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
+                        padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    }}
+                    initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px' }}>
+                        <div style={{ 
+                            width: '60px', height: '60px', borderRadius: '50%', 
+                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                            <AlertTriangle size={32} />
+                        </div>
+                        
+                        <h3 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Delete File?</h3>
+                        
+                        <p style={{ margin: 0, color: '#a1a1aa', fontSize: '14px', lineHeight: '1.5' }}>
+                            Are you sure you want to delete this data source? 
+                            <br/>This action cannot be undone.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '10px' }}>
+                            <button 
+                                onClick={() => setDeleteModal({ isOpen: false, id: null })}
+                                className="btn btn-ghost"
+                                style={{ flex: 1, justifyContent: 'center' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleDelete}
+                                className="btn"
+                                style={{ 
+                                    flex: 1, justifyContent: 'center', 
+                                    background: '#ef4444', color: 'white', border: 'none', fontWeight: '600' 
+                                }}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Background Decor */}
       <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
       <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
 
-      {/* 1. SIDEBAR - NON-SCROLLABLE */}
+      {/* 1. SIDEBAR */}
       <motion.aside 
         className="sidebar"
         initial={{ x: -20, opacity: 0 }}
@@ -184,7 +304,7 @@ const DataSources = () => {
             </nav>
         </div>
 
-        {/* BOTTOM SECTION - Grounded */}
+        {/* BOTTOM SECTION */}
         <div style={{ 
             padding: '20px', 
             borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
@@ -350,7 +470,7 @@ const DataSources = () => {
                         <td className="text-muted" style={{ fontSize: '13px' }}>{file.date}</td>
                         <td style={{ textAlign: 'right' }}>
                         <motion.button 
-                            onClick={() => handleDelete(file.id)}
+                            onClick={() => confirmDelete(file.id)}
                             className="btn" 
                             style={{ 
                                 padding: '6px 12px', fontSize: '12px',
