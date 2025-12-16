@@ -755,3 +755,135 @@
   text-transform: uppercase;
   margin-bottom: 10px;
 }
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes float-delayed {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: #10b981; }
+}
+
+/* --- Futuristic Classes --- */
+
+/* Gradient Text for Headlines */
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #10b981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hero Section Animation */
+.landing-hero-content {
+  animation: slideUpFade 1s ease-out forwards;
+}
+
+/* Interactive Glass Cards */
+.landing-glass-card {
+  background: rgba(24, 24, 27, 0.4); /* More transparent */
+  backdrop-filter: blur(16px);       /* Stronger blur */
+  border: 1px solid rgba(16, 185, 129, 0.1); /* Subtle green border */
+  padding: 30px;
+  border-radius: 16px;
+  text-align: left;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Bouncy transition */
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-glass-card:hover {
+  transform: translateY(-10px) scale(1.02);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 10px 40px -10px rgba(16, 185, 129, 0.3); /* Emerald glow */
+  background: rgba(24, 24, 27, 0.6);
+}
+
+/* Add a "shine" effect on hover */
+.landing-glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.landing-glass-card:hover::before {
+  left: 100%;
+}
+
+/* Floating Code Block */
+.code-block-floating {
+  animation: float 6s ease-in-out infinite;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 30px rgba(0,0,0,0.5);
+}
+
+/* Floating Icon Boxes */
+.landing-icon-box {
+  width: 50px; 
+  height: 50px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  margin-bottom: 20px;
+  color: #10b981;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+}
+
+/* CTA Section Glow */
+.landing-cta-card {
+  position: relative;
+  background: radial-gradient(circle at center, rgba(16, 185, 129, 0.1) 0%, rgba(17, 24, 39, 0.9) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  animation: pulse-glow 4s infinite;
+}
+
+/* Typewriter Effect for Hero */
+.typewriter-text {
+  overflow: hidden;
+  border-right: .15em solid #10b981;
+  white-space: nowrap;
+  margin: 0 auto;
+  letter-spacing: .15em;
+  animation: 
+    typing 3.5s steps(40, end),
+    blink-caret .75s step-end infinite;
+}
+
