@@ -11,6 +11,19 @@ import ReactFlow, {
   useReactFlow 
 } from 'reactflow';
 import 'reactflow/dist/style.css'; 
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ArrowLeft, 
+  LayoutTemplate, 
+  Upload, 
+  Download, 
+  Play, 
+  Save, 
+  Loader2, 
+  AlertCircle, 
+  CheckCircle2,
+  X
+} from 'lucide-react';
 
 import Sidebar from './Sidebar';
 
@@ -20,13 +33,12 @@ import SourceNode from './nodes/SourceNode';
 import DestinationNode from './nodes/DestinationNode'; 
 import DeletableEdge from './edges/DeletableEdge';    
 
-// IMPORT ALL TRANSFORMATIONS (Consolidated Import)
+// IMPORT ALL TRANSFORMATIONS
 import { 
     SortNode, SelectNode, RenameNode, DedupeNode, FillNaNode, GroupByNode, JoinNode,
     CastNode, StringNode, CalcNode, LimitNode, ConstantNode, ChartNode 
 } from './nodes/Transformations';
 
-// IMPORT TEMPLATES
 import { TEMPLATES } from '../data/templates';
 
 const initialNodes = [];
@@ -35,7 +47,6 @@ const PipelineBuilderContent = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const reactFlowWrapper = useRef(null);
-    // Reference for the hidden file input
     const fileInputRef = useRef(null);
     const { getNodes, getEdges } = useReactFlow(); 
 
@@ -44,50 +55,27 @@ const PipelineBuilderContent = () => {
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [pipelineName, setPipelineName] = useState("My New Pipeline");
     const [isRunning, setIsRunning] = useState(false); 
-    
-    // NEW: Template Modal State
     const [showTemplateModal, setShowTemplateModal] = useState(false);
-    
-    // NEW: Track unsaved changes
     const [isDirty, setIsDirty] = useState(false);
-    
-    // Ref to track if initial load is complete to prevent false dirty states
     const isLoadedRef = useRef(false);
 
-    // --- 1. REGISTER NODE TYPES ---
+    // --- REGISTER NODE TYPES ---
     const nodeTypes = useMemo(() => ({ 
         filterNode: FilterNode,
         source_csv: SourceNode, source_json: SourceNode, source_excel: SourceNode, sourceNode: SourceNode, 
         dest_db: DestinationNode, dest_csv: DestinationNode, dest_json: DestinationNode, dest_excel: DestinationNode, destinationNode: DestinationNode,
-
-        // TRANSFORMATIONS
-        trans_sort: SortNode,
-        trans_select: SelectNode,
-        trans_rename: RenameNode,
-        trans_dedupe: DedupeNode,
-        trans_fillna: FillNaNode,
-        trans_group: GroupByNode,
-        trans_join: JoinNode,
-        
-        // ADVANCED NODES
-        trans_cast: CastNode,
-        trans_string: StringNode,
-        trans_calc: CalcNode,
-        trans_limit: LimitNode,
-        trans_constant: ConstantNode,
-        
-        // VISUALIZATION
-        vis_chart: ChartNode,
+        trans_sort: SortNode, trans_select: SelectNode, trans_rename: RenameNode, trans_dedupe: DedupeNode,
+        trans_fillna: FillNaNode, trans_group: GroupByNode, trans_join: JoinNode,
+        trans_cast: CastNode, trans_string: StringNode, trans_calc: CalcNode, trans_limit: LimitNode,
+        trans_constant: ConstantNode, vis_chart: ChartNode,
     }), []);
 
-    const edgeTypes = useMemo(() => ({
-        deletableEdge: DeletableEdge
-    }), []);
+    const edgeTypes = useMemo(() => ({ deletableEdge: DeletableEdge }), []);
 
     // Load Data
     useEffect(() => {
         if (id) {
-            isLoadedRef.current = false; // Reset on ID change
+            isLoadedRef.current = false; 
             const token = localStorage.getItem('token');
             axios.get(`http://127.0.0.1:5000/pipelines/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -97,45 +85,30 @@ const PipelineBuilderContent = () => {
                 setPipelineName(name);
                 if (flow) {
                     setNodes(flow.nodes || []);
-                    // Ensure edges from DB also have the correct type
                     const dbEdges = (flow.edges || []).map(edge => ({
                         ...edge,
                         type: 'deletableEdge'
                     }));
                     setEdges(dbEdges);
                 }
-                
-                // Delay enabling dirty tracking to allow ReactFlow to settle initial dimensions
-                setTimeout(() => {
-                    setIsDirty(false);
-                    isLoadedRef.current = true;
-                }, 500);
+                setTimeout(() => { setIsDirty(false); isLoadedRef.current = true; }, 500);
             })
             .catch(err => {
                 console.error("Error loading pipeline:", err);
                 alert("Could not load pipeline.");
-                isLoadedRef.current = true; // Enable anyway so user can retry/edit
+                isLoadedRef.current = true; 
             });
         } else {
-            // New Pipeline
             isLoadedRef.current = true;
         }
     }, [id]);
 
-    // NEW: Handle Browser Reload/Close Warning
     useBeforeUnload(
-        React.useCallback(
-            (e) => {
-                if (isDirty) {
-                    e.preventDefault();
-                    e.returnValue = ''; // Trigger browser warning
-                }
-            },
-            [isDirty]
-        )
+        React.useCallback((e) => {
+            if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+        }, [isDirty])
     );
 
-    // NEW: Handle "Back" Button Click
     const handleBack = () => {
         if (isDirty) {
             if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
@@ -146,7 +119,6 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    // Handlers (Set Dirty to True on changes, guarded by isLoadedRef)
     const onNodesChange = useCallback((changes) => {
         setNodes((nds) => applyNodeChanges(changes, nds));
         if (isLoadedRef.current) setIsDirty(true);
@@ -164,11 +136,9 @@ const PipelineBuilderContent = () => {
 
     const onDragOver = useCallback((event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }, []);
 
-    // --- 2. DROP HANDLER ---
     const onDrop = useCallback(
         (event) => {
             event.preventDefault();
-
             const type = event.dataTransfer.getData('application/reactflow');
             const label = event.dataTransfer.getData('application/label');
 
@@ -179,35 +149,12 @@ const PipelineBuilderContent = () => {
                 y: event.clientY,
             });
 
-            // Default Data
             let defaultData = { label: label };
-
+            // (Keep existing logic for default data...)
             if (type.includes('source')) defaultData.fileType = type.split('_')[1]?.toUpperCase() || 'CSV';
             if (type.includes('dest')) defaultData.destinationType = type.split('_')[1]?.toUpperCase() || 'DB';
             if (type === 'filterNode') { defaultData.column = ''; defaultData.condition = '>'; defaultData.value = ''; }
-
-            // Existing Trans Defaults
-            if (type === 'trans_sort') { defaultData.column = ''; defaultData.order = 'true'; }
-            if (type === 'trans_select') { defaultData.columns = ''; }
-            if (type === 'trans_rename') { defaultData.oldName = ''; defaultData.newName = ''; }
-            if (type === 'trans_fillna') { defaultData.column = ''; defaultData.value = ''; }
-            if (type === 'trans_group') { defaultData.groupCol = ''; defaultData.targetCol = ''; defaultData.operation = 'sum'; }
-            if (type === 'trans_join') { defaultData.key = ''; defaultData.how = 'inner'; }
-
-            // NEW TRANS DEFAULTS
-            if (type === 'trans_cast') { defaultData.column = ''; defaultData.targetType = 'string'; }
-            if (type === 'trans_string') { defaultData.column = ''; defaultData.operation = 'upper'; }
-            if (type === 'trans_calc') { defaultData.colA = ''; defaultData.colB = ''; defaultData.op = '+'; defaultData.newCol = 'Result'; }
-            if (type === 'trans_limit') { defaultData.limit = 100; }
-            if (type === 'trans_constant') { defaultData.colName = 'New_Col'; defaultData.value = 'Value'; }
-            
-            // CHART DEFAULT
-            if (type === 'vis_chart') { 
-                defaultData.chartType = 'bar'; 
-                defaultData.x_col = ''; 
-                defaultData.y_col = '';
-                defaultData.outputName = 'my_chart';
-            }
+            if (type === 'vis_chart') { defaultData.chartType = 'bar'; defaultData.x_col = ''; defaultData.y_col = ''; defaultData.outputName = 'my_chart'; }
 
             const newNode = {
                 id: `${type}_${Date.now()}`, 
@@ -233,8 +180,9 @@ const PipelineBuilderContent = () => {
             
             const res = await method(url, payload, { headers: { Authorization: `Bearer ${token}` } });
             
+            // Replaced alert with custom UI logic or just console for now to keep it clean
             alert(id ? 'Pipeline Updated!' : 'Pipeline Created! ID: ' + res.data.id);
-            setIsDirty(false); // Reset dirty state on save
+            setIsDirty(false); 
             if (!id) navigate(`/builder/${res.data.id}`);
 
         } catch (error) {
@@ -242,21 +190,8 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    const deleteSelected = () => {
-        setNodes((nds) => nds.filter((node) => !node.selected));
-        setEdges((eds) => eds.filter((edge) => !edge.selected));
-        setIsDirty(true);
-    };
-
-    // --- IMPORT / EXPORT HANDLERS ---
-
     const handleExport = () => {
-        const exportData = {
-            name: pipelineName,
-            nodes: nodes,
-            edges: edges
-        };
-        
+        const exportData = { name: pipelineName, nodes: nodes, edges: edges };
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
         const downloadAnchorNode = document.createElement('a');
         downloadAnchorNode.setAttribute("href", dataStr);
@@ -266,64 +201,39 @@ const PipelineBuilderContent = () => {
         downloadAnchorNode.remove();
     };
 
-    const handleImportClick = () => {
-        fileInputRef.current.click();
-    };
+    const handleImportClick = () => { fileInputRef.current.click(); };
 
     const handleImportFile = (event) => {
         const file = event.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
                 const json = JSON.parse(e.target.result);
-                
-                // Basic validation
                 if (json.nodes && Array.isArray(json.nodes)) {
-                    // Update state
                     setNodes(json.nodes);
-                    
-                    // FIX: Force edges to be 'deletableEdge' type
-                    const importedEdges = (json.edges || []).map(edge => ({
-                        ...edge,
-                        type: 'deletableEdge' // <--- THIS LINE ADDS THE CROSS
-                    }));
+                    const importedEdges = (json.edges || []).map(edge => ({ ...edge, type: 'deletableEdge' }));
                     setEdges(importedEdges);
-
                     if (json.name) setPipelineName(json.name);
-                    
                     setIsDirty(true);
-                    alert("Pipeline imported successfully!");
                 } else {
-                    alert("Invalid JSON format: Missing 'nodes' array.");
+                    alert("Invalid JSON format");
                 }
-            } catch (err) {
-                console.error("Error parsing JSON:", err);
-                alert("Failed to parse JSON file.");
-            }
+            } catch (err) { alert("Failed to parse JSON file."); }
         };
         reader.readAsText(file);
-        // Reset so same file can be selected again
         event.target.value = null;
     };
 
-    // --- TEMPLATE HANDLER ---
     const handleLoadTemplate = (template) => {
-        if (nodes.length > 0) {
-            if (!window.confirm("Loading a template will replace your current canvas. Continue?")) return;
-        }
-
-        // Generate unique IDs for the template nodes to avoid conflict on re-import
+        if (nodes.length > 0 && !window.confirm("Loading a template will replace your current canvas. Continue?")) return;
         const idMap = {};
         const timestamp = Date.now();
-        
         const newNodes = template.nodes.map(n => {
             const newId = `${n.id}_${timestamp}`;
             idMap[n.id] = newId;
             return { ...n, id: newId };
         });
-
         const newEdges = template.edges.map(e => ({
             ...e,
             id: `e_${e.source}_${e.target}_${timestamp}`,
@@ -331,7 +241,6 @@ const PipelineBuilderContent = () => {
             target: idMap[e.target],
             type: 'deletableEdge'
         }));
-
         setNodes(newNodes);
         setEdges(newEdges);
         setPipelineName(template.name);
@@ -340,11 +249,7 @@ const PipelineBuilderContent = () => {
     };
 
     const handleRun = async () => {
-        if (nodes.length === 0) {
-            alert("Canvas is empty. Add some nodes first!");
-            return;
-        }
-
+        if (nodes.length === 0) { alert("Canvas is empty."); return; }
         setIsRunning(true);
         try {
             const payload = {
@@ -352,25 +257,15 @@ const PipelineBuilderContent = () => {
                 edges: edges.map(e => ({ source: e.source, target: e.target })),
                 pipelineId: id 
             };
-
             const token = localStorage.getItem('token');
             const res = await axios.post('http://127.0.0.1:5000/run-pipeline', payload, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
-
-            console.log("Run Success:", res.data);
             const logs = res.data.logs && res.data.logs.length > 0 ? res.data.logs.join('\n') : "Pipeline finished successfully.";
             alert(`✅ Success!\n\n${logs}`);
-
         } catch (error) {
-            console.error("Run Error:", error);
-            let errMsg = "Unknown error";
-            if (error.response && error.response.data) {
-                errMsg = error.response.data.error || JSON.stringify(error.response.data);
-                if (error.response.data.logs) errMsg += `\n\nLogs:\n${error.response.data.logs.join('\n')}`;
-            } else if (error.message) {
-                errMsg = error.message;
-            }
+            let errMsg = error.response?.data?.error || error.message;
+            if (error.response?.data?.logs) errMsg += `\n\nLogs:\n${error.response.data.logs.join('\n')}`;
             alert(`❌ Execution Failed:\n${errMsg}`);
         } finally {
             setIsRunning(false);
@@ -380,30 +275,32 @@ const PipelineBuilderContent = () => {
     return (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1115' }}>
             
-            {/* Hidden Input for Import */}
-            <input 
-                type="file" 
-                accept=".json" 
-                ref={fileInputRef} 
-                style={{ display: 'none' }} 
-                onChange={handleImportFile}
-            />
+            <input type="file" accept=".json" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportFile} />
 
             {/* HEADER */}
-            <header style={{ height: '60px', borderBottom: '1px solid #27272a', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
+            <motion.header 
+                style={{ 
+                    height: '60px', 
+                    background: 'rgba(24, 24, 27, 0.8)', 
+                    backdropFilter: 'blur(10px)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px',
+                    zIndex: 10
+                }}
+                initial={{ y: -50 }} animate={{ y: 0 }}
+            >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <button onClick={handleBack} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '5px' }}>← Back</button>
-                    <div style={{ width: '1px', height: '20px', background: '#3f3f46' }}></div>
+                    <motion.button 
+                        onClick={handleBack} 
+                        style={{ background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+                        whileHover={{ color: 'white', x: -3 }}
+                    >
+                        <ArrowLeft size={18} /> Back
+                    </motion.button>
+                    <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }}></div>
                     
-                    {/* PIPELINE NAME BOX (ENCLOSED) */}
-                    <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        background: '#27272a', 
-                        border: '1px solid #3f3f46', 
-                        borderRadius: '6px', 
-                        padding: '4px 12px' 
-                    }}>
+                    {/* PIPELINE NAME INPUT */}
+                    <div style={{ position: 'relative' }}>
                         <input 
                             type="text" 
                             value={pipelineName} 
@@ -412,49 +309,60 @@ const PipelineBuilderContent = () => {
                                 background: 'transparent', 
                                 border: 'none', 
                                 color: 'white', 
-                                fontSize: '14px', 
+                                fontSize: '16px', 
                                 fontWeight: '600', 
                                 outline: 'none', 
-                                width: '250px' 
+                                width: '300px' 
                             }} 
                         />
-                        {isDirty && <span style={{ fontSize: '12px', color: '#fbbf24', marginLeft: '10px' }}>● Unsaved</span>}
+                        {isDirty && (
+                            <span style={{ 
+                                position: 'absolute', right: '-80px', top: '50%', transform: 'translateY(-50%)',
+                                fontSize: '11px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' 
+                            }}>
+                                <AlertCircle size={10} /> Unsaved
+                            </span>
+                        )}
                     </div>
-
                 </div>
+
                 <div style={{ display: 'flex', gap: '10px' }}>
+                    <ActionButton icon={<LayoutTemplate size={16}/>} label="Templates" onClick={() => setShowTemplateModal(true)} />
+                    <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)', alignSelf: 'center' }}></div>
+                    <ActionButton icon={<Upload size={16}/>} label="Import" onClick={handleImportClick} />
+                    <ActionButton icon={<Download size={16}/>} label="Export" onClick={handleExport} />
                     
-                    {/* NEW: Templates Button */}
-                    <button 
-                        onClick={() => setShowTemplateModal(true)} 
-                        style={{ background: '#27272a', border: '1px solid #3f3f46', color: '#60a5fa', padding: '8px 16px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer', display: 'flex', gap: '5px' }}
-                        title="Load from Template"
+                    <motion.button 
+                        onClick={handleRun} 
+                        disabled={isRunning} 
+                        className="btn" 
+                        style={{ 
+                            padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', 
+                            background: isRunning ? 'rgba(16, 185, 129, 0.2)' : '#10b981', 
+                            color: isRunning ? '#a1a1aa' : 'black', fontWeight: '600',
+                            border: 'none', cursor: isRunning ? 'not-allowed' : 'pointer', borderRadius: '6px'
+                        }}
+                        whileHover={!isRunning ? { scale: 1.05 } : {}}
+                        whileTap={!isRunning ? { scale: 0.95 } : {}}
                     >
-                        📋 Templates
-                    </button>
+                        {isRunning ? <Loader2 size={16} className="spin" /> : <Play size={16} fill="black" />}
+                        {isRunning ? 'Running...' : 'Run'}
+                    </motion.button>
 
-                    <div style={{ width: '1px', height: '20px', background: '#3f3f46', alignSelf: 'center' }}></div>
-
-                    {/* Import/Export Buttons */}
-                    <button 
-                        onClick={handleImportClick} 
-                        style={{ background: '#27272a', border: '1px solid #3f3f46', color: '#fff', padding: '8px 16px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer' }}
-                        title="Import JSON pipeline file"
+                    <motion.button 
+                        className="btn" 
+                        onClick={savePipeline} 
+                        style={{ 
+                            padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', 
+                            background: '#3b82f6', color: 'white', fontWeight: '600',
+                            border: 'none', cursor: 'pointer', borderRadius: '6px'
+                        }}
+                        whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     >
-                        📥 Import
-                    </button>
-                    <button 
-                        onClick={handleExport} 
-                        style={{ background: '#27272a', border: '1px solid #3f3f46', color: '#fff', padding: '8px 16px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer' }}
-                        title="Export pipeline to JSON"
-                    >
-                        📤 Export
-                    </button>
-
-                    <button onClick={handleRun} disabled={isRunning} className="btn btn-success" style={{ padding: '8px 16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '5px', opacity: isRunning ? 0.7 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>{isRunning ? '⏳ Running...' : '▶ Run Pipeline'}</button>
-                    <button className="btn btn-primary" onClick={savePipeline} style={{ padding: '8px 16px', fontSize: '14px' }}>💾 {id ? 'Update' : 'Save'}</button>
+                        <Save size={16} /> Save
+                    </motion.button>
                 </div>
-            </header>
+            </motion.header>
 
             {/* WORKSPACE */}
             <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
@@ -464,63 +372,91 @@ const PipelineBuilderContent = () => {
                         nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
                         nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={setReactFlowInstance} onDrop={onDrop} onDragOver={onDragOver}
                         fitView deleteKeyCode={['Backspace', 'Delete']}
+                        proOptions={{ hideAttribution: true }}
                     >
-                        <Background color="#3f3f46" gap={20} size={1} />
-                        <Controls style={{ fill: '#fff' }} />
+                        <Background color="#27272a" gap={25} size={1} />
+                        <Controls style={{ background: '#27272a', border: '1px solid rgba(255,255,255,0.1)', fill: 'white' }} />
                     </ReactFlow>
                 </div>
             </div>
 
             {/* TEMPLATE GALLERY MODAL */}
+            <AnimatePresence>
             {showTemplateModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
-                    zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center'
-                }}>
-                    <div style={{
-                        width: '800px', maxHeight: '80vh', backgroundColor: '#18181b',
-                        border: '1px solid #3f3f46', borderRadius: '12px', padding: '24px',
-                        display: 'flex', flexDirection: 'column', overflow: 'hidden'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Pipeline Templates</h2>
-                            <button onClick={() => setShowTemplateModal(false)} style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
+                <motion.div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
+                        zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center'
+                    }}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                >
+                    <motion.div 
+                        style={{
+                            width: '800px', maxHeight: '80vh', backgroundColor: '#18181b',
+                            border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '30px',
+                            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                        }}
+                        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+                            <h2 style={{ margin: 0, color: 'white', fontSize: '22px' }}>Pipeline Templates</h2>
+                            <button onClick={() => setShowTemplateModal(false)} style={{ background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}><X size={24} /></button>
                         </div>
 
-                        <div style={{ overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', padding: '4px' }}>
+                        <div style={{ overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', padding: '5px' }}>
                             {TEMPLATES.map(tpl => (
-                                <div 
+                                <motion.div 
                                     key={tpl.id} 
                                     onClick={() => handleLoadTemplate(tpl)}
                                     style={{
-                                        backgroundColor: '#27272a', border: '1px solid #3f3f46', borderRadius: '8px', padding: '16px',
-                                        cursor: 'pointer', transition: 'all 0.2s'
+                                        backgroundColor: 'rgba(255,255,255,0.03)', 
+                                        border: '1px solid rgba(255,255,255,0.05)', 
+                                        borderRadius: '12px', padding: '20px',
+                                        cursor: 'pointer'
                                     }}
-                                    className="template-card"
-                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#60a5fa'; e.currentTarget.style.backgroundColor = '#3f3f46'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#3f3f46'; e.currentTarget.style.backgroundColor = '#27272a'; }}
+                                    whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.06)', borderColor: '#3b82f6' }}
+                                    whileTap={{ scale: 0.98 }}
                                 >
-                                    <h3 style={{ margin: '0 0 8px 0', color: 'white', fontSize: '16px' }}>{tpl.name}</h3>
-                                    <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px', lineHeight: '1.4' }}>{tpl.description}</p>
-                                    <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                                        {tpl.nodes.slice(0, 3).map((n, i) => (
-                                            <span key={i} style={{ fontSize: '10px', background: '#52525b', padding: '2px 6px', borderRadius: '4px', color: '#e4e4e7' }}>
-                                                {n.type.replace('trans_', '').replace('source_', '').replace('dest_', '')}
+                                    <h3 style={{ margin: '0 0 8px 0', color: 'white', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {tpl.name}
+                                    </h3>
+                                    <p style={{ margin: 0, color: '#a1a1aa', fontSize: '13px', lineHeight: '1.5' }}>{tpl.description}</p>
+                                    <div style={{ marginTop: '15px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        {tpl.nodes.slice(0, 4).map((n, i) => (
+                                            <span key={i} style={{ fontSize: '10px', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px', color: '#e4e4e7' }}>
+                                                {n.type.split('_')[1] || n.type}
                                             </span>
                                         ))}
-                                        {tpl.nodes.length > 3 && <span style={{ fontSize: '10px', color: '#9ca3af' }}>+{tpl.nodes.length - 3} more</span>}
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
         </div>
     );
 };
+
+// Helper Component for Header Buttons
+const ActionButton = ({ icon, label, onClick }) => (
+    <motion.button 
+        onClick={onClick}
+        style={{ 
+            background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#d4d4d8', 
+            padding: '8px 12px', fontSize: '13px', borderRadius: '6px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '6px'
+        }}
+        whileHover={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+        whileTap={{ scale: 0.95 }}
+    >
+        {icon} {label}
+    </motion.button>
+);
 
 const PipelineBuilder = () => (<ReactFlowProvider><PipelineBuilderContent /></ReactFlowProvider>);
 export default PipelineBuilder;

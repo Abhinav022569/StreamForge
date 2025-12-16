@@ -1,5 +1,11 @@
 import React from 'react';
-import '../App.css'; // Import shared styles
+import { 
+  FileText, FileJson, FileSpreadsheet, 
+  Filter, ArrowUpDown, MousePointerClick, Tag, Scissors, Sparkles, Sigma, Link, 
+  RefreshCw, Type, Calculator, ListMinus, PlusSquare, 
+  BarChart3, Database, Save 
+} from 'lucide-react';
+import '../App.css'; 
 
 export default () => {
   const onDragStart = (event, nodeType, label) => {
@@ -9,124 +15,88 @@ export default () => {
   };
 
   return (
-    <aside className="sidebar scrollable">
+    <aside className="sidebar scrollable" style={{ 
+        width: '240px', 
+        background: 'rgba(24, 24, 27, 0.6)', 
+        backdropFilter: 'blur(12px)',
+        borderRight: '1px solid rgba(255, 255, 255, 0.05)',
+        padding: '20px',
+        overflowY: 'auto'
+    }}>
       
       {/* Title */}
-      <div className="sidebar-title-section">
-        <h3 className="sidebar-title">Toolbox</h3>
-        <p className="sidebar-subtitle">Drag nodes to the canvas</p>
+      <div className="sidebar-title-section" style={{ marginBottom: '25px' }}>
+        <h3 className="sidebar-title" style={{ fontSize: '16px', color: 'white', fontWeight: '700' }}>Toolbox</h3>
+        <p className="sidebar-subtitle" style={{ fontSize: '12px', color: '#a1a1aa' }}>Drag nodes to the canvas</p>
       </div>
 
       {/* 1. Source Nodes */}
       <div className="sidebar-section">
         <p className="sidebar-section-label">Sources</p>
-        
-        <div className="sidebar-tool csv" draggable onDragStart={(event) => onDragStart(event, 'source_csv', 'Source: CSV')}>
-          <span style={{ fontSize: '16px' }}>📄</span> CSV Source
-        </div>
-        <div className="sidebar-tool json" draggable onDragStart={(event) => onDragStart(event, 'source_json', 'Source: JSON')}>
-          <span style={{ fontSize: '16px' }}>{`{}`}</span> JSON Source
-        </div>
-        <div className="sidebar-tool excel" draggable onDragStart={(event) => onDragStart(event, 'source_excel', 'Source: Excel')}>
-          <span style={{ fontSize: '16px' }}>📊</span> Excel Source
-        </div>
+        <ToolItem type="source_csv" label="CSV Source" icon={<FileText size={16} />} color="#10b981" onDragStart={onDragStart} />
+        <ToolItem type="source_json" label="JSON Source" icon={<FileJson size={16} />} color="#fbbf24" onDragStart={onDragStart} />
+        <ToolItem type="source_excel" label="Excel Source" icon={<FileSpreadsheet size={16} />} color="#16a34a" onDragStart={onDragStart} />
       </div>
 
       {/* 2. Transformation Nodes */}
       <div className="sidebar-section">
         <p className="sidebar-section-label">Transformations</p>
+        <ToolItem type="filterNode" label="Filter Data" icon={<Filter size={16} />} color="#3b82f6" onDragStart={onDragStart} />
+        <ToolItem type="trans_sort" label="Sort Data" icon={<ArrowUpDown size={16} />} color="#f472b6" onDragStart={onDragStart} />
+        <ToolItem type="trans_select" label="Select Cols" icon={<MousePointerClick size={16} />} color="#fbbf24" onDragStart={onDragStart} />
+        <ToolItem type="trans_rename" label="Rename" icon={<Tag size={16} />} color="#c084fc" onDragStart={onDragStart} />
+        <ToolItem type="trans_dedupe" label="Deduplicate" icon={<Scissors size={16} />} color="#2dd4bf" onDragStart={onDragStart} />
+        <ToolItem type="trans_fillna" label="Fill Nulls" icon={<Sparkles size={16} />} color="#a78bfa" onDragStart={onDragStart} />
+        <ToolItem type="trans_group" label="Group By" icon={<Sigma size={16} />} color="#fb7185" onDragStart={onDragStart} />
+        <ToolItem type="trans_join" label="Join" icon={<Link size={16} />} color="#38bdf8" onDragStart={onDragStart} />
         
-        <div className="sidebar-tool filter" draggable onDragStart={(event) => onDragStart(event, 'filterNode', 'Transform: Filter')}>
-          <span style={{ fontSize: '16px' }}>⚡</span> Filter Data
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#f472b6', color: '#f472b6' }} draggable onDragStart={(event) => onDragStart(event, 'trans_sort', 'Sort Data')}>
-          <span style={{ fontSize: '16px' }}>⇅</span> Sort
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#fbbf24', color: '#fbbf24' }} draggable onDragStart={(event) => onDragStart(event, 'trans_select', 'Select Cols')}>
-          <span style={{ fontSize: '16px' }}>🎯</span> Select Cols
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#c084fc', color: '#c084fc' }} draggable onDragStart={(event) => onDragStart(event, 'trans_rename', 'Rename')}>
-          <span style={{ fontSize: '16px' }}>🏷️</span> Rename
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#2dd4bf', color: '#2dd4bf' }} draggable onDragStart={(event) => onDragStart(event, 'trans_dedupe', 'Deduplicate')}>
-          <span style={{ fontSize: '16px' }}>✂️</span> Dedupe
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#a78bfa', color: '#a78bfa' }} draggable onDragStart={(event) => onDragStart(event, 'trans_fillna', 'Fill Missing')}>
-          <span style={{ fontSize: '16px' }}>💊</span> Fill Nulls
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#fb7185', color: '#fb7185' }} draggable onDragStart={(event) => onDragStart(event, 'trans_group', 'Group By')}>
-          <span style={{ fontSize: '16px' }}>∑</span> Group By
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#38bdf8', color: '#38bdf8' }} draggable onDragStart={(event) => onDragStart(event, 'trans_join', 'Join')}>
-          <span style={{ fontSize: '16px' }}>🔗</span> Join
-        </div>
-
-        {/* --- NEW ADVANCED NODES --- */}
-        
-        <div className="sidebar-tool" style={{ borderColor: '#a3e635', color: '#a3e635' }} draggable onDragStart={(event) => onDragStart(event, 'trans_cast', 'Convert Type')}>
-          <span style={{ fontSize: '16px' }}>🔄</span> Convert Type
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#fcd34d', color: '#fcd34d' }} draggable onDragStart={(event) => onDragStart(event, 'trans_string', 'Text Clean')}>
-          <span style={{ fontSize: '16px' }}>🔤</span> Text Clean
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#60a5fa', color: '#60a5fa' }} draggable onDragStart={(event) => onDragStart(event, 'trans_calc', 'Math Formula')}>
-          <span style={{ fontSize: '16px' }}>🧮</span> Math Formula
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#f87171', color: '#f87171' }} draggable onDragStart={(event) => onDragStart(event, 'trans_limit', 'Limit Rows')}>
-          <span style={{ fontSize: '16px' }}>🛑</span> Limit Rows
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#34d399', color: '#34d399' }} draggable onDragStart={(event) => onDragStart(event, 'trans_constant', 'Add Column')}>
-          <span style={{ fontSize: '16px' }}>➕</span> Add Column
-        </div>
-
-        <div className="sidebar-tool" style={{ borderColor: '#34d399', color: '#34d399' }} draggable onDragStart={(event) => onDragStart(event, 'trans_constant', 'Add Column')}>
-          <span style={{ fontSize: '16px' }}>➕</span> Add Column
-        </div>
-
+        {/* Advanced */}
+        <p className="sidebar-section-label" style={{ marginTop: '15px' }}>Advanced</p>
+        <ToolItem type="trans_cast" label="Convert Type" icon={<RefreshCw size={16} />} color="#a3e635" onDragStart={onDragStart} />
+        <ToolItem type="trans_string" label="Text Clean" icon={<Type size={16} />} color="#fcd34d" onDragStart={onDragStart} />
+        <ToolItem type="trans_calc" label="Math Formula" icon={<Calculator size={16} />} color="#60a5fa" onDragStart={onDragStart} />
+        <ToolItem type="trans_limit" label="Limit Rows" icon={<ListMinus size={16} />} color="#f87171" onDragStart={onDragStart} />
+        <ToolItem type="trans_constant" label="Add Column" icon={<PlusSquare size={16} />} color="#34d399" onDragStart={onDragStart} />
       </div>
 
-      {/* 3. Visualization Nodes (NEW SECTION or add to transformations) */}
+      {/* 3. Visualization */}
       <div className="sidebar-section">
         <p className="sidebar-section-label">Visualization</p>
-        
-        <div 
-            className="sidebar-tool" 
-            style={{ borderColor: '#8b5cf6', color: '#8b5cf6' }} 
-            draggable 
-            onDragStart={(event) => onDragStart(event, 'vis_chart', 'Create Chart')}
-        >
-          <span style={{ fontSize: '16px' }}>📊</span> Create Chart
-        </div>
+        <ToolItem type="vis_chart" label="Create Chart" icon={<BarChart3 size={16} />} color="#8b5cf6" onDragStart={onDragStart} />
       </div>
 
-      {/* 4. Destination Nodes */}
+      {/* 4. Destinations */}
       <div className="sidebar-section">
         <p className="sidebar-section-label">Destinations</p>
-        <div className="sidebar-tool db" draggable onDragStart={(event) => onDragStart(event, 'dest_db', 'Save: Database')}>
-          <span style={{ fontSize: '16px' }}>🗄️</span> Save to DB
-        </div>
-        <div className="sidebar-tool csv" draggable onDragStart={(event) => onDragStart(event, 'dest_csv', 'Save: CSV')}>
-          <span style={{ fontSize: '16px' }}>📄</span> Save as CSV
-        </div>
-        <div className="sidebar-tool json" draggable onDragStart={(event) => onDragStart(event, 'dest_json', 'Save: JSON')}>
-          <span style={{ fontSize: '16px' }}>{`{}`}</span> Save as JSON
-        </div>
-        <div className="sidebar-tool excel" draggable onDragStart={(event) => onDragStart(event, 'dest_excel', 'Save: Excel')}>
-          <span style={{ fontSize: '16px' }}>📊</span> Save as Excel
-        </div>
+        <ToolItem type="dest_db" label="Save to DB" icon={<Database size={16} />} color="#a855f7" onDragStart={onDragStart} />
+        <ToolItem type="dest_csv" label="Save as CSV" icon={<FileText size={16} />} color="#94a3b8" onDragStart={onDragStart} />
+        <ToolItem type="dest_json" label="Save as JSON" icon={<FileJson size={16} />} color="#94a3b8" onDragStart={onDragStart} />
+        <ToolItem type="dest_excel" label="Save as Excel" icon={<FileSpreadsheet size={16} />} color="#94a3b8" onDragStart={onDragStart} />
       </div>
 
     </aside>
   );
 };
+
+// Helper Component for Tool Items
+const ToolItem = ({ type, label, icon, color, onDragStart }) => (
+    <div 
+        className="sidebar-tool" 
+        draggable 
+        onDragStart={(event) => onDragStart(event, type, label)}
+        style={{ 
+            display: 'flex', alignItems: 'center', gap: '10px', 
+            padding: '10px 12px', marginBottom: '8px', 
+            background: 'rgba(255,255,255,0.03)', 
+            border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px',
+            cursor: 'grab', color: '#e4e4e7', fontSize: '13px', fontWeight: '500',
+            borderLeft: `3px solid ${color || '#71717a'}`,
+            transition: 'all 0.2s'
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+    >
+        <span style={{ color: color }}>{icon}</span> 
+        {label}
+    </div>
+);
