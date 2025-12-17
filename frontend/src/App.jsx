@@ -12,7 +12,8 @@ import ProcessedData from './components/ProcessedData';
 import AdminDashboard from './components/AdminDashboard';
 import AdminUsers from './components/AdminUsers';
 import SettingsPage from './components/SettingsPage'; 
-import CollaborationPage from './components/CollaborationPage'; // Import new page
+import CollaborationPage from './components/CollaborationPage';
+import PipelineHistory from './components/PipelineHistory'; // Added History Page
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -20,12 +21,10 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   
   if (!token) {
-    // If not logged in, kick them back to the login page
     return <Navigate to="/login" replace />;
   }
 
   if (adminOnly && !user.is_admin) {
-      // If route is admin-only but user is not admin, go to dashboard
       return <Navigate to="/dashboard" replace />;
   }
   
@@ -42,10 +41,9 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/docs" element={<DocumentationPage />} />
         
-        {/* Protected Routes (Require Login) */}
+        {/* Protected Routes */}
         <Route path="/datasources" element={<ProtectedRoute><DataSources /></ProtectedRoute>} />
         
-        {/* 1. The Dashboard (Home for logged-in users) */}
         <Route 
           path="/dashboard" 
           element={
@@ -55,7 +53,6 @@ function App() {
           } 
         />
 
-        {/* 2. All Pipelines List Page */}
         <Route 
           path="/pipelines" 
           element={
@@ -65,7 +62,16 @@ function App() {
           } 
         />
 
-        {/* 3. The Builder (With optional ID parameter for editing) */}
+        {/* Pipeline History Route (New) */}
+        <Route 
+          path="/pipelines/:id/history" 
+          element={
+            <ProtectedRoute>
+              <PipelineHistory />
+            </ProtectedRoute>
+          } 
+        />
+
         <Route 
           path="/builder/:id?" 
           element={
@@ -75,7 +81,6 @@ function App() {
           } 
         />
 
-        {/* 4. Redirect old /app links to the dashboard */}
         <Route path="/app" element={<Navigate to="/dashboard" replace />} />
 
         <Route 
@@ -87,7 +92,6 @@ function App() {
           } 
         />
 
-        {/* COLLABORATION PAGE */}
         <Route 
           path="/collaboration" 
           element={
@@ -97,7 +101,6 @@ function App() {
           } 
         />
 
-        {/* SETTINGS PAGE */}
         <Route 
           path="/settings" 
           element={

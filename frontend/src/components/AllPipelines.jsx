@@ -1,354 +1,126 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search,
-  Plus,
-  Trash2,
-  ExternalLink,
-  Layers,
-  AlertCircle, 
-  CheckCircle2,
-  Info,
-  AlertTriangle 
-} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Edit2, Play, Trash2, Clock, Share2, MoreVertical } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
-import '../App.css'; 
+import '../App.css';
 
 const AllPipelines = () => {
-  const navigate = useNavigate();
-  const [pipelines, setPipelines] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // --- Notification State ---
-  const [notification, setNotification] = useState(null); 
+    const navigate = useNavigate();
+    const [pipelines, setPipelines] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-  // --- NEW: Delete Modal State ---
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, name: '' });
+    useEffect(() => {
+        const fetchPipelines = async () => {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await axios.get('http://127.0.0.1:5000/pipelines', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setPipelines(res.data);
+            } catch (err) {
+                console.error("Error fetching pipelines:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPipelines();
+    }, []);
 
-  const showToast = (message, type = 'success') => {
-      setNotification({ message, type });
-      setTimeout(() => setNotification(null), 4000);
-  };
+    const handleDelete = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this pipeline?")) return;
+        const token = localStorage.getItem('token');
+        try {
+            await axios.delete(`http://127.0.0.1:5000/pipelines/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setPipelines(pipelines.filter(p => p.id !== id));
+        } catch (err) {
+            alert("Failed to delete pipeline");
+        }
+    };
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetchPipelines(token);
-    }
-  }, []);
-
-  const fetchPipelines = (token) => {
-    axios.get('http://127.0.0.1:5000/pipelines', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    .then(res => setPipelines(res.data))
-    .catch(err => {
-        console.error("Error fetching pipelines:", err);
-        showToast("Failed to load pipelines", "error");
-    });
-  };
-
-  const openDeleteModal = (id, name) => {
-      setDeleteModal({ isOpen: true, id, name });
-  };
-
-  const confirmDelete = async () => {
-    const { id } = deleteModal;
-    const token = localStorage.getItem('token');
-    
-    try {
-        await axios.delete(`http://127.0.0.1:5000/pipelines/${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        setPipelines(pipelines.filter(p => p.id !== id));
-        showToast("Pipeline deleted successfully", "success");
-    } catch (err) {
-        console.error(err);
-        showToast("Failed to delete pipeline", "error");
-    } finally {
-        setDeleteModal({ isOpen: false, id: null, name: '' });
-    }
-  };
-
-  const filteredPipelines = pipelines.filter(pipe => 
-    pipe.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // --- Animations ---
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
-  };
-
-  // --- HELPER: Toast Component ---
-  const ToastNotification = () => (
-    <AnimatePresence>
-        {notification && (
-            <motion.div 
-                initial={{ opacity: 0, y: -50, x: '-50%' }} 
-                animate={{ opacity: 1, y: 20, x: '-50%' }} 
-                exit={{ opacity: 0, y: -20, x: '-50%' }}
-                style={{
-                    position: 'fixed', left: '50%', top: 0, zIndex: 2000,
-                    background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 
-                                notification.type === 'info' ? 'rgba(59, 130, 246, 0.9)' : 
-                                'rgba(16, 185, 129, 0.9)',
-                    color: 'white', padding: '12px 24px', borderRadius: '50px',
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center'
-                }}
-            >
-                {notification.type === 'error' ? <AlertCircle size={20} /> : 
-                 notification.type === 'info' ? <Info size={20} /> :
-                 <CheckCircle2 size={20} />}
-                <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
-                <button 
-                    onClick={() => setNotification(null)}
-                    style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
-                >
-                    <X size={16} />
-                </button>
-            </motion.div>
-        )}
-    </AnimatePresence>
-  );
-
-  return (
-    <AppLayout>
-      <ToastNotification />
-
-      {/* Delete Modal Overlay */}
-      <AnimatePresence>
-        {deleteModal.isOpen && (
-            <motion.div 
-                style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
-                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            >
-                <motion.div 
-                    style={{
-                        width: '400px', background: '#18181b', 
-                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
-                        padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                    }}
-                    initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                >
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px' }}>
-                        <div style={{ 
-                            width: '60px', height: '60px', borderRadius: '50%', 
-                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <AlertTriangle size={32} />
-                        </div>
-                        
-                        <h3 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Delete Pipeline?</h3>
-                        
-                        <p style={{ margin: 0, color: '#a1a1aa', fontSize: '14px', lineHeight: '1.5' }}>
-                            Are you sure you want to delete <b style={{ color: 'white' }}>"{deleteModal.name}"</b>? 
-                            <br/>This action cannot be undone.
-                        </p>
-
-                        <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '10px' }}>
-                            <button 
-                                onClick={() => setDeleteModal({ isOpen: false, id: null, name: '' })}
-                                className="btn btn-ghost"
-                                style={{ flex: 1, justifyContent: 'center' }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={confirmDelete}
-                                className="btn"
-                                style={{ 
-                                    flex: 1, justifyContent: 'center', 
-                                    background: '#ef4444', color: 'white', border: 'none', fontWeight: '600' 
-                                }}
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
-            </motion.div>
-        )}
-      </AnimatePresence>
-
-      <motion.div 
-          className="content-wrapper"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          
-          <motion.div 
-            className="flex justify-between items-end" 
-            style={{ marginBottom: '30px' }}
-            variants={itemVariants}
-          >
-            <div>
-              <h1 style={{ fontSize: '32px', marginBottom: '5px', margin: 0, background: 'linear-gradient(90deg, #fff, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>All Pipelines</h1>
-              <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>View and manage all your data workflows.</p>
-            </div>
-            
-            <div className="flex gap-15 items-center">
-                <div style={{ position: 'relative' }}>
-                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa' }} />
-                  <input 
-                      type="text" 
-                      placeholder="Search pipelines..." 
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      style={{
-                        padding: '10px 10px 10px 36px',
-                        background: 'rgba(24, 24, 27, 0.6)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
-                        color: 'white',
-                        fontSize: '14px',
-                        width: '240px',
-                        outline: 'none',
-                        transition: 'border-color 0.2s'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                  />
+    return (
+        <AppLayout>
+            <div className="content-wrapper" style={{ padding: '40px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <h1 style={{ fontSize: '32px', color: '#fff', margin: 0 }}>All Pipelines</h1>
+                    <button 
+                        className="btn btn-success"
+                        onClick={() => navigate('/builder')}
+                    >
+                        + New Pipeline
+                    </button>
                 </div>
 
-                <motion.button 
-                  className="btn btn-success" 
-                  onClick={() => navigate('/builder')}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}
-                  whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(16,185,129,0.4)' }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Plus size={18} />
-                  Create New
-                </motion.button>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            className="card"
-            variants={itemVariants}
-            style={{ 
-                background: 'rgba(24, 24, 27, 0.4)', 
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                overflow: 'hidden'
-            }}
-          >
-            <table className="data-table">
-              <thead>
-                <tr className="table-header">
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Pipeline Name</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>ID</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Nodes</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Status</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence>
-                {filteredPipelines.length === 0 ? (
-                    <tr>
-                        <td colSpan="5" className="text-center text-muted" style={{ padding: '60px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                              <Search size={32} style={{ opacity: 0.2 }} />
-                              <span>No pipelines found matching "{searchTerm}"</span>
-                            </div>
-                        </td>
-                    </tr>
+                {loading ? (
+                    <div className="text-muted">Loading pipelines...</div>
+                ) : pipelines.length === 0 ? (
+                    <div className="text-muted">No pipelines found. Create one to get started.</div>
                 ) : (
-                    filteredPipelines.map((pipe, index) => (
-                    <motion.tr 
-                        key={pipe.id} 
-                        className="table-row"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -10 }}
-                        transition={{ delay: index * 0.05 }}
-                        whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                    >
-                        <td className="font-bold" style={{ color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ background: 'rgba(59,130,246,0.1)', padding: '6px', borderRadius: '6px', color: '#3b82f6' }}>
-                            <Layers size={16} />
-                          </div>
-                          {pipe.name}
-                        </td>
-                        <td className="text-muted" style={{ fontFamily: 'monospace', fontSize: '12px' }}>#{pipe.id}</td>
-                        <td className="text-muted" style={{ fontSize: '13px' }}>
-                            {pipe.flow?.nodes?.length || 0} nodes
-                        </td>
-                        <td>
-                          <span 
-                            className={`status-badge`}
-                            style={{
-                                background: pipe.status === 'Active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(113, 113, 122, 0.2)',
-                                color: pipe.status === 'Active' ? '#10b981' : '#a1a1aa',
-                                border: pipe.status === 'Active' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(113, 113, 122, 0.3)',
-                                padding: '4px 10px', 
-                                borderRadius: '12px', 
-                                fontSize: '11px', 
-                                fontWeight: '600',
-                                boxShadow: pipe.status === 'Active' ? '0 0 10px rgba(16, 185, 129, 0.1)' : 'none'
-                            }}
-                          >
-                            {pipe.status === 'Active' ? '● Active' : '○ Ready'}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                            <motion.button 
-                                className="btn btn-ghost" 
-                                style={{ fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
-                                onClick={() => navigate(`/builder/${pipe.id}`)}
-                                whileHover={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                <ExternalLink size={12} /> Open
-                            </motion.button>
-
-                            <motion.button 
-                                className="btn" 
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                        {pipelines.map((p, i) => (
+                            <motion.div 
+                                key={p.id}
+                                className="card"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.05 }}
                                 style={{ 
-                                  fontSize: '12px', padding: '6px 12px', 
-                                  background: 'rgba(239, 68, 68, 0.1)', 
-                                  color: '#f87171',
-                                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                                  display: 'flex', alignItems: 'center', gap: '4px'
+                                    background: 'rgba(24, 24, 27, 0.6)', 
+                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                    padding: '20px',
+                                    display: 'flex',
+                                    flexDirection: 'column'
                                 }}
-                                onClick={() => openDeleteModal(pipe.id, pipe.name)}
-                                whileHover={{ background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                                whileTap={{ scale: 0.95 }}
                             >
-                                <Trash2 size={12} /> Delete
-                            </motion.button>
-                          </div>
-                        </td>
-                    </motion.tr>
-                    ))
-                )}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          </motion.div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+                                    <h3 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>{p.name}</h3>
+                                    <span className={`status-badge`} style={{
+                                        fontSize: '11px', padding: '2px 8px', borderRadius: '10px',
+                                        background: p.status === 'Active' ? 'rgba(16,185,129,0.2)' : 'rgba(113,113,122,0.2)',
+                                        color: p.status === 'Active' ? '#10b981' : '#a1a1aa'
+                                    }}>
+                                        {p.status}
+                                    </span>
+                                </div>
+                                
+                                <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '20px', flex: 1 }}>
+                                    Created on {p.created_at}
+                                </p>
 
-        </motion.div>
-    </AppLayout>
-  );
+                                <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '15px' }}>
+                                    <button 
+                                        onClick={() => navigate(`/builder/${p.id}`)}
+                                        style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '5px' }}
+                                    >
+                                        <Edit2 size={14} /> Edit
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => navigate(`/pipelines/${p.id}/history`)}
+                                        style={{ padding: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#a1a1aa', cursor: 'pointer' }}
+                                        title="View History"
+                                    >
+                                        <Clock size={16} />
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => handleDelete(p.id)}
+                                        style={{ padding: '8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </AppLayout>
+    );
 };
 
 export default AllPipelines;
