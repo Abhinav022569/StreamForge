@@ -1,49 +1,89 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ArrowUp, ChevronRight, BookOpen, Zap, Layers, Share2 } from 'lucide-react';
 import ParticlesBackground from './ParticlesBackground';
 import logo from '../assets/logo.png';
-import '../App.css'; // Import shared styles
+import '../App.css';
 
 const DocumentationPage = () => {
   const navigate = useNavigate();
+  const [showTopBtn, setShowTopBtn] = useState(false);
 
-  // --- Animation Variants ---
+  // --- Scroll Progress Logic ---
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001
+  });
+
+  // Show "Back to Top" on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) setShowTopBtn(true);
+      else setShowTopBtn(false);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // --- Refined Animation Variants ---
+  // subtler entry for the main container
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.2
+        staggerChildren: 0.1,
+        delayChildren: 0.1,
       }
     }
   };
 
+  // Smoother, shorter distance fade-in for text
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
-  };
-
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 40 },
+    hidden: { opacity: 0, y: 10 },
     visible: { 
       opacity: 1, 
       y: 0, 
-      transition: { duration: 0.6, ease: "easeOut" } 
+      transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } // Custom cubic-bezier for "premium" feel
+    }
+  };
+
+  // Very subtle lift for sections
+  const sectionVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } 
     }
   };
 
   return (
     <ParticlesBackground>
-      <div style={{ minHeight: '100vh', paddingBottom: '50px' }}>
+      <div style={{ minHeight: '100vh', paddingBottom: '50px', position: 'relative' }}>
         
-        {/* 1. STICKY NAVBAR */}
+        {/* 1. SCROLL PROGRESS BAR */}
+        <motion.div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, height: '3px',
+            background: '#10b981', transformOrigin: '0%', scaleX, zIndex: 2000
+          }}
+        />
+
+        {/* 2. STICKY NAVBAR */}
         <motion.nav 
           className="docs-nav"
-          initial={{ y: -100, opacity: 0 }}
+          initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.8, ease: "circOut" }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          style={{ backdropFilter: 'blur(16px)', background: 'rgba(24, 24, 27, 0.8)' }}
         >
              <div 
                 className="flex items-center gap-10 pointer" 
@@ -54,10 +94,11 @@ const DocumentationPage = () => {
                   src={logo} 
                   alt="Logo" 
                   style={{ width: '30px', borderRadius: '4px' }}
-                  whileHover={{ rotate: 360, scale: 1.1 }}
-                  transition={{ duration: 0.8 }}
+                  // Removed the 360 spin; replaced with a subtle scale pulse
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.3 }}
                 />
-                StreamForge Docs
+                StreamForge <span style={{ color: '#10b981' }}>Docs</span>
              </div>
              
              <div className="flex gap-20">
@@ -81,177 +122,355 @@ const DocumentationPage = () => {
              </div>
         </motion.nav>
 
-        {/* 2. MAIN CONTENT CONTAINER */}
-        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 20px' }}>
+        {/* 3. MAIN CONTENT */}
+        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '0 20px' }}>
             
-            {/* Header */}
+            {/* HERO SECTION */}
             <motion.div 
               className="text-center" 
-              style={{ marginBottom: '60px' }}
+              style={{ marginBottom: '80px', marginTop: '60px', position: 'relative' }}
               initial="hidden"
               animate="visible"
               variants={containerVariants}
             >
+                <motion.div variants={itemVariants}>
+                    <span style={{ 
+                        background: 'rgba(16, 185, 129, 0.1)', 
+                        color: '#10b981', 
+                        padding: '6px 16px', 
+                        borderRadius: '20px', 
+                        fontSize: '13px', 
+                        fontWeight: '600',
+                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}>
+                        <BookOpen size={14} /> Official Documentation
+                    </span>
+                </motion.div>
+
                 <motion.h1 
                   className="landing-h1 text-gradient"
                   variants={itemVariants}
+                  style={{ fontSize: '56px', marginTop: '24px', letterSpacing: '-0.02em' }}
                 >
-                    Documentation
+                    Master Your Data Pipelines
                 </motion.h1>
                 <motion.p 
                   className="landing-p"
                   variants={itemVariants}
+                  style={{ maxWidth: '680px', marginTop: '16px' }}
                 >
-                    Build, share, and execute powerful ETL pipelines visually.
+                    A complete guide to building, sharing, and executing powerful ETL workflows visually with StreamForge.
                 </motion.p>
+
+                {/* Scroll Down Indicator */}
+                <motion.div 
+                    variants={itemVariants}
+                    animate={{ y: [0, 8, 0], opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    style={{ marginTop: '50px', display: 'flex', justifyContent: 'center' }}
+                >
+                    <ChevronDown size={28} color="#a1a1aa" />
+                </motion.div>
             </motion.div>
 
-            {/* Section 1: Introduction */}
+            {/* SECTION 1: INTRO */}
             <motion.div 
               className="glass-panel"
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
+              viewport={{ once: true, margin: "-80px" }}
               variants={sectionVariants}
+              style={{ position: 'relative', overflow: 'hidden' }}
             >
-                <h2 className="text-success" style={{ marginBottom: '20px', fontSize: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
-                    1. Introduction
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: '#10b981' }}></div>
+                <h2 className="text-success" style={{ marginBottom: '20px', fontSize: '26px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Zap size={22} /> Introduction
                 </h2>
-                <p className="text-muted" style={{ lineHeight: '1.8', fontSize: '16px' }}>
-                    StreamForge is a visual ETL builder designed for speed and simplicity. It allows you to construct complex data workflows by dragging and dropping nodes onto a canvas. 
-                    Beyond basic filtering, StreamForge now supports <b>Advanced Data Cleaning</b>, <b>Multi-Source Joins</b>, <b>Mathematical Operations</b>, and <b>In-Pipeline Visualization</b>. 
-                    Collaborate with your team by sharing pipelines and manage everything from a centralized dashboard.
+                <p className="text-muted" style={{ lineHeight: '1.8', fontSize: '17px' }}>
+                    StreamForge is a <b>visual ETL builder</b> designed for speed and simplicity. It allows you to construct complex data workflows by dragging and dropping nodes onto a canvas. 
+                    <br/><br/>
+                    Unlike traditional coding, StreamForge handles the heavy lifting of Pandas dataframes behind the scenes, letting you focus on the logic:
+                    <span style={{ color: '#e4e4e7', display: 'block', margin: '20px 0', paddingLeft: '20px', borderLeft: '2px solid #3f3f46', fontStyle: 'italic' }}>
+                        "Extract from Source → Transform with Logic → Load to Destination"
+                    </span>
+                    Now supporting <b>Advanced Data Cleaning</b>, <b>Multi-Source Joins</b>, <b>Mathematical Operations</b>, and <b>In-Pipeline Visualization</b>.
                 </p>
             </motion.div>
 
-            {/* Section 2: Getting Started */}
+            {/* SECTION 2: INTERACTIVE STEPS */}
             <motion.div 
-              className="glass-panel"
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
+              viewport={{ once: true, margin: "-60px" }}
               variants={sectionVariants}
+              style={{ marginBottom: '80px' }}
             >
-                <h2 className="text-success" style={{ marginBottom: '20px', fontSize: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
-                    2. Getting Started
+                <h2 className="text-success" style={{ marginBottom: '40px', fontSize: '28px', textAlign: 'center' }}>
+                    How It Works
                 </h2>
-                <div className="flex-col gap-20">
-                    <Step number="01" title="Create an Account" desc="Sign up to access your dashboard and 500MB of storage." delay={0} />
-                    <Step number="02" title="Create or Use Template" desc="Start from scratch or load a pre-built template like 'Clean & Deduplicate'." delay={0.1} />
-                    <Step number="03" title="Design Flow" desc="Connect Sources -> Transformations -> Destinations. Visual logic made easy." delay={0.2} />
-                    <Step number="04" title="Run & Analyze" desc="Execute the pipeline to generate clean files, databases, and charts." delay={0.3} />
+                
+                <div style={{ position: 'relative', maxWidth: '800px', margin: '0 auto' }}>
+                    {/* Connecting Line */}
+                    <div style={{ 
+                        position: 'absolute', left: '24px', top: '24px', bottom: '24px', width: '2px', 
+                        background: 'linear-gradient(to bottom, #10b981 0%, rgba(16, 185, 129, 0.05) 100%)', 
+                        zIndex: 0 
+                    }}></div>
+
+                    <div className="flex-col gap-20">
+                        <Step 
+                            number="01" 
+                            title="Create or Load" 
+                            desc="Start from scratch or jumpstart with a template like 'Clean & Deduplicate'." 
+                            delay={0} 
+                        />
+                        <Step 
+                            number="02" 
+                            title="Design Visual Flow" 
+                            desc="Drag nodes from the sidebar. Connect Sources -> Transforms -> Destinations." 
+                            delay={0.1} 
+                        />
+                        <Step 
+                            number="03" 
+                            title="Configure Nodes" 
+                            desc="Click any node to set parameters: filter conditions, column names, or math formulas." 
+                            delay={0.2} 
+                        />
+                        <Step 
+                            number="04" 
+                            title="Run & Analyze" 
+                            desc="Execute the pipeline. Download cleaned files or view generated charts immediately." 
+                            delay={0.3} 
+                        />
+                    </div>
                 </div>
             </motion.div>
 
-            {/* Section 3: Capabilities & Nodes */}
+            {/* SECTION 3: NODE CARDS GRID */}
             <motion.div 
-              className="glass-panel"
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
+              viewport={{ once: true, margin: "-60px" }}
               variants={sectionVariants}
             >
-                <h2 className="text-success" style={{ marginBottom: '20px', fontSize: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
-                    3. Capabilities & Nodes
+                <h2 className="text-success" style={{ marginBottom: '30px', fontSize: '28px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '15px' }}>
+                    <Layers size={24} style={{ display: 'inline', marginRight: '10px' }} />
+                    Capabilities & Nodes
                 </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '20px' }}>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', marginTop: '20px' }}>
                     
-                    <NodeCard 
+                    <InteractiveNodeCard 
                         icon="📂" 
                         title="Multi-Format Sources" 
-                        desc="Ingest data from CSV, JSON, and Excel files. Combine multiple sources in a single flow." 
+                        desc="Ingest data from CSV, JSON, and Excel files. Combine multiple sources in a single flow."
+                        color="#10b981"
                         delay={0} 
                     />
                     
-                    <NodeCard 
+                    <InteractiveNodeCard 
                         icon="🧹" 
                         title="Smart Cleaning" 
-                        desc="Deduplicate rows, fill missing values (FillNa), cast data types, and format text strings." 
+                        desc="Deduplicate rows, fill missing values (FillNa), cast data types, and format text strings."
+                        color="#a855f7"
                         delay={0.1} 
                     />
                     
-                    <NodeCard 
+                    <InteractiveNodeCard 
                         icon="⚡" 
                         title="Transformation" 
-                        desc="Filter rows based on logic, sort data, rename columns, select specific fields, and limit results." 
+                        desc="Filter rows based on logic, sort data, rename columns, select specific fields, and limit results."
+                        color="#3b82f6"
                         delay={0.2} 
                     />
 
-                    <NodeCard 
+                    <InteractiveNodeCard 
                         icon="🧮" 
                         title="Advanced Analysis" 
-                        desc="Perform Aggregations (Group By), Join datasets (Inner/Left/Right), and run Math Formulas." 
+                        desc="Perform Aggregations (Group By), Join datasets (Inner/Left/Right), and run Math Formulas."
+                        color="#f43f5e"
                         delay={0.3} 
                     />
 
-                    <NodeCard 
+                    <InteractiveNodeCard 
                         icon="📊" 
                         title="Visualization" 
-                        desc="Generate Bar, Line, Scatter, Pie charts, and Histograms directly within your pipeline." 
+                        desc="Generate Bar, Line, Scatter, Pie charts, and Histograms directly within your pipeline."
+                        color="#eab308"
                         delay={0.4} 
                     />
 
-                    <NodeCard 
-                        icon="💾" 
-                        title="Flexible Export" 
-                        desc="Save your processed data to a SQL Database, or export as CSV, JSON, or Excel files." 
+                    <InteractiveNodeCard 
+                        icon="👥" 
+                        title="Collaboration" 
+                        desc="Share pipelines with teammates using 'Viewer' or 'Editor' roles for seamless teamwork."
+                        color="#ec4899"
                         delay={0.5} 
                     />
                     
                 </div>
             </motion.div>
 
+            {/* SECTION 4: Collaboration Preview */}
+            <motion.div 
+                className="glass-panel"
+                style={{ marginTop: '80px', border: '1px solid rgba(59, 130, 246, 0.2)', background: 'linear-gradient(rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.02))' }}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={sectionVariants}
+            >
+                <h2 style={{ color: '#60a5fa', marginBottom: '15px', fontSize: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Share2 size={24} /> New: Team Collaboration
+                </h2>
+                <p className="text-muted" style={{ marginBottom: '24px' }}>
+                    Working in a team? You can now share your pipelines with colleagues. 
+                    Head to the <b>Collaboration</b> tab to manage permissions and view pipelines shared with you.
+                </p>
+                <button className="btn" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '10px 24px' }} onClick={() => navigate('/collaboration')}>
+                    Go to Collaboration Hub <span style={{ marginLeft: '8px' }}>→</span>
+                </button>
+            </motion.div>
+
         </div>
+
+        {/* BACK TO TOP BUTTON */}
+        <AnimatePresence>
+            {showTopBtn && (
+                <motion.button
+                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, y: 20 }}
+                    transition={{ duration: 0.3 }}
+                    onClick={scrollToTop}
+                    style={{
+                        position: 'fixed',
+                        bottom: '30px',
+                        right: '30px',
+                        width: '45px',
+                        height: '45px',
+                        borderRadius: '50%',
+                        background: '#10b981',
+                        color: 'black',
+                        border: 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                        zIndex: 100,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}
+                    whileHover={{ scale: 1.1, backgroundColor: '#34d399' }}
+                    whileTap={{ scale: 0.95 }}
+                >
+                    <ArrowUp size={20} />
+                </motion.button>
+            )}
+        </AnimatePresence>
+
       </div>
     </ParticlesBackground>
   );
 };
 
-// --- Helper Components with Motion ---
+// --- Helper Components ---
 
 const Step = ({ number, title, desc, delay }) => (
     <motion.div 
-      className="flex gap-20" 
-      style={{ alignItems: 'flex-start' }}
-      initial={{ opacity: 0, x: -20 }}
+      className="glass-card"
+      style={{ 
+          display: 'flex', gap: '20px', alignItems: 'flex-start',
+          padding: '24px', marginBottom: '20px', marginLeft: '50px',
+          border: '1px solid rgba(255,255,255,0.05)',
+          position: 'relative', zIndex: 1,
+          borderRadius: '12px'
+      }}
+      initial={{ opacity: 0, x: -15 }} // Reduced initial offset for subtler entry
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: delay }}
+      transition={{ duration: 0.6, delay: delay, ease: "easeOut" }}
+      whileHover={{ 
+          x: 4, // Much smaller movement on hover (was 10)
+          borderColor: 'rgba(16, 185, 129, 0.3)', 
+          backgroundColor: 'rgba(24, 24, 27, 0.6)' 
+      }}
     >
-        <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--success)', background: 'rgba(16, 185, 129, 0.1)', padding: '5px 10px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+        {/* Connector Dot */}
+        <div style={{ 
+            position: 'absolute', left: '-34px', top: '32px', 
+            width: '14px', height: '14px', borderRadius: '50%', 
+            background: '#0f1115', border: '3px solid #10b981',
+            zIndex: 2
+        }}></div>
+
+        <div style={{ 
+            fontSize: '15px', fontWeight: 'bold', color: '#10b981', 
+            background: 'rgba(16, 185, 129, 0.08)', width: '36px', height: '36px', 
+            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, marginTop: '-2px'
+        }}>
             {number}
         </div>
         <div>
-            <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', color: 'var(--text-main)' }}>{title}</h3>
-            <p className="text-muted" style={{ margin: 0, fontSize: '15px' }}>{desc}</p>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: 'white' }}>{title}</h3>
+            <p className="text-muted" style={{ margin: 0, fontSize: '15px', lineHeight: '1.5' }}>{desc}</p>
         </div>
     </motion.div>
 );
 
-const NodeCard = ({ icon, title, desc, delay }) => (
-    <motion.div 
-      style={{ 
-        background: 'rgba(255,255,255,0.03)', 
-        padding: '20px', 
-        borderRadius: '8px', 
-        border: '1px solid rgba(255,255,255,0.05)',
-        cursor: 'default'
-      }}
-      initial={{ opacity: 0, scale: 0.9 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true }}
-      whileHover={{ 
-        scale: 1.05, 
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderColor: 'rgba(16, 185, 129, 0.4)',
-        boxShadow: '0 10px 30px -10px rgba(16, 185, 129, 0.2)'
-      }}
-      transition={{ duration: 0.3, delay: delay }}
-    >
-        <div style={{ fontSize: '24px', marginBottom: '10px' }}>{icon}</div>
-        <h3 style={{ color: 'white', marginBottom: '10px', fontSize: '16px' }}>{title}</h3>
-        <p className="text-muted" style={{ fontSize: '14px', lineHeight: '1.5', margin: 0 }}>{desc}</p>
-    </motion.div>
-);
+const InteractiveNodeCard = ({ icon, title, desc, color, delay }) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+        <motion.div 
+          style={{ 
+            background: 'rgba(255,255,255,0.02)', 
+            padding: '24px', 
+            borderRadius: '12px', 
+            border: '1px solid rgba(255,255,255,0.05)',
+            cursor: 'pointer',
+            position: 'relative',
+            overflow: 'hidden',
+            height: '100%'
+          }}
+          initial={{ opacity: 0, y: 15 }} // Reduced offset
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: delay, ease: "easeOut" }}
+          onHoverStart={() => setIsHovered(true)}
+          onHoverEnd={() => setIsHovered(false)}
+          whileHover={{ 
+            y: -4, // Reduced lift (was -8) for subtle feel
+            backgroundColor: 'rgba(255,255,255,0.04)',
+            borderColor: color, 
+            boxShadow: `0 10px 25px -10px ${color}20` // Softer shadow opacity
+          }}
+        >
+            <div style={{ fontSize: '28px', marginBottom: '16px' }}>{icon}</div>
+            <h3 style={{ color: 'white', marginBottom: '8px', fontSize: '17px', fontWeight: 'bold' }}>{title}</h3>
+            <p className="text-muted" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{desc}</p>
+            
+            {/* Hover Reveal Interaction */}
+            <motion.div
+                initial={{ opacity: 0, x: -5 }}
+                animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -5 }}
+                transition={{ duration: 0.2 }}
+                style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '5px', color: color, fontSize: '12px', fontWeight: 'bold' }}
+            >
+                Learn more <ChevronRight size={14} />
+            </motion.div>
+
+            {/* Decorative colored glow on top */}
+            <div style={{
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '2px',
+                background: isHovered ? color : 'transparent',
+                transition: 'background 0.3s'
+            }}></div>
+        </motion.div>
+    );
+};
 
 export default DocumentationPage;
