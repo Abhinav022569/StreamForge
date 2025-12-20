@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { motion } from 'framer-motion';
-import { Edit2, Play, Trash2, Clock, Share2, MoreVertical } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Edit2, Trash2, Clock, AlertTriangle, X } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
 import '../App.css';
 
@@ -10,6 +10,10 @@ const AllPipelines = () => {
     const navigate = useNavigate();
     const [pipelines, setPipelines] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // --- NEW: State for Custom Delete Modal ---
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [pipelineToDelete, setPipelineToDelete] = useState(null);
 
     useEffect(() => {
         const fetchPipelines = async () => {
@@ -28,22 +32,38 @@ const AllPipelines = () => {
         fetchPipelines();
     }, []);
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this pipeline?")) return;
+    // 1. Open the modal instead of window.confirm
+    const openDeleteModal = (id) => {
+        setPipelineToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    // 2. Perform the actual delete logic
+    const confirmDelete = async () => {
+        if (!pipelineToDelete) return;
+
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`http://127.0.0.1:5000/pipelines/${id}`, {
+            await axios.delete(`http://127.0.0.1:5000/pipelines/${pipelineToDelete}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setPipelines(pipelines.filter(p => p.id !== id));
+            setPipelines(pipelines.filter(p => p.id !== pipelineToDelete));
+            setIsDeleteModalOpen(false);
+            setPipelineToDelete(null);
         } catch (err) {
             alert("Failed to delete pipeline");
         }
     };
 
+    // 3. Close modal without deleting
+    const cancelDelete = () => {
+        setIsDeleteModalOpen(false);
+        setPipelineToDelete(null);
+    };
+
     return (
         <AppLayout>
-            <div className="content-wrapper" style={{ padding: '40px' }}>
+            <div className="content-wrapper" style={{ padding: '40px', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                     <h1 style={{ fontSize: '32px', color: '#fff', margin: 0 }}>All Pipelines</h1>
                     <button 
@@ -107,7 +127,7 @@ const AllPipelines = () => {
                                     </button>
                                     
                                     <button 
-                                        onClick={() => handleDelete(p.id)}
+                                        onClick={() => openDeleteModal(p.id)} // <--- CHANGED THIS
                                         style={{ padding: '8px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.1)', color: '#ef4444', cursor: 'pointer' }}
                                         title="Delete"
                                     >
@@ -118,6 +138,89 @@ const AllPipelines = () => {
                         ))}
                     </div>
                 )}
+
+                {/* --- NEW: Custom Delete Confirmation Modal --- */}
+                <AnimatePresence>
+                    {isDeleteModalOpen && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                backdropFilter: 'blur(5px)',
+                                zIndex: 1000,
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center'
+                            }}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.95, y: 20 }}
+                                animate={{ scale: 1, y: 0 }}
+                                exit={{ scale: 0.95, y: 20 }}
+                                style={{
+                                    backgroundColor: '#18181b',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '12px',
+                                    padding: '24px',
+                                    width: '400px',
+                                    maxWidth: '90%',
+                                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#ef4444' }}>
+                                    <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
+                                        <AlertTriangle size={24} />
+                                    </div>
+                                    <h3 style={{ margin: 0, fontSize: '18px', color: 'white' }}>Delete Pipeline?</h3>
+                                </div>
+                                
+                                <p style={{ color: '#a1a1aa', fontSize: '14px', lineHeight: '1.5', marginBottom: '24px' }}>
+                                    Are you sure you want to delete this pipeline? This action cannot be undone and all associated data will be permanently removed.
+                                </p>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                    <button 
+                                        onClick={cancelDelete}
+                                        style={{
+                                            padding: '8px 16px',
+                                            borderRadius: '6px',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            background: 'transparent',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '14px',
+                                            fontWeight: '500'
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={confirmDelete}
+                                        style={{
+                                            padding: '8px 16px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            background: '#ef4444',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '14px',
+                                            fontWeight: '500'
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </AppLayout>
     );
