@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import '../../App.css';
+import ChatAssistant from '../ChatAssistant';
 
 const AppLayout = ({ children }) => {
   const navigate = useNavigate();
@@ -133,6 +134,7 @@ const AppLayout = ({ children }) => {
       <main className="main-content" style={{ position: 'relative', zIndex: 1, overflowY: 'auto', flexGrow: 1, height: '100%' }}>
         {children}
       </main>
+      <ChatAssistant />
     </div>
   );
 };

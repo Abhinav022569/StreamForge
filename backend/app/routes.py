@@ -13,6 +13,10 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from . import db
 from .models import Pipeline, User, DataSource, ProcessedFile, SharedPipeline, PipelineRun
 from .pipeline_engine import PipelineEngine, get_size_format
+import google.generativeai as genai
+from .chatbot_context import SYSTEM_PROMPT
+
+genai.configure(api_key="AIzaSyBFn9y2C8HIzo-dCR6D0vtvxSHQC6SPIIQ")
 
 main = Blueprint('main', __name__)
 
@@ -647,3 +651,26 @@ def delete_processed_file(id):
     db.session.delete(file_entry)
     db.session.commit()
     return jsonify({"message": "File deleted"})
+
+@main.route('/chat', methods=['POST'])
+def chat_with_gemini():
+    data = request.json
+    user_message = data.get('message', '')
+
+    if not user_message:
+        return jsonify({"error": "Empty message"}), 400
+
+    try:
+        # Initialize the model (Gemini 1.5 Flash is fast and free)
+        model = genai.GenerativeModel('gemini-flash-latest')
+
+        # Combine system context with user question
+        full_prompt = f"{SYSTEM_PROMPT}\n\nUser Question: {user_message}"
+
+        response = model.generate_content(full_prompt)
+
+        # Return the text response
+        return jsonify({"reply": response.text})
+
+    except Exception as e:
+        return jsonify({"reply": f"AI Error: {str(e)}"}), 500
