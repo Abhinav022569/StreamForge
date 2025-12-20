@@ -97,7 +97,6 @@ const AppLayout = ({ children }) => {
                 <div style={{ overflow: 'hidden' }}>
                     <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: 'white' }}>{user.username}</p>
                     <p style={{ margin: 0, fontSize: '11px', color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                       <Zap size={10} fill="#eab308" color="#eab308" /> Pro Plan
                     </p>
                 </div>
             </div>
