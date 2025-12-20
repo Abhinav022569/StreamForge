@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Loader2, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import '../App.css'; 
 
 const ChatAssistant = () => {
@@ -11,7 +12,7 @@ const ChatAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -25,7 +26,7 @@ const ChatAssistant = () => {
     setIsLoading(true);
 
     try {
-      // API CALL TO FLASK
+      // Connects to your Flask Backend
       const response = await fetch('http://localhost:5000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,53 +44,87 @@ const ChatAssistant = () => {
 
   return (
     <div className="chat-widget-container">
-      {/* Chat Window */}
-      {isOpen && (
-        <div className="chat-window">
-          <div className="chat-header">
-            <div className="flex items-center gap-2">
-                <Sparkles size={18} />
-                <span>StreamForge AI</span>
-            </div>
-            <button onClick={() => setIsOpen(false)} className="close-btn"><X size={18} /></button>
-          </div>
-          
-          <div className="chat-messages">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`message-bubble ${msg.role}`}>
-                {msg.text}
+      
+      {/* 1. CHAT WINDOW PANEL */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            className="chat-window"
+            // Start slightly smaller and lower
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            // Animate to full size
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            // Exit by shrinking back down
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            // Spring animation for "pop" effect
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          >
+            {/* Header */}
+            <div className="chat-header">
+              <div className="flex items-center gap-2">
+                  <Sparkles size={18} />
+                  <span>StreamForge AI</span>
               </div>
-            ))}
-            {isLoading && (
-                <div className="message-bubble bot flex items-center gap-2">
-                    <Loader2 className="animate-spin" size={14} /> Thinking...
+              <button onClick={() => setIsOpen(false)} className="close-btn">
+                <X size={18} />
+              </button>
+            </div>
+            
+            {/* Messages Area */}
+            <div className="chat-messages">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`message-bubble ${msg.role}`}>
+                  {msg.text}
                 </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+              ))}
+              {isLoading && (
+                  <div className="message-bubble bot flex items-center gap-2">
+                      <Loader2 className="animate-spin" size={14} /> Thinking...
+                  </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
 
-          <div className="chat-input-area">
-            <input 
-              type="text" 
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Type your question..."
-            />
-            <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
-              <Send size={16} />
-            </button>
-          </div>
-        </div>
-      )}
+            {/* Input Area */}
+            <div className="chat-input-area">
+              <input 
+                type="text" 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder="Type your question..."
+                disabled={isLoading}
+              />
+              <button 
+                onClick={sendMessage} 
+                disabled={isLoading || !input.trim()}
+              >
+                <Send size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Floating Toggle Button */}
-      <button 
-        className={`chat-toggle-btn ${isOpen ? 'hidden' : ''}`}
-        onClick={() => setIsOpen(true)}
+      {/* 2. TOGGLE BUTTON (Red Cross / Green Icon) */}
+      <motion.button 
+        className="chat-toggle-btn"
+        onClick={() => setIsOpen(!isOpen)}
+        
+        // Hover Interaction
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        
+        // Rotate 90 degrees and turn Red when open
+        animate={{ 
+            rotate: isOpen ? 90 : 0, 
+            backgroundColor: isOpen ? '#ef4444' : '#10b981' 
+        }}
+        transition={{ duration: 0.2 }}
       >
-        <MessageSquare size={28} />
-      </button>
+        {isOpen ? <X size={28} /> : <MessageSquare size={28} />}
+      </motion.button>
+
     </div>
   );
 };
