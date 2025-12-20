@@ -26,7 +26,7 @@ def safe_convert(val):
             return val
 
 class PipelineEngine:
-    def __init__(self, nodes, edges, user, base_dir, db_session):
+    def __init__(self, nodes, edges, user, base_dir, db_session, preview_mode=False):
         self.nodes = {n['id']: n for n in nodes}
         self.adj_list = {n['id']: [] for n in nodes}
         self.in_degree = {n['id']: 0 for n in nodes}
@@ -37,6 +37,7 @@ class PipelineEngine:
         self.user = user
         self.base_dir = base_dir
         self.processed_bytes = 0
+        self.preview_mode = preview_mode  # <--- NEW: Preview Mode Flag
         
         # Paths
         self.uploads_dir = os.path.join(base_dir, '..', 'uploads')
@@ -51,6 +52,7 @@ class PipelineEngine:
                 self.in_degree[edge['target']] += 1
 
     def run(self):
+        """Standard Full Pipeline Run"""
         # Topological sort / Queue based execution
         queue = [nid for nid, count in self.in_degree.items() if count == 0]
         
@@ -71,8 +73,7 @@ class PipelineEngine:
                 # Capture error log and re-raise to stop execution or just log it
                 error_msg = f"ERROR in {node['data'].get('label', 'Node')}: {str(e)}"
                 self.logs.append(error_msg)
-                # We raise the error so the route handler knows it failed, 
-                # but the logs up to this point are preserved in the instance.
+                # We raise the error so the route handler knows it failed
                 raise Exception(error_msg)
 
             if current_id in self.adj_list:
@@ -80,13 +81,68 @@ class PipelineEngine:
                     if child not in queue: 
                          queue.append(child)
         
-        # Update user stats at the end of the run
-        if self.processed_bytes > 0:
+        # Update user stats at the end of the run (Only in full run)
+        if self.processed_bytes > 0 and not self.preview_mode:
             self.user.total_processed_bytes += self.processed_bytes
             self.db.commit()
             
         self.logs.append("Pipeline execution completed successfully.")
         return self.logs
+
+    def run_preview(self, target_node_id):
+        """Runs the pipeline ONLY for the ancestors of target_node_id (BFS/Partial Run)"""
+        if target_node_id not in self.nodes:
+            return {"error": "Target node not found", "logs": self.logs}
+
+        # 1. Identify Ancestors (Dependency Chain)
+        # We need to find all nodes that lead to target_node_id
+        ancestors = set()
+        to_visit = [target_node_id]
+        
+        # Simple BFS on implicit reverse graph
+        processed_visit = set()
+        while to_visit:
+            curr = to_visit.pop()
+            if curr in processed_visit: continue
+            processed_visit.add(curr)
+            ancestors.add(curr)
+            
+            # Find parents: (Inefficient O(N^2) but fine for small graphs < 100 nodes)
+            for src, targets in self.adj_list.items():
+                if curr in targets:
+                    if src not in ancestors:
+                        to_visit.append(src)
+
+        # 2. Execution Loop (Topological Sort)
+        # We use standard logic but SKIP processing if node is not in 'ancestors'
+        queue = [nid for nid, count in self.in_degree.items() if count == 0]
+        
+        while queue:
+            current_id = queue.pop(0)
+            
+            # Only process if it affects our target
+            if current_id in ancestors:
+                if current_id in self.nodes:
+                    try:
+                        self.logs.append(f"Preview: Processing {self.nodes[current_id]['data'].get('label', current_id)}")
+                        self.process_node(current_id, self.nodes[current_id])
+                    except Exception as e:
+                        return {"error": str(e), "logs": self.logs}
+            
+            # Continue traversal to unlock children
+            if current_id in self.adj_list:
+                for child in self.adj_list[current_id]:
+                     if child not in queue:
+                         queue.append(child)
+
+        # 3. Retrieve Result
+        if target_node_id in self.data_store:
+            df = self.data_store[target_node_id]
+            # Handle empty DFs or NaN values for JSON
+            records = df.head(5).where(pd.notnull(df), None).to_dict(orient='records')
+            return {"data": records, "columns": list(df.columns), "logs": self.logs}
+        else:
+            return {"error": "Node produced no data (check connections or file inputs).", "logs": self.logs}
 
     def get_parent_df(self, current_id):
         # Find the dataframe from the parent node
@@ -118,15 +174,20 @@ class PipelineEngine:
             if not os.path.exists(path):
                 raise FileNotFoundError(f"File {filename} not found")
             
+            # --- NEW: Preview Mode Optimization ---
+            # If preview_mode is True, read only 50 rows
+            nrows_arg = 50 if self.preview_mode else None
+            
             if filename.lower().endswith('.csv'): 
-                df = pd.read_csv(path)
+                df = pd.read_csv(path, nrows=nrows_arg)
             elif filename.lower().endswith('.json'): 
                 df = pd.read_json(path)
+                if self.preview_mode: df = df.head(50)
             elif filename.lower().endswith(('.xls', '.xlsx')): 
-                df = pd.read_excel(path)
+                df = pd.read_excel(path, nrows=nrows_arg)
             
             if df is not None:
-                self.logs.append(f"Loaded {filename}: {len(df)} rows")
+                self.logs.append(f"Loaded {filename}: {len(df)} rows {'(Preview)' if self.preview_mode else ''}")
 
         # --- TRANSFORMATIONS ---
         else:
@@ -172,9 +233,14 @@ class PipelineEngine:
                 elif node_type == 'trans_calc':
                     df = self.process_calc(df, data)
                 elif node_type == 'vis_chart':
-                    self.generate_chart(df, data)
+                    # In preview mode, we might still want to test chart generation logic, 
+                    # but we won't get a "DataFrame" output from a chart node usually.
+                    # This is fine; the preview panel will show "No data output" which is correct for a chart.
+                    if not self.preview_mode:
+                        self.generate_chart(df, data)
                 elif node_type.startswith('dest_'):
-                    self.save_destination(df, node_type, data)
+                    if not self.preview_mode:
+                        self.save_destination(df, node_type, data)
                     return # Destination is a sink
 
         # Store result for children nodes

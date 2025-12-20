@@ -465,6 +465,44 @@ def run_pipeline():
             
         return jsonify({"error": str(e)}), 500
 
+# --- NEW: PREVIEW ROUTE ---
+@main.route('/preview-node', methods=['POST'])
+@jwt_required()
+def preview_node():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    req_data = request.json
+    
+    target_node_id = req_data.get('targetNodeId')
+    nodes = req_data.get('nodes', [])
+    edges = req_data.get('edges', [])
+    
+    if not target_node_id:
+        return jsonify({"error": "Target node ID required"}), 400
+
+    try:
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        
+        # Initialize engine with preview_mode=True
+        engine = PipelineEngine(
+            nodes=nodes,
+            edges=edges,
+            user=user,
+            base_dir=base_dir,
+            db_session=db.session,
+            preview_mode=True 
+        )
+        
+        result = engine.run_preview(target_node_id)
+        
+        if "error" in result:
+            return jsonify(result), 400
+            
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @main.route('/pipelines/<int:id>/history', methods=['GET'])
 @jwt_required()
 def get_pipeline_history(id):

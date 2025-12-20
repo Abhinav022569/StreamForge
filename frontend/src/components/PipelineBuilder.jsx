@@ -12,22 +12,14 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css'; 
 import { motion, AnimatePresence } from 'framer-motion';
-import { io } from 'socket.io-client'; // <--- NEW: Import Socket.io
+import { io } from 'socket.io-client'; 
 import { 
-  ArrowLeft, 
-  LayoutTemplate, 
-  Upload, 
-  Download, 
-  Play, 
-  Save, 
-  Loader2, 
-  AlertCircle, 
-  CheckCircle2,
-  X,
-  Info
+  ArrowLeft, LayoutTemplate, Upload, Download, Play, Save, 
+  Loader2, AlertCircle, CheckCircle2, X, Info
 } from 'lucide-react';
 
 import Sidebar from './Sidebar';
+import DataPreviewPanel from './DataPreviewPanel';
 
 // Custom Components
 import FilterNode from './nodes/FilterNode';
@@ -50,7 +42,9 @@ const PipelineBuilderContent = () => {
     const { id } = useParams();
     const reactFlowWrapper = useRef(null);
     const fileInputRef = useRef(null);
-    const socketRef = useRef(null); // <--- NEW: Socket Reference
+    const socketRef = useRef(null); 
+    
+    // --- KEY: We use getNodes() to ensure we always have the latest state ---
     const { getNodes, getEdges } = useReactFlow(); 
 
     const [nodes, setNodes] = useState(initialNodes);
@@ -62,6 +56,11 @@ const PipelineBuilderContent = () => {
     const [isDirty, setIsDirty] = useState(false);
     const isLoadedRef = useRef(false);
 
+    // --- Preview Panel State ---
+    const [previewPanel, setPreviewPanel] = useState({ 
+        isOpen: false, loading: false, data: [], columns: [], error: null, nodeLabel: '' 
+    });
+
     // --- Notification State ---
     const [notification, setNotification] = useState(null); 
 
@@ -69,6 +68,18 @@ const PipelineBuilderContent = () => {
         setNotification({ message, type });
         setTimeout(() => setNotification(null), 4000);
     };
+
+    // --- CRITICAL: Centralized Data Update Handler ---
+    // This is passed to every node so they can update the parent state correctly.
+    const updateNodeData = useCallback((nodeId, newData) => {
+        setNodes((nds) => nds.map((node) => {
+            if (node.id === nodeId) {
+                return { ...node, data: { ...node.data, ...newData } };
+            }
+            return node;
+        }));
+        setIsDirty(true);
+    }, []);
 
     // --- REGISTER NODE TYPES ---
     const nodeTypes = useMemo(() => ({ 
@@ -83,17 +94,13 @@ const PipelineBuilderContent = () => {
 
     const edgeTypes = useMemo(() => ({ deletableEdge: DeletableEdge }), []);
 
-    // --- NEW: Socket.IO Connection Effect ---
+    // --- Socket.IO Connection ---
     useEffect(() => {
-        if (!id) return; // Only connect if we are in a specific pipeline
+        if (!id) return; 
 
-        // 1. Connect to backend
         socketRef.current = io('http://127.0.0.1:5000');
-        
-        // 2. Join specific pipeline room
         socketRef.current.emit('join', { pipeline_id: id });
 
-        // 3. Listen for incoming changes from others
         socketRef.current.on('pipeline_updated', (data) => {
             if (data.type === 'node_change') {
                 setNodes((nds) => applyNodeChanges(data.changes, nds));
@@ -104,7 +111,6 @@ const PipelineBuilderContent = () => {
             }
         });
 
-        // 4. Cleanup on unmount
         return () => {
             if (socketRef.current) {
                 socketRef.current.emit('leave', { pipeline_id: id });
@@ -113,7 +119,7 @@ const PipelineBuilderContent = () => {
         };
     }, [id]);
 
-    // Load Data
+    // --- Load Data ---
     useEffect(() => {
         if (id) {
             isLoadedRef.current = false; 
@@ -125,7 +131,13 @@ const PipelineBuilderContent = () => {
                 const { name, flow } = response.data;
                 setPipelineName(name);
                 if (flow) {
-                    setNodes(flow.nodes || []);
+                    // --- INJECT updateNodeData INTO LOADED NODES ---
+                    const loadedNodes = (flow.nodes || []).map(n => ({
+                        ...n,
+                        data: { ...n.data, onUpdate: updateNodeData }
+                    }));
+                    setNodes(loadedNodes);
+                    
                     const dbEdges = (flow.edges || []).map(edge => ({
                         ...edge,
                         type: 'deletableEdge'
@@ -142,7 +154,7 @@ const PipelineBuilderContent = () => {
         } else {
             isLoadedRef.current = true;
         }
-    }, [id]);
+    }, [id, updateNodeData]);
 
     useBeforeUnload(
         React.useCallback((e) => {
@@ -160,50 +172,85 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    // --- MODIFIED: OnNodesChange (Emit changes) ---
+    // --- ReactFlow Event Handlers ---
     const onNodesChange = useCallback((changes) => {
         setNodes((nds) => applyNodeChanges(changes, nds));
         if (isLoadedRef.current) setIsDirty(true);
 
-        // Emit changes to socket
         if (socketRef.current && id) {
             socketRef.current.emit('pipeline_update', {
-                pipeline_id: id,
-                type: 'node_change',
-                changes: changes
+                pipeline_id: id, type: 'node_change', changes: changes
             });
         }
     }, [id]);
 
-    // --- MODIFIED: OnEdgesChange (Emit changes) ---
     const onEdgesChange = useCallback((changes) => {
         setEdges((eds) => applyEdgeChanges(changes, eds));
         if (isLoadedRef.current) setIsDirty(true);
 
-        // Emit changes to socket
         if (socketRef.current && id) {
             socketRef.current.emit('pipeline_update', {
-                pipeline_id: id,
-                type: 'edge_change',
-                changes: changes
+                pipeline_id: id, type: 'edge_change', changes: changes
             });
         }
     }, [id]);
 
-    // --- MODIFIED: OnConnect (Emit changes) ---
     const onConnect = useCallback((params) => {
         setEdges((eds) => addEdge({ ...params, type: 'deletableEdge' }, eds));
         if (isLoadedRef.current) setIsDirty(true);
 
-        // Emit connection to socket
         if (socketRef.current && id) {
             socketRef.current.emit('pipeline_update', {
-                pipeline_id: id,
-                type: 'connection',
-                changes: params
+                pipeline_id: id, type: 'connection', changes: params
             });
         }
     }, [id]);
+
+    // --- NODE CLICK (PREVIEW) HANDLER ---
+    const onNodeClick = useCallback(async (event, node) => {
+        // 1. Reset Panel State
+        setPreviewPanel({
+            isOpen: true,
+            loading: true,
+            data: [],
+            columns: [],
+            error: null,
+            nodeLabel: node.data.label || node.type
+        });
+
+        const token = localStorage.getItem('token');
+        
+        // 2. GET LATEST STATE using getNodes() / getEdges()
+        const currentNodes = getNodes(); 
+        const currentEdges = getEdges();
+
+        try {
+            const payload = {
+                targetNodeId: node.id,
+                nodes: currentNodes.map(n => ({ id: n.id, type: n.type, data: n.data })),
+                edges: currentEdges.map(e => ({ source: e.source, target: e.target }))
+            };
+
+            const res = await axios.post('http://127.0.0.1:5000/preview-node', payload, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setPreviewPanel(prev => ({
+                ...prev,
+                loading: false,
+                data: res.data.data,
+                columns: res.data.columns
+            }));
+
+        } catch (err) {
+            console.error("Preview error:", err);
+            setPreviewPanel(prev => ({
+                ...prev,
+                loading: false,
+                error: err.response?.data?.error || "Failed to fetch preview."
+            }));
+        }
+    }, [getNodes, getEdges]);
 
     const onDragOver = useCallback((event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }, []);
 
@@ -226,6 +273,9 @@ const PipelineBuilderContent = () => {
             if (type === 'filterNode') { defaultData.column = ''; defaultData.condition = '>'; defaultData.value = ''; }
             if (type === 'vis_chart') { defaultData.chartType = 'bar'; defaultData.x_col = ''; defaultData.y_col = ''; defaultData.outputName = 'my_chart'; }
 
+            // --- INJECT updateNodeData INTO NEW NODES ---
+            defaultData.onUpdate = updateNodeData;
+
             const newNode = {
                 id: `${type}_${Date.now()}`, 
                 type: type, 
@@ -233,19 +283,18 @@ const PipelineBuilderContent = () => {
                 data: defaultData,
             };
 
-            // Note: Since adding a node is not a direct "change" event in ReactFlow, 
-            // the full node list update isn't automatically broadcast via onNodesChange.
-            // For full collaboration on ADDING nodes, you would ideally emit a custom 'node_add' event here.
-            // However, dragging/moving this new node will sync it to others immediately via onNodesChange.
-
             setNodes((nds) => nds.concat(newNode));
             setIsDirty(true);
         },
-        [reactFlowInstance]
+        [reactFlowInstance, updateNodeData]
     );
 
+    // --- SAVE PIPELINE ---
     const savePipeline = async () => {
-        const flow = { nodes, edges };
+        const currentNodes = getNodes(); // Get latest state
+        const currentEdges = getEdges();
+        
+        const flow = { nodes: currentNodes, edges: currentEdges };
         const token = localStorage.getItem('token'); 
 
         try {
@@ -264,8 +313,11 @@ const PipelineBuilderContent = () => {
         }
     };
 
+    // --- EXPORT JSON ---
     const handleExport = () => {
-        const exportData = { name: pipelineName, nodes: nodes, edges: edges };
+        const currentNodes = getNodes(); // Get latest state
+        const currentEdges = getEdges();
+        const exportData = { name: pipelineName, nodes: currentNodes, edges: currentEdges };
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
         const downloadAnchorNode = document.createElement('a');
         downloadAnchorNode.setAttribute("href", dataStr);
@@ -278,6 +330,7 @@ const PipelineBuilderContent = () => {
 
     const handleImportClick = () => { fileInputRef.current.click(); };
 
+    // --- IMPORT JSON ---
     const handleImportFile = (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -286,7 +339,13 @@ const PipelineBuilderContent = () => {
             try {
                 const json = JSON.parse(e.target.result);
                 if (json.nodes && Array.isArray(json.nodes)) {
-                    setNodes(json.nodes);
+                    // --- INJECT updateNodeData INTO IMPORTED NODES ---
+                    const importedNodes = json.nodes.map(n => ({
+                        ...n,
+                        data: { ...n.data, onUpdate: updateNodeData }
+                    }));
+                    setNodes(importedNodes);
+                    
                     const importedEdges = (json.edges || []).map(edge => ({ ...edge, type: 'deletableEdge' }));
                     setEdges(importedEdges);
                     if (json.name) setPipelineName(json.name);
@@ -301,6 +360,7 @@ const PipelineBuilderContent = () => {
         event.target.value = null;
     };
 
+    // --- LOAD TEMPLATE ---
     const handleLoadTemplate = (template) => {
         if (nodes.length > 0 && !window.confirm("Loading a template will replace your current canvas. Continue?")) return;
         const idMap = {};
@@ -308,7 +368,12 @@ const PipelineBuilderContent = () => {
         const newNodes = template.nodes.map(n => {
             const newId = `${n.id}_${timestamp}`;
             idMap[n.id] = newId;
-            return { ...n, id: newId };
+            // --- INJECT updateNodeData INTO TEMPLATE NODES ---
+            return { 
+                ...n, 
+                id: newId,
+                data: { ...n.data, onUpdate: updateNodeData }
+            };
         });
         const newEdges = template.edges.map(e => ({
             ...e,
@@ -325,20 +390,23 @@ const PipelineBuilderContent = () => {
         showToast(`Template '${template.name}' loaded`, 'success');
     };
 
+    // --- RUN PIPELINE ---
     const handleRun = async () => {
-        if (nodes.length === 0) { showToast("Canvas is empty.", 'error'); return; }
+        const currentNodes = getNodes(); // Get latest state
+        const currentEdges = getEdges();
+        if (currentNodes.length === 0) { showToast("Canvas is empty.", 'error'); return; }
+        
         setIsRunning(true);
         try {
             const payload = {
-                nodes: nodes.map(n => ({ id: n.id, type: n.type, data: n.data })),
-                edges: edges.map(e => ({ source: e.source, target: e.target })),
+                nodes: currentNodes.map(n => ({ id: n.id, type: n.type, data: n.data })),
+                edges: currentEdges.map(e => ({ source: e.source, target: e.target })),
                 pipelineId: id 
             };
             const token = localStorage.getItem('token');
             const res = await axios.post('http://127.0.0.1:5000/run-pipeline', payload, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
-            // Detailed logs can still be viewed in console or a separate logs panel if needed
             console.log(res.data.logs); 
             showToast("Pipeline executed successfully!", 'success');
         } catch (error) {
@@ -348,6 +416,22 @@ const PipelineBuilderContent = () => {
             setIsRunning(false);
         }
     };
+
+    // Helper Component for Header Buttons
+    const ActionButton = ({ icon, label, onClick }) => (
+        <motion.button 
+            onClick={onClick}
+            style={{ 
+                background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#d4d4d8', 
+                padding: '8px 12px', fontSize: '13px', borderRadius: '6px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '6px'
+            }}
+            whileHover={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+            whileTap={{ scale: 0.95 }}
+        >
+            {icon} {label}
+        </motion.button>
+    );
 
     // --- HELPER: Toast Component ---
     const ToastNotification = () => (
@@ -485,6 +569,7 @@ const PipelineBuilderContent = () => {
                     <ReactFlow 
                         nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
                         nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={setReactFlowInstance} onDrop={onDrop} onDragOver={onDragOver}
+                        onNodeClick={onNodeClick} 
                         fitView deleteKeyCode={['Backspace', 'Delete']}
                         proOptions={{ hideAttribution: true }}
                     >
@@ -493,6 +578,17 @@ const PipelineBuilderContent = () => {
                     </ReactFlow>
                 </div>
             </div>
+
+            {/* DATA PREVIEW PANEL */}
+            <DataPreviewPanel 
+                isOpen={previewPanel.isOpen}
+                onClose={() => setPreviewPanel(prev => ({ ...prev, isOpen: false }))}
+                data={previewPanel.data}
+                columns={previewPanel.columns}
+                loading={previewPanel.loading}
+                error={previewPanel.error}
+                nodeLabel={previewPanel.nodeLabel}
+            />
 
             {/* TEMPLATE GALLERY MODAL */}
             <AnimatePresence>
@@ -555,22 +651,6 @@ const PipelineBuilderContent = () => {
         </div>
     );
 };
-
-// Helper Component for Header Buttons
-const ActionButton = ({ icon, label, onClick }) => (
-    <motion.button 
-        onClick={onClick}
-        style={{ 
-            background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#d4d4d8', 
-            padding: '8px 12px', fontSize: '13px', borderRadius: '6px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: '6px'
-        }}
-        whileHover={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: 'white' }}
-        whileTap={{ scale: 0.95 }}
-    >
-        {icon} {label}
-    </motion.button>
-);
 
 const PipelineBuilder = () => (<ReactFlowProvider><PipelineBuilderContent /></ReactFlowProvider>);
 export default PipelineBuilder;

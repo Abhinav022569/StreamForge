@@ -1,10 +1,10 @@
 import React, { memo, useEffect, useState, useCallback } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
 import axios from 'axios';
-import '../../App.css'; // Import shared styles
+import '../../App.css'; 
 
 export default memo(({ id, data, isConnectable }) => {
-  const { setNodes, deleteElements } = useReactFlow();
+  const { deleteElements } = useReactFlow();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -27,24 +27,17 @@ export default memo(({ id, data, isConnectable }) => {
     fetchFiles();
   }, []);
 
-  // 2. Update node data when selection changes
+  // 2. Update Handler
   const onChange = (evt) => {
     const selectedFile = evt.target.value;
     
-    setNodes((nodes) =>
-      nodes.map((node) => {
-        if (node.id === id) {
-          return { 
-            ...node, 
-            data: { 
-                ...node.data, 
-                filename: selectedFile 
-            } 
-          };
-        }
-        return node;
-      })
-    );
+    // CRITICAL FIX: Use the parent's update handler.
+    // This ensures PipelineBuilder knows about the change immediately.
+    if (data.onUpdate) {
+        data.onUpdate(id, { filename: selectedFile });
+    } else {
+        console.warn("onUpdate prop missing in SourceNode. State might desync.");
+    }
   };
 
   // 3. Delete Handler
