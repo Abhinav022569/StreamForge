@@ -607,3 +607,40 @@ def delete_processed_file(id):
     db.session.delete(file_entry)
     db.session.commit()
     return jsonify({"message": "File deleted"})
+
+@main.route('/processed-files/<int:id>/preview', methods=['GET'])
+@jwt_required()
+def preview_processed_file(id):
+    current_user_id = int(get_jwt_identity())
+    file_entry = ProcessedFile.query.filter_by(id=id, user_id=current_user_id).first()
+    
+    if not file_entry: 
+        return jsonify({"error": "File not found"}), 404
+
+    if not os.path.exists(file_entry.filepath):
+        return jsonify({"error": "File missing from server"}), 404
+
+    try:
+        df = None
+        # Read file based on extension (Limit to 100 rows for performance)
+        if file_entry.filename.lower().endswith('.csv'):
+            df = pd.read_csv(file_entry.filepath, nrows=100)
+        elif file_entry.filename.lower().endswith('.json'):
+            df = pd.read_json(file_entry.filepath)
+            df = df.head(100)
+        elif file_entry.filename.lower().endswith(('.xls', '.xlsx')):
+             df = pd.read_excel(file_entry.filepath, nrows=100)
+        
+        if df is not None:
+             # Handle NaN/Infinity for JSON serialization
+             records = df.where(pd.notnull(df), None).to_dict(orient='records')
+             return jsonify({
+                 "columns": list(df.columns), 
+                 "data": records,
+                 "filename": file_entry.filename
+             })
+        else:
+             return jsonify({"error": "Preview not supported for this file type"}), 400
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to read file: {str(e)}"}), 500

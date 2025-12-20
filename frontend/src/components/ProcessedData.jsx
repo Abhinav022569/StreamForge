@@ -2,28 +2,24 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  HardDrive, 
-  Download,
-  Trash2,
-  FileText,
-  FileSpreadsheet,
-  FileJson,
-  Image as ImageIcon,
-  AlertCircle,
-  CheckCircle2,
-  Info,
-  X,
-  AlertTriangle
+  HardDrive, Download, Trash2, Eye, 
+  FileText, FileSpreadsheet, FileJson, Image as ImageIcon, Database,
+  AlertCircle, CheckCircle2, Info, X, AlertTriangle
 } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
+import DataPreviewPanel from './DataPreviewPanel'; 
 import '../App.css'; 
 
 const ProcessedData = () => {
   const [processedFiles, setProcessedFiles] = useState([]); 
 
-  // --- NEW: Notification & Modal State ---
   const [notification, setNotification] = useState(null);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, fileName: '' });
+
+  // Added imageSrc to state
+  const [previewPanel, setPreviewPanel] = useState({ 
+      isOpen: false, loading: false, data: [], columns: [], error: null, nodeLabel: '', imageSrc: null 
+  });
 
   const showToast = (message, type = 'success') => {
       setNotification({ message, type });
@@ -44,12 +40,58 @@ const ProcessedData = () => {
         }
     };
     fetchProcessedFiles();
-    
   }, []);
 
   const handleDownload = (fileName) => {
     showToast("Download started...", "info");
     window.open(`http://127.0.0.1:5000/download/processed/${fileName}`, '_blank');
+  };
+
+  // --- UPDATED VIEW LOGIC ---
+  const handleView = async (file) => {
+      // Reset State
+      setPreviewPanel({
+          isOpen: true,
+          loading: true,
+          data: [],
+          columns: [],
+          error: null,
+          nodeLabel: file.name,
+          imageSrc: null // Reset image
+      });
+
+      // 1. Handle Image View (No API call needed, just use static URL)
+      if (file.type === 'Image') {
+          setPreviewPanel(prev => ({
+              ...prev,
+              loading: false,
+              imageSrc: `http://127.0.0.1:5000/download/processed/${file.name}`
+          }));
+          return;
+      }
+
+      // 2. Handle Text Data View (API Call)
+      try {
+          const token = localStorage.getItem('token');
+          const res = await axios.get(`http://127.0.0.1:5000/processed-files/${file.id}/preview`, {
+              headers: { Authorization: `Bearer ${token}` }
+          });
+
+          setPreviewPanel(prev => ({
+              ...prev,
+              loading: false,
+              data: res.data.data,
+              columns: res.data.columns
+          }));
+
+      } catch (err) {
+          console.error("Preview error:", err);
+          setPreviewPanel(prev => ({
+              ...prev,
+              loading: false,
+              error: err.response?.data?.error || "Failed to fetch preview."
+          }));
+      }
   };
 
   const initiateDelete = (id, fileName) => {
@@ -127,6 +169,17 @@ const ProcessedData = () => {
   return (
     <AppLayout>
       <ToastNotification />
+
+      <DataPreviewPanel 
+          isOpen={previewPanel.isOpen}
+          onClose={() => setPreviewPanel(prev => ({ ...prev, isOpen: false }))}
+          data={previewPanel.data}
+          columns={previewPanel.columns}
+          loading={previewPanel.loading}
+          error={previewPanel.error}
+          nodeLabel={previewPanel.nodeLabel}
+          imageSrc={previewPanel.imageSrc} // Passed new prop
+      />
 
       <AnimatePresence>
         {deleteModal.isOpen && (
@@ -272,6 +325,23 @@ const ProcessedData = () => {
                         <td className="text-muted" style={{ fontSize: '13px' }}>{file.date}</td>
                         <td style={{ textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                
+                                {/* --- VIEW BUTTON (Enabled for CSV, JSON, Excel AND Image) --- */}
+                                {(file.type === 'CSV' || file.type === 'JSON' || file.type === 'Excel' || file.type === 'Image') && (
+                                    <motion.button 
+                                        onClick={() => handleView(file)}
+                                        className="btn btn-ghost" 
+                                        style={{ 
+                                            padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px',
+                                            color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.05)'
+                                        }}
+                                        whileHover={{ background: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.4)' }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        <Eye size={14} /> View
+                                    </motion.button>
+                                )}
+                                
                                 <motion.button 
                                     onClick={() => handleDownload(file.name)}
                                     className="btn btn-ghost" 
