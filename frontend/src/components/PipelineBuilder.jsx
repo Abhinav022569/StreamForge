@@ -84,7 +84,16 @@ const PipelineBuilderContent = () => {
     // --- REGISTER NODE TYPES ---
     const nodeTypes = useMemo(() => ({ 
         filterNode: FilterNode,
-        source_csv: SourceNode, source_json: SourceNode, source_excel: SourceNode, sourceNode: SourceNode, 
+        
+        // Unified Source Node (New)
+        source_unified: SourceNode,
+
+        // Legacy Source Nodes (Kept for backward compatibility with old pipelines)
+        source_csv: SourceNode, 
+        source_json: SourceNode, 
+        source_excel: SourceNode, 
+        sourceNode: SourceNode, 
+        
         dest_db: DestinationNode, dest_csv: DestinationNode, dest_json: DestinationNode, dest_excel: DestinationNode, destinationNode: DestinationNode,
         trans_sort: SortNode, trans_select: SelectNode, trans_rename: RenameNode, trans_dedupe: DedupeNode,
         trans_fillna: FillNaNode, trans_group: GroupByNode, trans_join: JoinNode,
@@ -268,7 +277,12 @@ const PipelineBuilderContent = () => {
             });
 
             let defaultData = { label: label };
-            if (type.includes('source')) defaultData.fileType = type.split('_')[1]?.toUpperCase() || 'CSV';
+            
+            // Handle Unified Source and Legacy Types
+            if (type.includes('source')) {
+                // If unified, this might be "UNIFIED", which SourceNode should handle or ignore
+                defaultData.fileType = type.split('_')[1]?.toUpperCase() || 'CSV';
+            }
             if (type.includes('dest')) defaultData.destinationType = type.split('_')[1]?.toUpperCase() || 'DB';
             if (type === 'filterNode') { defaultData.column = ''; defaultData.condition = '>'; defaultData.value = ''; }
             if (type === 'vis_chart') { defaultData.chartType = 'bar'; defaultData.x_col = ''; defaultData.y_col = ''; defaultData.outputName = 'my_chart'; }

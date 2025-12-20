@@ -1,9 +1,10 @@
 import React from 'react';
 import { 
+  FileInput, // Added generic file icon
   FileText, FileJson, FileSpreadsheet, 
   Filter, ArrowUpDown, MousePointerClick, Tag, Scissors, Sparkles, Sigma, Link, 
   RefreshCw, Type, Calculator, ListMinus, PlusSquare, 
-  BarChart3, Database, Save 
+  BarChart3, Database 
 } from 'lucide-react';
 import '../App.css'; 
 
@@ -30,12 +31,17 @@ export default () => {
         <p className="sidebar-subtitle" style={{ fontSize: '12px', color: '#a1a1aa' }}>Drag nodes to the canvas</p>
       </div>
 
-      {/* 1. Source Nodes */}
+      {/* 1. Sources (Unified) */}
       <div className="sidebar-section">
         <p className="sidebar-section-label">Sources</p>
-        <ToolItem type="source_csv" label="CSV Source" icon={<FileText size={16} />} color="#10b981" onDragStart={onDragStart} />
-        <ToolItem type="source_json" label="JSON Source" icon={<FileJson size={16} />} color="#fbbf24" onDragStart={onDragStart} />
-        <ToolItem type="source_excel" label="Excel Source" icon={<FileSpreadsheet size={16} />} color="#16a34a" onDragStart={onDragStart} />
+        {/* Replaced individual CSV/JSON/Excel sources with one Unified Source */}
+        <ToolItem 
+          type="source_unified" 
+          label="File Source" 
+          icon={<FileInput size={16} />} 
+          color="#10b981" 
+          onDragStart={onDragStart} 
+        />
       </div>
 
       {/* 2. Transformation Nodes */}

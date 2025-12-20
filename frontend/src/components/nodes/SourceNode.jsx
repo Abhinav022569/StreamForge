@@ -1,5 +1,6 @@
-import React, { memo, useEffect, useState, useCallback } from 'react';
+import React, { memo, useEffect, useState, useCallback, useMemo } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
+import { FileText, FileJson, FileSpreadsheet, File } from 'lucide-react';
 import axios from 'axios';
 import '../../App.css'; 
 
@@ -27,27 +28,51 @@ export default memo(({ id, data, isConnectable }) => {
     fetchFiles();
   }, []);
 
-  // 2. Update Handler
+  // 2. Determine Styling based on Filename Extension
+  const nodeStyle = useMemo(() => {
+    const filename = data.filename || '';
+    const ext = filename.split('.').pop().toLowerCase();
+
+    // Match colors with Sidebar.jsx
+    switch (ext) {
+        case 'csv': 
+            return { color: '#10b981', icon: <FileText size={16} />, typeLabel: 'CSV' };
+        case 'json': 
+            return { color: '#fbbf24', icon: <FileJson size={16} />, typeLabel: 'JSON' };
+        case 'xlsx': 
+        case 'xls': 
+            return { color: '#16a34a', icon: <FileSpreadsheet size={16} />, typeLabel: 'Excel' };
+        default: 
+            return { color: '#64748b', icon: <File size={16} />, typeLabel: 'File' }; // Default Gray
+    }
+  }, [data.filename]);
+
+  // 3. Update Handler
   const onChange = (evt) => {
     const selectedFile = evt.target.value;
     
-    // CRITICAL FIX: Use the parent's update handler.
-    // This ensures PipelineBuilder knows about the change immediately.
+    // Notify parent (PipelineBuilder) to update the unified state
     if (data.onUpdate) {
         data.onUpdate(id, { filename: selectedFile });
     } else {
-        console.warn("onUpdate prop missing in SourceNode. State might desync.");
+        console.warn("onUpdate prop missing in SourceNode");
     }
   };
 
-  // 3. Delete Handler
+  // 4. Delete Handler
   const onDelete = useCallback((evt) => {
     evt.stopPropagation();
     deleteElements({ nodes: [{ id }] });
   }, [id, deleteElements]);
 
   return (
-    <div className={`pipeline-node node-csv`}>
+    <div 
+        className="pipeline-node"
+        style={{ 
+            borderLeft: `4px solid ${nodeStyle.color}`, // Dynamic Color Border
+            transition: 'all 0.3s ease' 
+        }}
+    >
       
       {/* Delete Button */}
       <button className="node-delete-btn nodrag" onClick={onDelete}>✕</button>
@@ -61,8 +86,12 @@ export default memo(({ id, data, isConnectable }) => {
         style={{ visibility: 'hidden' }} 
       />
       
-      <div className="node-header text-csv">
-        <span style={{ fontSize: '16px' }}>📄</span> {data.label || 'Source'}
+      {/* Dynamic Header */}
+      <div className="node-header" style={{ color: nodeStyle.color, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {nodeStyle.icon}
+        <span style={{ fontSize: '13px', fontWeight: '600' }}>
+            {data.label || `${nodeStyle.typeLabel} Source`}
+        </span>
       </div>
 
       <div className="node-body nodrag">
@@ -86,8 +115,8 @@ export default memo(({ id, data, isConnectable }) => {
         </select>
         
         {!data.filename && (
-            <p style={{ fontSize: '10px', color: '#fbbf24', marginTop: '5px', marginBottom: 0 }}>
-                ⚠ Please select a file
+            <p style={{ fontSize: '10px', color: '#fbbf24', marginTop: '5px', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>⚠</span> Select a file to configure
             </p>
         )}
       </div>

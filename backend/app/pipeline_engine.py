@@ -37,7 +37,7 @@ class PipelineEngine:
         self.user = user
         self.base_dir = base_dir
         self.processed_bytes = 0
-        self.preview_mode = preview_mode  # <--- NEW: Preview Mode Flag
+        self.preview_mode = preview_mode
         
         # Paths
         self.uploads_dir = os.path.join(base_dir, '..', 'uploads')
@@ -60,6 +60,7 @@ class PipelineEngine:
             self.logs.append("Error: No starting nodes found (circular dependency or empty graph).")
             return self.logs
 
+        # Use Kahn's Algorithm (Topological Sort)
         while queue:
             current_id = queue.pop(0)
             if current_id not in self.nodes: continue
@@ -70,18 +71,16 @@ class PipelineEngine:
                 self.logs.append(f"Processing node: {node['data'].get('label', node['type'])}")
                 self.process_node(current_id, node)
             except Exception as e:
-                # Capture error log and re-raise to stop execution or just log it
                 error_msg = f"ERROR in {node['data'].get('label', 'Node')}: {str(e)}"
                 self.logs.append(error_msg)
-                # We raise the error so the route handler knows it failed
                 raise Exception(error_msg)
 
             if current_id in self.adj_list:
                 for child in self.adj_list[current_id]:
-                    if child not in queue: 
+                    self.in_degree[child] -= 1
+                    if self.in_degree[child] == 0:
                          queue.append(child)
         
-        # Update user stats at the end of the run (Only in full run)
         if self.processed_bytes > 0 and not self.preview_mode:
             self.user.total_processed_bytes += self.processed_bytes
             self.db.commit()
@@ -95,11 +94,9 @@ class PipelineEngine:
             return {"error": "Target node not found", "logs": self.logs}
 
         # 1. Identify Ancestors (Dependency Chain)
-        # We need to find all nodes that lead to target_node_id
         ancestors = set()
         to_visit = [target_node_id]
         
-        # Simple BFS on implicit reverse graph
         processed_visit = set()
         while to_visit:
             curr = to_visit.pop()
@@ -107,14 +104,12 @@ class PipelineEngine:
             processed_visit.add(curr)
             ancestors.add(curr)
             
-            # Find parents: (Inefficient O(N^2) but fine for small graphs < 100 nodes)
             for src, targets in self.adj_list.items():
                 if curr in targets:
                     if src not in ancestors:
                         to_visit.append(src)
 
         # 2. Execution Loop (Topological Sort)
-        # We use standard logic but SKIP processing if node is not in 'ancestors'
         queue = [nid for nid, count in self.in_degree.items() if count == 0]
         
         while queue:
@@ -132,27 +127,25 @@ class PipelineEngine:
             # Continue traversal to unlock children
             if current_id in self.adj_list:
                 for child in self.adj_list[current_id]:
-                     if child not in queue:
+                     self.in_degree[child] -= 1
+                     if self.in_degree[child] == 0:
                          queue.append(child)
 
         # 3. Retrieve Result
         if target_node_id in self.data_store:
             df = self.data_store[target_node_id]
-            # Handle empty DFs or NaN values for JSON
             records = df.head(5).where(pd.notnull(df), None).to_dict(orient='records')
             return {"data": records, "columns": list(df.columns), "logs": self.logs}
         else:
             return {"error": "Node produced no data (check connections or file inputs).", "logs": self.logs}
 
     def get_parent_df(self, current_id):
-        # Find the dataframe from the parent node
         for nid, neighbors in self.adj_list.items():
             if current_id in neighbors:
                 return self.data_store.get(nid)
         return None
 
     def get_join_parents(self, current_id):
-        # For join nodes, we need multiple parents
         parents = []
         for nid, neighbors in self.adj_list.items():
             if current_id in neighbors:
@@ -174,8 +167,6 @@ class PipelineEngine:
             if not os.path.exists(path):
                 raise FileNotFoundError(f"File {filename} not found")
             
-            # --- NEW: Preview Mode Optimization ---
-            # If preview_mode is True, read only 50 rows
             nrows_arg = 50 if self.preview_mode else None
             
             if filename.lower().endswith('.csv'): 
@@ -193,10 +184,8 @@ class PipelineEngine:
         else:
             if node_type == 'trans_join':
                 dfs = self.get_join_parents(node_id)
-                if len(dfs) < 2: 
-                     self.logs.append("Warning: Join node reached but missing inputs. (Graph logic limitation)")
-                     return 
-
+                if len(dfs) < 2 or any(d is None for d in dfs): 
+                     raise ValueError("Join node requires 2 valid inputs.")
                 df = self.process_join(dfs[0], dfs[1], data)
             else:
                 df = self.get_parent_df(node_id)
@@ -204,6 +193,7 @@ class PipelineEngine:
                     self.logs.append(f"Skipping {node_type}: No input data found.")
                     return 
 
+                # --- CLEANING & TRANSFORMATION LOGIC ---
                 if node_type == 'filterNode':
                     df = self.process_filter(df, data)
                 elif node_type == 'trans_sort':
@@ -232,18 +222,44 @@ class PipelineEngine:
                     df = self.process_group(df, data)
                 elif node_type == 'trans_calc':
                     df = self.process_calc(df, data)
+                
+                # --- NEW NODES LOGIC ADDED BELOW ---
+                elif node_type == 'trans_cast':
+                    col = data.get('column')
+                    tgt = data.get('targetType', 'string')
+                    if col in df.columns:
+                        if tgt == 'int': df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+                        elif tgt == 'float': df[col] = pd.to_numeric(df[col], errors='coerce')
+                        elif tgt == 'string': df[col] = df[col].astype(str)
+                        elif tgt == 'date': df[col] = pd.to_datetime(df[col], errors='coerce')
+                        self.logs.append(f"Casted {col} to {tgt}")
+                        
+                elif node_type == 'trans_string':
+                    col = data.get('column')
+                    op = data.get('operation', 'upper')
+                    if col in df.columns:
+                        if op == 'upper': df[col] = df[col].astype(str).str.upper()
+                        elif op == 'lower': df[col] = df[col].astype(str).str.lower()
+                        elif op == 'strip': df[col] = df[col].astype(str).str.strip()
+                        elif op == 'title': df[col] = df[col].astype(str).str.title()
+                        self.logs.append(f"String op {op} on {col}")
+                        
+                elif node_type == 'trans_constant':
+                    col = data.get('colName')
+                    val = safe_convert(data.get('value'))
+                    if col:
+                        df[col] = val
+                        self.logs.append(f"Added constant col {col}")
+
+                # --- VISUALIZATION & OUTPUTS ---
                 elif node_type == 'vis_chart':
-                    # In preview mode, we might still want to test chart generation logic, 
-                    # but we won't get a "DataFrame" output from a chart node usually.
-                    # This is fine; the preview panel will show "No data output" which is correct for a chart.
                     if not self.preview_mode:
                         self.generate_chart(df, data)
                 elif node_type.startswith('dest_'):
                     if not self.preview_mode:
                         self.save_destination(df, node_type, data)
-                    return # Destination is a sink
+                    return 
 
-        # Store result for children nodes
         if df is not None:
             self.data_store[node_id] = df
 
@@ -265,7 +281,7 @@ class PipelineEngine:
             self.logs.append(f"Joined datasets on {key} ({how}): {len(res)} rows")
             return res
         else:
-            raise ValueError(f"Join key {key} missing")
+            raise ValueError(f"Join key '{key}' not found in one of the inputs. Columns available: {list(df1.columns)} | {list(df2.columns)}")
 
     def process_group(self, df, data):
         g_col, t_col, op = data.get('groupCol'), data.get('targetCol'), data.get('operation', 'sum')
