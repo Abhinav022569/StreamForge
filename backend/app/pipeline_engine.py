@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np  # <--- NEW: Import NumPy for Inf handling
 import sqlite3
 import matplotlib
 matplotlib.use('Agg')
@@ -110,7 +111,9 @@ class PipelineEngine:
                         to_visit.append(src)
 
         # 2. Execution Loop (Topological Sort)
-        queue = [nid for nid, count in self.in_degree.items() if count == 0]
+        # We COPY in_degree to avoid corrupting it for future calls if instance is reused (defensive)
+        local_in_degree = self.in_degree.copy()
+        queue = [nid for nid, count in local_in_degree.items() if count == 0]
         
         while queue:
             current_id = queue.pop(0)
@@ -127,29 +130,41 @@ class PipelineEngine:
             # Continue traversal to unlock children
             if current_id in self.adj_list:
                 for child in self.adj_list[current_id]:
-                     self.in_degree[child] -= 1
-                     if self.in_degree[child] == 0:
+                     local_in_degree[child] -= 1
+                     if local_in_degree[child] == 0:
                          queue.append(child)
 
         # 3. Retrieve Result
         if target_node_id in self.data_store:
             df = self.data_store[target_node_id]
-            records = df.head(5).where(pd.notnull(df), None).to_dict(orient='records')
+            
+            # --- CRITICAL FIX: SANITIZE DATA FOR JSON ---
+            # Convert Infinity to NaN, then all NaN to None (null in JSON)
+            # This prevents backend crashes when calculations produce Infinity
+            df_clean = df.replace([np.inf, -np.inf], np.nan)
+            records = df_clean.head(5).where(pd.notnull(df_clean), None).to_dict(orient='records')
+            
             return {"data": records, "columns": list(df.columns), "logs": self.logs}
         else:
-            return {"error": "Node produced no data (check connections or file inputs).", "logs": self.logs}
+            return {"error": "Node produced no data. Check logs.", "logs": self.logs}
 
     def get_parent_df(self, current_id):
         for nid, neighbors in self.adj_list.items():
             if current_id in neighbors:
-                return self.data_store.get(nid)
+                # Return a COPY to ensure subsequent nodes don't mutate stored data
+                parent_df = self.data_store.get(nid)
+                return parent_df.copy() if parent_df is not None else None
         return None
 
     def get_join_parents(self, current_id):
         parents = []
         for nid, neighbors in self.adj_list.items():
             if current_id in neighbors:
-                parents.append(self.data_store.get(nid))
+                parent_df = self.data_store.get(nid)
+                if parent_df is not None:
+                    parents.append(parent_df.copy()) # Copy here too
+                else:
+                    parents.append(None)
         return parents
 
     def process_node(self, node_id, node):
@@ -161,7 +176,10 @@ class PipelineEngine:
         if node_type.startswith('source_'):
             filename = data.get('filename')
             if not filename: 
-                raise ValueError("No file selected")
+                # Attempt to use label if filename is missing (fallback)
+                filename = data.get('label')
+                if not filename or '.' not in filename:
+                    raise ValueError("No file selected")
             
             path = os.path.join(self.uploads_dir, filename)
             if not os.path.exists(path):
@@ -223,7 +241,7 @@ class PipelineEngine:
                 elif node_type == 'trans_calc':
                     df = self.process_calc(df, data)
                 
-                # --- NEW NODES LOGIC ADDED BELOW ---
+                # --- NEW NODES LOGIC ---
                 elif node_type == 'trans_cast':
                     col = data.get('column')
                     tgt = data.get('targetType', 'string')
