@@ -8,14 +8,15 @@ import ReactFlow, {
   applyEdgeChanges, 
   addEdge, 
   ReactFlowProvider,
-  useReactFlow 
+  useReactFlow,
+  useViewport 
 } from 'reactflow';
 import 'reactflow/dist/style.css'; 
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client'; 
 import { 
   ArrowLeft, LayoutTemplate, Upload, Download, Play, Save, 
-  Loader2, AlertCircle, CheckCircle2, X, Info
+  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2 
 } from 'lucide-react';
 
 import Sidebar from './Sidebar';
@@ -35,6 +36,64 @@ import {
 
 import { TEMPLATES } from '../data/templates';
 
+// Helper to generate consistent colors for users
+const getUserColor = (username) => {
+    const safeName = username || 'Anonymous';
+    const colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e'];
+    let hash = 0;
+    for (let i = 0; i < safeName.length; i++) {
+        hash = safeName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+};
+
+// Cursor Component
+const RemoteCursor = ({ x, y, name, color }) => (
+    <div style={{ 
+        position: 'absolute', 
+        left: x, 
+        top: y, 
+        pointerEvents: 'none', 
+        zIndex: 1000,
+        transition: 'all 0.1s ease'
+    }}>
+        <MousePointer2 size={18} fill={color} color="white" />
+        <div style={{ 
+            backgroundColor: color, 
+            color: 'white', 
+            padding: '2px 6px', 
+            borderRadius: '4px', 
+            fontSize: '10px', 
+            whiteSpace: 'nowrap',
+            marginLeft: '12px',
+            marginTop: '2px',
+            fontWeight: '600',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+        }}>
+            {name}
+        </div>
+    </div>
+);
+
+// Cursor Renderer Component
+const CursorsRenderer = ({ cursors }) => {
+    const { x, y, zoom } = useViewport();
+
+    return (
+        <>
+            {Object.entries(cursors).map(([userId, cursor]) => (
+                <RemoteCursor 
+                    key={userId} 
+                    x={cursor.x * zoom + x} 
+                    y={cursor.y * zoom + y} 
+                    name={cursor.name} 
+                    color={cursor.color} 
+                />
+            ))}
+        </>
+    );
+};
+
 const initialNodes = [];
 
 const PipelineBuilderContent = () => {
@@ -44,8 +103,7 @@ const PipelineBuilderContent = () => {
     const fileInputRef = useRef(null);
     const socketRef = useRef(null); 
     
-    // --- KEY: We use getNodes() to ensure we always have the latest state ---
-    const { getNodes, getEdges } = useReactFlow(); 
+    const { getNodes, getEdges, screenToFlowPosition } = useReactFlow(); 
 
     const [nodes, setNodes] = useState(initialNodes);
     const [edges, setEdges] = useState([]);
@@ -56,12 +114,35 @@ const PipelineBuilderContent = () => {
     const [isDirty, setIsDirty] = useState(false);
     const isLoadedRef = useRef(false);
 
+    // --- Remote Cursors State ---
+    const [remoteCursors, setRemoteCursors] = useState({});
+    const lastCursorUpdate = useRef(0);
+
+    // --- FIX: Retrieve User Info Correctly from LocalStorage ---
+    const getUserInfo = () => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try {
+                const parsed = JSON.parse(storedUser);
+                return { 
+                    name: parsed.username || 'Anonymous', 
+                    id: parsed.id ? String(parsed.id) : `user_${Date.now()}` 
+                };
+            } catch (e) {
+                console.error("Failed to parse user info", e);
+            }
+        }
+        return { name: 'Anonymous', id: `user_${Date.now()}` };
+    };
+
+    const currentUser = useRef(getUserInfo());
+    const myColor = useMemo(() => getUserColor(currentUser.current.name), []);
+
     // --- Preview Panel State ---
     const [previewPanel, setPreviewPanel] = useState({ 
         isOpen: false, loading: false, data: [], columns: [], error: null, nodeLabel: '' 
     });
 
-    // --- Notification State ---
     const [notification, setNotification] = useState(null); 
 
     const showToast = (message, type = 'success') => {
@@ -69,8 +150,6 @@ const PipelineBuilderContent = () => {
         setTimeout(() => setNotification(null), 4000);
     };
 
-    // --- CRITICAL: Centralized Data Update Handler ---
-    // This is passed to every node so they can update the parent state correctly.
     const updateNodeData = useCallback((nodeId, newData) => {
         setNodes((nds) => nds.map((node) => {
             if (node.id === nodeId) {
@@ -81,19 +160,10 @@ const PipelineBuilderContent = () => {
         setIsDirty(true);
     }, []);
 
-    // --- REGISTER NODE TYPES ---
     const nodeTypes = useMemo(() => ({ 
         filterNode: FilterNode,
-        
-        // Unified Source Node (New)
         source_unified: SourceNode,
-
-        // Legacy Source Nodes (Kept for backward compatibility with old pipelines)
-        source_csv: SourceNode, 
-        source_json: SourceNode, 
-        source_excel: SourceNode, 
-        sourceNode: SourceNode, 
-        
+        source_csv: SourceNode, source_json: SourceNode, source_excel: SourceNode, sourceNode: SourceNode, 
         dest_db: DestinationNode, dest_csv: DestinationNode, dest_json: DestinationNode, dest_excel: DestinationNode, destinationNode: DestinationNode,
         trans_sort: SortNode, trans_select: SelectNode, trans_rename: RenameNode, trans_dedupe: DedupeNode,
         trans_fillna: FillNaNode, trans_group: GroupByNode, trans_join: JoinNode,
@@ -120,6 +190,13 @@ const PipelineBuilderContent = () => {
             }
         });
 
+        socketRef.current.on('cursor_moved', (data) => {
+            setRemoteCursors((prev) => ({
+                ...prev,
+                [data.userId]: { x: data.x, y: data.y, name: data.userName, color: data.color }
+            }));
+        });
+
         return () => {
             if (socketRef.current) {
                 socketRef.current.emit('leave', { pipeline_id: id });
@@ -128,7 +205,25 @@ const PipelineBuilderContent = () => {
         };
     }, [id]);
 
-    // --- Load Data ---
+    const onMouseMove = useCallback((event) => {
+        if (!reactFlowInstance || !socketRef.current) return;
+
+        const now = Date.now();
+        if (now - lastCursorUpdate.current > 50) { 
+            const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+
+            socketRef.current.emit('cursor_move', {
+                pipeline_id: id,
+                userId: currentUser.current.id,
+                userName: currentUser.current.name,
+                color: myColor,
+                x: flowPos.x,
+                y: flowPos.y
+            });
+            lastCursorUpdate.current = now;
+        }
+    }, [reactFlowInstance, id, screenToFlowPosition, myColor]);
+
     useEffect(() => {
         if (id) {
             isLoadedRef.current = false; 
@@ -140,7 +235,6 @@ const PipelineBuilderContent = () => {
                 const { name, flow } = response.data;
                 setPipelineName(name);
                 if (flow) {
-                    // --- INJECT updateNodeData INTO LOADED NODES ---
                     const loadedNodes = (flow.nodes || []).map(n => ({
                         ...n,
                         data: { ...n.data, onUpdate: updateNodeData }
@@ -181,7 +275,6 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    // --- ReactFlow Event Handlers ---
     const onNodesChange = useCallback((changes) => {
         setNodes((nds) => applyNodeChanges(changes, nds));
         if (isLoadedRef.current) setIsDirty(true);
@@ -215,9 +308,7 @@ const PipelineBuilderContent = () => {
         }
     }, [id]);
 
-    // --- NODE CLICK (PREVIEW) HANDLER ---
     const onNodeClick = useCallback(async (event, node) => {
-        // 1. Reset Panel State
         setPreviewPanel({
             isOpen: true,
             loading: true,
@@ -228,8 +319,6 @@ const PipelineBuilderContent = () => {
         });
 
         const token = localStorage.getItem('token');
-        
-        // 2. GET LATEST STATE using getNodes() / getEdges()
         const currentNodes = getNodes(); 
         const currentEdges = getEdges();
 
@@ -278,16 +367,13 @@ const PipelineBuilderContent = () => {
 
             let defaultData = { label: label };
             
-            // Handle Unified Source and Legacy Types
             if (type.includes('source')) {
-                // If unified, this might be "UNIFIED", which SourceNode should handle or ignore
                 defaultData.fileType = type.split('_')[1]?.toUpperCase() || 'CSV';
             }
             if (type.includes('dest')) defaultData.destinationType = type.split('_')[1]?.toUpperCase() || 'DB';
             if (type === 'filterNode') { defaultData.column = ''; defaultData.condition = '>'; defaultData.value = ''; }
             if (type === 'vis_chart') { defaultData.chartType = 'bar'; defaultData.x_col = ''; defaultData.y_col = ''; defaultData.outputName = 'my_chart'; }
 
-            // --- INJECT updateNodeData INTO NEW NODES ---
             defaultData.onUpdate = updateNodeData;
 
             const newNode = {
@@ -303,9 +389,8 @@ const PipelineBuilderContent = () => {
         [reactFlowInstance, updateNodeData]
     );
 
-    // --- SAVE PIPELINE ---
     const savePipeline = async () => {
-        const currentNodes = getNodes(); // Get latest state
+        const currentNodes = getNodes(); 
         const currentEdges = getEdges();
         
         const flow = { nodes: currentNodes, edges: currentEdges };
@@ -327,9 +412,8 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    // --- EXPORT JSON ---
     const handleExport = () => {
-        const currentNodes = getNodes(); // Get latest state
+        const currentNodes = getNodes(); 
         const currentEdges = getEdges();
         const exportData = { name: pipelineName, nodes: currentNodes, edges: currentEdges };
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
@@ -344,7 +428,6 @@ const PipelineBuilderContent = () => {
 
     const handleImportClick = () => { fileInputRef.current.click(); };
 
-    // --- IMPORT JSON ---
     const handleImportFile = (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -353,7 +436,6 @@ const PipelineBuilderContent = () => {
             try {
                 const json = JSON.parse(e.target.result);
                 if (json.nodes && Array.isArray(json.nodes)) {
-                    // --- INJECT updateNodeData INTO IMPORTED NODES ---
                     const importedNodes = json.nodes.map(n => ({
                         ...n,
                         data: { ...n.data, onUpdate: updateNodeData }
@@ -374,7 +456,6 @@ const PipelineBuilderContent = () => {
         event.target.value = null;
     };
 
-    // --- LOAD TEMPLATE ---
     const handleLoadTemplate = (template) => {
         if (nodes.length > 0 && !window.confirm("Loading a template will replace your current canvas. Continue?")) return;
         const idMap = {};
@@ -382,7 +463,6 @@ const PipelineBuilderContent = () => {
         const newNodes = template.nodes.map(n => {
             const newId = `${n.id}_${timestamp}`;
             idMap[n.id] = newId;
-            // --- INJECT updateNodeData INTO TEMPLATE NODES ---
             return { 
                 ...n, 
                 id: newId,
@@ -404,9 +484,8 @@ const PipelineBuilderContent = () => {
         showToast(`Template '${template.name}' loaded`, 'success');
     };
 
-    // --- RUN PIPELINE ---
     const handleRun = async () => {
-        const currentNodes = getNodes(); // Get latest state
+        const currentNodes = getNodes(); 
         const currentEdges = getEdges();
         if (currentNodes.length === 0) { showToast("Canvas is empty.", 'error'); return; }
         
@@ -431,7 +510,6 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    // Helper Component for Header Buttons
     const ActionButton = ({ icon, label, onClick }) => (
         <motion.button 
             onClick={onClick}
@@ -447,7 +525,6 @@ const PipelineBuilderContent = () => {
         </motion.button>
     );
 
-    // --- HELPER: Toast Component ---
     const ToastNotification = () => (
         <AnimatePresence>
             {notification && (
@@ -484,12 +561,9 @@ const PipelineBuilderContent = () => {
     return (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0f1115', position: 'relative' }}>
             
-            {/* NOTIFICATION OVERLAY */}
             <ToastNotification />
-
             <input type="file" accept=".json" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportFile} />
 
-            {/* HEADER */}
             <motion.header 
                 style={{ 
                     height: '60px', 
@@ -511,7 +585,6 @@ const PipelineBuilderContent = () => {
                     </motion.button>
                     <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }}></div>
                     
-                    {/* PIPELINE NAME INPUT */}
                     <div style={{ position: 'relative' }}>
                         <input 
                             type="text" 
@@ -579,7 +652,12 @@ const PipelineBuilderContent = () => {
             {/* WORKSPACE */}
             <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
                 <Sidebar />
-                <div className="reactflow-wrapper" ref={reactFlowWrapper} style={{ width: '100%', height: '100%', backgroundColor: '#0f1115' }}>
+                <div 
+                    className="reactflow-wrapper" 
+                    ref={reactFlowWrapper} 
+                    style={{ width: '100%', height: '100%', backgroundColor: '#0f1115' }}
+                    onMouseMove={onMouseMove} // --- CAPTURE MOUSE MOVE FOR CURSORS ---
+                >
                     <ReactFlow 
                         nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
                         nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={setReactFlowInstance} onDrop={onDrop} onDragOver={onDragOver}
@@ -587,13 +665,15 @@ const PipelineBuilderContent = () => {
                         fitView deleteKeyCode={['Backspace', 'Delete']}
                         proOptions={{ hideAttribution: true }}
                     >
+                        {/* --- RENDER REMOTE CURSORS USING CORRECT VIEWPORT TRANSFORM --- */}
+                        <CursorsRenderer cursors={remoteCursors} />
+
                         <Background color="#27272a" gap={25} size={1} />
                         <Controls style={{ background: '#27272a', border: '1px solid rgba(255,255,255,0.1)', fill: 'white' }} />
                     </ReactFlow>
                 </div>
             </div>
 
-            {/* DATA PREVIEW PANEL */}
             <DataPreviewPanel 
                 isOpen={previewPanel.isOpen}
                 onClose={() => setPreviewPanel(prev => ({ ...prev, isOpen: false }))}
