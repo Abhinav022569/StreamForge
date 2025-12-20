@@ -21,8 +21,8 @@ class Pipeline(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
-    shares = db.relationship('SharedPipeline', backref='pipeline', lazy='dynamic')
-    # Use cascade to delete runs if pipeline is deleted
+    # FIXED: Added cascade to delete shared records when pipeline is deleted
+    shares = db.relationship('SharedPipeline', backref='pipeline', lazy='dynamic', cascade="all, delete-orphan")
     runs = db.relationship('PipelineRun', backref='pipeline', lazy='dynamic', cascade="all, delete-orphan")
 
 class PipelineRun(db.Model):

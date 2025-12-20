@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-import numpy as np  # <--- NEW: Import NumPy for Inf handling
+import numpy as np  # Required for handling Infinity/NaN
 import sqlite3
 import matplotlib
 matplotlib.use('Agg')
@@ -142,7 +142,9 @@ class PipelineEngine:
             # Convert Infinity to NaN, then all NaN to None (null in JSON)
             # This prevents backend crashes when calculations produce Infinity
             df_clean = df.replace([np.inf, -np.inf], np.nan)
-            records = df_clean.head(5).where(pd.notnull(df_clean), None).to_dict(orient='records')
+            
+            # Take a small sample for preview
+            records = df_clean.head(100).where(pd.notnull(df_clean), None).to_dict(orient='records')
             
             return {"data": records, "columns": list(df.columns), "logs": self.logs}
         else:
@@ -178,6 +180,7 @@ class PipelineEngine:
             if not filename: 
                 # Attempt to use label if filename is missing (fallback)
                 filename = data.get('label')
+                # Simple check if label looks like a file
                 if not filename or '.' not in filename:
                     raise ValueError("No file selected")
             
