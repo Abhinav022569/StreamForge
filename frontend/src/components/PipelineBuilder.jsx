@@ -12,6 +12,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css'; 
 import { motion, AnimatePresence } from 'framer-motion';
+import { io } from 'socket.io-client'; // <--- NEW: Import Socket.io
 import { 
   ArrowLeft, 
   LayoutTemplate, 
@@ -49,6 +50,7 @@ const PipelineBuilderContent = () => {
     const { id } = useParams();
     const reactFlowWrapper = useRef(null);
     const fileInputRef = useRef(null);
+    const socketRef = useRef(null); // <--- NEW: Socket Reference
     const { getNodes, getEdges } = useReactFlow(); 
 
     const [nodes, setNodes] = useState(initialNodes);
@@ -60,12 +62,11 @@ const PipelineBuilderContent = () => {
     const [isDirty, setIsDirty] = useState(false);
     const isLoadedRef = useRef(false);
 
-    // --- NEW: Notification State ---
-    const [notification, setNotification] = useState(null); // { message, type: 'success' | 'error' | 'info' }
+    // --- Notification State ---
+    const [notification, setNotification] = useState(null); 
 
     const showToast = (message, type = 'success') => {
         setNotification({ message, type });
-        // Auto-dismiss after 4 seconds
         setTimeout(() => setNotification(null), 4000);
     };
 
@@ -81,6 +82,36 @@ const PipelineBuilderContent = () => {
     }), []);
 
     const edgeTypes = useMemo(() => ({ deletableEdge: DeletableEdge }), []);
+
+    // --- NEW: Socket.IO Connection Effect ---
+    useEffect(() => {
+        if (!id) return; // Only connect if we are in a specific pipeline
+
+        // 1. Connect to backend
+        socketRef.current = io('http://127.0.0.1:5000');
+        
+        // 2. Join specific pipeline room
+        socketRef.current.emit('join', { pipeline_id: id });
+
+        // 3. Listen for incoming changes from others
+        socketRef.current.on('pipeline_updated', (data) => {
+            if (data.type === 'node_change') {
+                setNodes((nds) => applyNodeChanges(data.changes, nds));
+            } else if (data.type === 'edge_change') {
+                setEdges((eds) => applyEdgeChanges(data.changes, eds));
+            } else if (data.type === 'connection') {
+                setEdges((eds) => addEdge({ ...data.changes, type: 'deletableEdge' }, eds));
+            }
+        });
+
+        // 4. Cleanup on unmount
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.emit('leave', { pipeline_id: id });
+                socketRef.current.disconnect();
+            }
+        };
+    }, [id]);
 
     // Load Data
     useEffect(() => {
@@ -129,20 +160,50 @@ const PipelineBuilderContent = () => {
         }
     };
 
+    // --- MODIFIED: OnNodesChange (Emit changes) ---
     const onNodesChange = useCallback((changes) => {
         setNodes((nds) => applyNodeChanges(changes, nds));
         if (isLoadedRef.current) setIsDirty(true);
-    }, []);
 
+        // Emit changes to socket
+        if (socketRef.current && id) {
+            socketRef.current.emit('pipeline_update', {
+                pipeline_id: id,
+                type: 'node_change',
+                changes: changes
+            });
+        }
+    }, [id]);
+
+    // --- MODIFIED: OnEdgesChange (Emit changes) ---
     const onEdgesChange = useCallback((changes) => {
         setEdges((eds) => applyEdgeChanges(changes, eds));
         if (isLoadedRef.current) setIsDirty(true);
-    }, []);
 
+        // Emit changes to socket
+        if (socketRef.current && id) {
+            socketRef.current.emit('pipeline_update', {
+                pipeline_id: id,
+                type: 'edge_change',
+                changes: changes
+            });
+        }
+    }, [id]);
+
+    // --- MODIFIED: OnConnect (Emit changes) ---
     const onConnect = useCallback((params) => {
         setEdges((eds) => addEdge({ ...params, type: 'deletableEdge' }, eds));
         if (isLoadedRef.current) setIsDirty(true);
-    }, []);
+
+        // Emit connection to socket
+        if (socketRef.current && id) {
+            socketRef.current.emit('pipeline_update', {
+                pipeline_id: id,
+                type: 'connection',
+                changes: params
+            });
+        }
+    }, [id]);
 
     const onDragOver = useCallback((event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }, []);
 
@@ -171,6 +232,11 @@ const PipelineBuilderContent = () => {
                 position,
                 data: defaultData,
             };
+
+            // Note: Since adding a node is not a direct "change" event in ReactFlow, 
+            // the full node list update isn't automatically broadcast via onNodesChange.
+            // For full collaboration on ADDING nodes, you would ideally emit a custom 'node_add' event here.
+            // However, dragging/moving this new node will sync it to others immediately via onNodesChange.
 
             setNodes((nds) => nds.concat(newNode));
             setIsDirty(true);

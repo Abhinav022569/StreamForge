@@ -4,9 +4,11 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from werkzeug.security import generate_password_hash # Import hashing function
+from flask_socketio import SocketIO
 
 db = SQLAlchemy()
 jwt = JWTManager()
+socketio = SocketIO()
 
 def create_app():
     app = Flask(__name__)
@@ -22,9 +24,12 @@ def create_app():
     
     db.init_app(app)
     jwt.init_app(app)
+    socketio.init_app(app, cors_allowed_origins="*")
 
     from .routes import main
     app.register_blueprint(main)
+    
+    from . import events
 
     with app.app_context():
         # Create all tables (User, Pipeline, DataSource, ProcessedFile)
