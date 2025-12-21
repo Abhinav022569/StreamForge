@@ -20,7 +20,9 @@ class Pipeline(db.Model):
     status = db.Column(db.String(20), default='Ready') 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    
+    schedule = db.Column(db.String(50), nullable=True) # e.g., "0 9 * * *" or "every_10_minutes"
+    next_run = db.Column(db.DateTime, nullable=True)
+
     # FIXED: Added cascade to delete shared records when pipeline is deleted
     shares = db.relationship('SharedPipeline', backref='pipeline', lazy='dynamic', cascade="all, delete-orphan")
     runs = db.relationship('PipelineRun', backref='pipeline', lazy='dynamic', cascade="all, delete-orphan")

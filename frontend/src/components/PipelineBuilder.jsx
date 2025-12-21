@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client'; 
 import { 
   ArrowLeft, LayoutTemplate, Upload, Download, Play, Save, 
-  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2 
+  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock 
 } from 'lucide-react';
 
 import Sidebar from './Sidebar';
@@ -111,6 +111,12 @@ const PipelineBuilderContent = () => {
     const [pipelineName, setPipelineName] = useState("My New Pipeline");
     const [isRunning, setIsRunning] = useState(false); 
     const [showTemplateModal, setShowTemplateModal] = useState(false);
+    
+    // --- SCHEDULING STATE ---
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [scheduleTime, setScheduleTime] = useState('09:00');
+    // ------------------------
+
     const [isDirty, setIsDirty] = useState(false);
     const isLoadedRef = useRef(false);
 
@@ -118,7 +124,6 @@ const PipelineBuilderContent = () => {
     const [remoteCursors, setRemoteCursors] = useState({});
     const lastCursorUpdate = useRef(0);
 
-    // --- FIX: Retrieve User Info Correctly from LocalStorage ---
     const getUserInfo = () => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
@@ -232,8 +237,14 @@ const PipelineBuilderContent = () => {
                 headers: { Authorization: `Bearer ${token}` }
             })
             .then(response => {
-                const { name, flow } = response.data;
+                const { name, flow, schedule } = response.data; // Added schedule
                 setPipelineName(name);
+                
+                // If schedule exists (e.g., "cron:09:00"), extract time
+                if (schedule && schedule.startsWith('cron:')) {
+                    setScheduleTime(schedule.split(':')[1] + ':' + schedule.split(':')[2]);
+                }
+
                 if (flow) {
                     const loadedNodes = (flow.nodes || []).map(n => ({
                         ...n,
@@ -411,6 +422,29 @@ const PipelineBuilderContent = () => {
             showToast('Error saving pipeline: ' + (error.response?.data?.msg || error.message), 'error');
         }
     };
+
+    // --- SCHEDULING LOGIC ---
+    const saveSchedule = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!id) {
+                showToast("Please save the pipeline first.", "error");
+                return;
+            }
+            
+            await axios.post(`http://127.0.0.1:5000/pipelines/${id}/schedule`, {
+                type: 'cron',
+                value: scheduleTime
+            }, { headers: { Authorization: `Bearer ${token}` }});
+            
+            showToast('Schedule Saved!', 'success');
+            setShowScheduleModal(false);
+        } catch (err) {
+            console.error(err);
+            showToast('Failed to save schedule', 'error');
+        }
+    };
+    // ------------------------
 
     const handleExport = () => {
         const currentNodes = getNodes(); 
@@ -613,6 +647,11 @@ const PipelineBuilderContent = () => {
 
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <ActionButton icon={<LayoutTemplate size={16}/>} label="Templates" onClick={() => setShowTemplateModal(true)} />
+                    
+                    {/* --- SCHEDULE BUTTON (NEW) --- */}
+                    <ActionButton icon={<Clock size={16}/>} label="Schedule" onClick={() => setShowScheduleModal(true)} />
+                    {/* ----------------------------- */}
+
                     <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)', alignSelf: 'center' }}></div>
                     <ActionButton icon={<Upload size={16}/>} label="Import" onClick={handleImportClick} />
                     <ActionButton icon={<Download size={16}/>} label="Export" onClick={handleExport} />
@@ -736,6 +775,74 @@ const PipelineBuilderContent = () => {
                                     </div>
                                 </motion.div>
                             ))}
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+            </AnimatePresence>
+
+            {/* --- SCHEDULE MODAL (NEW) --- */}
+            <AnimatePresence>
+            {showScheduleModal && (
+                <motion.div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
+                        zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center'
+                    }}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                >
+                    <motion.div 
+                        style={{
+                            width: '400px', backgroundColor: '#18181b',
+                            border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '30px',
+                            display: 'flex', flexDirection: 'column',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                        }}
+                        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ margin: 0, color: 'white', fontSize: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <Clock size={20} color="#3b82f6" /> Schedule Pipeline
+                            </h2>
+                            <button onClick={() => setShowScheduleModal(false)} style={{ background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}><X size={20} /></button>
+                        </div>
+                        
+                        <p style={{ color: '#a1a1aa', fontSize: '14px', marginTop: 0, marginBottom: '20px' }}>
+                            Run this pipeline automatically every day at a specific time.
+                        </p>
+
+                        <label style={{ color: 'white', fontSize: '14px', marginBottom: '8px', display: 'block' }}>Daily Run Time</label>
+                        <input 
+                            type="time" 
+                            value={scheduleTime} 
+                            onChange={e => setScheduleTime(e.target.value)}
+                            style={{ 
+                                background: '#27272a', border: '1px solid #3f3f46', color: 'white', 
+                                padding: '12px', borderRadius: '8px', width: '100%', outline: 'none',
+                                fontSize: '16px', marginBottom: '25px', boxSizing: 'border-box'
+                            }}
+                        />
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button 
+                                onClick={() => setShowScheduleModal(false)}
+                                style={{ 
+                                    background: 'transparent', border: '1px solid #3f3f46', color: '#e4e4e7',
+                                    padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '500'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={saveSchedule}
+                                style={{ 
+                                    background: '#3b82f6', border: 'none', color: 'white',
+                                    padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '500'
+                                }}
+                            >
+                                Save Schedule
+                            </button>
                         </div>
                     </motion.div>
                 </motion.div>

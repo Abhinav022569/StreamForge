@@ -10,6 +10,7 @@ from flask import Blueprint, jsonify, request, current_app, send_from_directory
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_apscheduler import APScheduler
 
 # --- NEW IMPORTS FOR CHATBOT ---
 from dotenv import load_dotenv
@@ -688,3 +689,56 @@ def delete_processed_file(id):
     db.session.delete(file_entry)
     db.session.commit()
     return jsonify({"message": "File deleted"})
+
+@main.route('/pipelines/<int:id>/schedule', methods=['POST'])
+@jwt_required()
+def set_schedule(id):
+    current_user_id = int(get_jwt_identity())
+    pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
+    if not pipeline: return jsonify({"error": "Pipeline not found"}), 404
+
+    data = request.json
+    cron_type = data.get('type') # 'interval' or 'cron'
+    value = data.get('value')    # '30' (minutes) or '0 9 * * *'
+
+    # 1. Remove existing job if any
+    from run import scheduler, run_scheduled_job # Import here to avoid circular dependency at top level
+    try:
+        scheduler.remove_job(f"pipeline_{id}")
+    except:
+        pass # Job didn't exist
+
+    # 2. If turning off
+    if not value:
+        pipeline.schedule = None
+        db.session.commit()
+        return jsonify({"message": "Schedule removed"})
+
+    # 3. Add new job
+    if cron_type == 'interval':
+        # value is minutes
+        minutes = int(value)
+        scheduler.add_job(
+            id=f"pipeline_{id}",
+            func=run_scheduled_job,
+            args=[id],
+            trigger='interval',
+            minutes=minutes
+        )
+    elif cron_type == 'cron':
+        # basic parsing for a daily schedule string like "09:00"
+        # For simplicity, let's assume user sends "09:00" for daily run
+        hour, minute = value.split(':')
+        scheduler.add_job(
+            id=f"pipeline_{id}",
+            func=run_scheduled_job,
+            args=[id],
+            trigger='cron',
+            hour=int(hour),
+            minute=int(minute)
+        )
+
+    pipeline.schedule = f"{cron_type}:{value}"
+    db.session.commit()
+    
+    return jsonify({"message": f"Pipeline scheduled ({cron_type}: {value})"})
