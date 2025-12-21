@@ -32,7 +32,7 @@ const DocumentationPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // --- Refined Animation Variants ---
+  // --- Animation Variants ---
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -119,7 +119,7 @@ const DocumentationPage = () => {
         </motion.nav>
 
         {/* 3. MAIN CONTENT */}
-        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '0 20px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
             
             {/* HERO SECTION */}
             <motion.div 
@@ -158,7 +158,7 @@ const DocumentationPage = () => {
                   variants={itemVariants}
                   style={{ maxWidth: '680px', marginTop: '16px' }}
                 >
-                    A complete guide to building, sharing, and automating powerful ETL workflows visually with StreamForge.
+                    A complete guide to building, sharing, and executing powerful ETL workflows visually with StreamForge.
                 </motion.p>
 
                 {/* Scroll Down Indicator */}
@@ -257,7 +257,8 @@ const DocumentationPage = () => {
                     Capabilities & Nodes
                 </h2>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', marginTop: '20px' }}>
+                {/* UPDATED: Increased gap to 50px for more distance between squares */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '50px', marginTop: '30px' }}>
                     
                     <InteractiveNodeCard 
                         icon="📂" 
@@ -392,7 +393,7 @@ const Step = ({ number, title, desc, delay }) => (
           position: 'relative', zIndex: 1,
           borderRadius: '12px'
       }}
-      initial={{ opacity: 0, x: -15 }} // Reduced initial offset for subtler entry
+      initial={{ opacity: 0, x: -15 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.6, delay: delay, ease: "easeOut" }}
@@ -431,14 +432,19 @@ const InteractiveNodeCard = ({ icon, title, desc, color, delay }) => {
     return (
         <motion.div 
           style={{ 
+            // RESTORED ORIGINAL BACKGROUND FOR GLASS LOOK
             background: 'rgba(255,255,255,0.02)', 
-            padding: '24px', 
-            borderRadius: '12px', 
+            padding: '20px', 
+            borderRadius: '19px', 
             border: '1px solid rgba(255,255,255,0.05)',
             cursor: 'pointer',
             position: 'relative',
             overflow: 'hidden',
-            height: '100%'
+            height: '90%',
+            // ADDED MIN-HEIGHT TO KEEP SQUARES UNIFORM
+            minHeight: '220px', 
+            display: 'flex',
+            flexDirection: 'column'
           }}
           initial={{ opacity: 0, y: 15 }} 
           whileInView={{ opacity: 1, y: 0 }}
@@ -455,7 +461,7 @@ const InteractiveNodeCard = ({ icon, title, desc, color, delay }) => {
         >
             <div style={{ fontSize: '28px', marginBottom: '16px' }}>{icon}</div>
             <h3 style={{ color: 'white', marginBottom: '8px', fontSize: '17px', fontWeight: 'bold' }}>{title}</h3>
-            <p className="text-muted" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{desc}</p>
+            <p className="text-muted" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0, flexGrow: 1 }}>{desc}</p>
             
             {/* Hover Reveal Interaction */}
             <motion.div
