@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ArrowUp, ChevronRight, BookOpen, Zap, Layers, Share2 } from 'lucide-react';
+import { ChevronDown, ArrowUp, ChevronRight, BookOpen, Zap, Layers, Share2, Clock } from 'lucide-react';
 import ParticlesBackground from './ParticlesBackground';
 import logo from '../assets/logo.png';
 import '../App.css';
@@ -33,7 +33,6 @@ const DocumentationPage = () => {
   };
 
   // --- Refined Animation Variants ---
-  // subtler entry for the main container
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -45,17 +44,15 @@ const DocumentationPage = () => {
     }
   };
 
-  // Smoother, shorter distance fade-in for text
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
     visible: { 
       opacity: 1, 
       y: 0, 
-      transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } // Custom cubic-bezier for "premium" feel
+      transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } 
     }
   };
 
-  // Very subtle lift for sections
   const sectionVariants = {
     hidden: { opacity: 0, y: 30 },
     visible: { 
@@ -94,7 +91,6 @@ const DocumentationPage = () => {
                   src={logo} 
                   alt="Logo" 
                   style={{ width: '30px', borderRadius: '4px' }}
-                  // Removed the 360 spin; replaced with a subtle scale pulse
                   whileHover={{ scale: 1.05 }}
                   transition={{ duration: 0.3 }}
                 />
@@ -162,7 +158,7 @@ const DocumentationPage = () => {
                   variants={itemVariants}
                   style={{ maxWidth: '680px', marginTop: '16px' }}
                 >
-                    A complete guide to building, sharing, and executing powerful ETL workflows visually with StreamForge.
+                    A complete guide to building, sharing, and automating powerful ETL workflows visually with StreamForge.
                 </motion.p>
 
                 {/* Scroll Down Indicator */}
@@ -196,7 +192,7 @@ const DocumentationPage = () => {
                     <span style={{ color: '#e4e4e7', display: 'block', margin: '20px 0', paddingLeft: '20px', borderLeft: '2px solid #3f3f46', fontStyle: 'italic' }}>
                         "Extract from Source → Transform with Logic → Load to Destination"
                     </span>
-                    Now supporting <b>Advanced Data Cleaning</b>, <b>Multi-Source Joins</b>, <b>Mathematical Operations</b>, and <b>In-Pipeline Visualization</b>.
+                    Now supporting <b>Multi-Source Joins</b>, <b>Mathematical Formulas</b>, <b>In-Pipeline Charts</b>, and <b>Automated Cron Scheduling</b>.
                 </p>
             </motion.div>
 
@@ -241,8 +237,8 @@ const DocumentationPage = () => {
                         />
                         <Step 
                             number="04" 
-                            title="Run & Analyze" 
-                            desc="Execute the pipeline. Download cleaned files or view generated charts immediately." 
+                            title="Execute or Schedule" 
+                            desc="Run immediately to view results/charts, or set a daily schedule to automate your pipeline." 
                             delay={0.3} 
                         />
                     </div>
@@ -304,11 +300,19 @@ const DocumentationPage = () => {
                     />
 
                     <InteractiveNodeCard 
+                        icon="⏰" 
+                        title="Automation" 
+                        desc="Schedule pipelines to run automatically at specific times. Track execution logs history."
+                        color="#06b6d4"
+                        delay={0.5} 
+                    />
+
+                    <InteractiveNodeCard 
                         icon="👥" 
                         title="Collaboration" 
                         desc="Share pipelines with teammates using 'Viewer' or 'Editor' roles for seamless teamwork."
                         color="#ec4899"
-                        delay={0.5} 
+                        delay={0.6} 
                     />
                     
                 </div>
@@ -328,7 +332,7 @@ const DocumentationPage = () => {
                 </h2>
                 <p className="text-muted" style={{ marginBottom: '24px' }}>
                     Working in a team? You can now share your pipelines with colleagues. 
-                    Head to the <b>Collaboration</b> tab to manage permissions and view pipelines shared with you.
+                    See <b>Live Cursors</b> as you edit together, and manage permissions securely.
                 </p>
                 <button className="btn" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '10px 24px' }} onClick={() => navigate('/collaboration')}>
                     Go to Collaboration Hub <span style={{ marginLeft: '8px' }}>→</span>
@@ -393,7 +397,7 @@ const Step = ({ number, title, desc, delay }) => (
       viewport={{ once: true }}
       transition={{ duration: 0.6, delay: delay, ease: "easeOut" }}
       whileHover={{ 
-          x: 4, // Much smaller movement on hover (was 10)
+          x: 4, 
           borderColor: 'rgba(16, 185, 129, 0.3)', 
           backgroundColor: 'rgba(24, 24, 27, 0.6)' 
       }}
@@ -436,17 +440,17 @@ const InteractiveNodeCard = ({ icon, title, desc, color, delay }) => {
             overflow: 'hidden',
             height: '100%'
           }}
-          initial={{ opacity: 0, y: 15 }} // Reduced offset
+          initial={{ opacity: 0, y: 15 }} 
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: delay, ease: "easeOut" }}
           onHoverStart={() => setIsHovered(true)}
           onHoverEnd={() => setIsHovered(false)}
           whileHover={{ 
-            y: -4, // Reduced lift (was -8) for subtle feel
+            y: -4, 
             backgroundColor: 'rgba(255,255,255,0.04)',
             borderColor: color, 
-            boxShadow: `0 10px 25px -10px ${color}20` // Softer shadow opacity
+            boxShadow: `0 10px 25px -10px ${color}20`
           }}
         >
             <div style={{ fontSize: '28px', marginBottom: '16px' }}>{icon}</div>
