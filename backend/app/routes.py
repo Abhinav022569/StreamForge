@@ -10,15 +10,49 @@ from flask import Blueprint, jsonify, request, current_app, send_from_directory
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+
+# --- NEW IMPORTS FOR CHATBOT ---
+from dotenv import load_dotenv
+import google.generativeai as genai
+# -------------------------------
+
 from . import db
 from .models import Pipeline, User, DataSource, ProcessedFile, SharedPipeline, PipelineRun
 from .pipeline_engine import PipelineEngine, get_size_format
-import google.generativeai as genai
-from .chatbot_context import SYSTEM_PROMPT
 
-genai.configure(api_key="AIzaSyBFn9y2C8HIzo-dCR6D0vtvxSHQC6SPIIQ")
+# Try to import the system prompt, handle error if file missing
+try:
+    from .chatbot_context import SYSTEM_PROMPT
+except ImportError:
+    SYSTEM_PROMPT = "You are a helpful assistant for StreamForge."
 
 main = Blueprint('main', __name__)
+
+# --- CONFIGURATION START ---
+
+# 1. Force load .env from the backend root folder
+# This fixes the "No API_KEY" error by finding the file wherever it is.
+current_dir = os.path.dirname(os.path.abspath(__file__)) # backend/app
+backend_root = os.path.dirname(current_dir)              # backend/
+env_path = os.path.join(backend_root, '.env')
+
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+    print(f"✅ Loaded environment variables from: {env_path}")
+else:
+    print(f"⚠️  WARNING: .env file not found at {env_path}")
+
+# 2. Configure Gemini securely
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    print("✅ Gemini AI Configured Successfully")
+else:
+    print("❌ ERROR: GEMINI_API_KEY is missing. Chatbot will not work.")
+
+# --- CONFIGURATION END ---
+
 
 # --- UTILITIES ---
 def safe_convert(val):
@@ -35,6 +69,37 @@ def safe_convert(val):
 @main.route('/', methods=['GET'])
 def home():
     return jsonify({"message": "The Modular ETL Engine is Online!"})
+
+# --- CHATBOT ROUTE (NEW) ---
+
+@main.route('/chat', methods=['POST'])
+def chat_with_ai():
+    # Fail fast if no key
+    if not GEMINI_API_KEY:
+        return jsonify({"reply": "System Error: API Key missing. Please check backend logs."}), 500
+
+    data = request.json
+    user_message = data.get('message', '')
+    
+    if not user_message:
+        return jsonify({"error": "Empty message"}), 400
+
+    try:
+        # Use the stable Flash model
+        model = genai.GenerativeModel('gemini-flash-latest')
+        
+        full_prompt = f"{SYSTEM_PROMPT}\n\nUser Question: {user_message}"
+        response = model.generate_content(full_prompt)
+        
+        return jsonify({"reply": response.text})
+        
+    except Exception as e:
+        print(f"AI Error: {str(e)}")
+        # Check for specific quota error
+        if "429" in str(e):
+             return jsonify({"reply": "I'm receiving too many requests right now. Please try again in a minute."}), 429
+        return jsonify({"reply": "I'm having trouble connecting to my brain right now. Please check the server logs."}), 500
+
 
 # --- AUTH ROUTES ---
 
@@ -165,7 +230,7 @@ def get_shared_with_me():
     output = []
     for share in shares:
         p = share.pipeline
-        if not p: continue # Skip orphaned shares
+        if not p: continue 
         output.append({
             "id": p.id,
             "name": p.name,
@@ -331,7 +396,6 @@ def get_pipelines():
     current_user_id = int(get_jwt_identity())
     pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
     
-    # My Pipelines
     output = []
     for p in pipelines:
         output.append({
@@ -340,11 +404,10 @@ def get_pipelines():
             "is_shared": False, "permission": "owner"
         })
         
-    # Shared With Me
     shares = SharedPipeline.query.filter_by(user_id=current_user_id).all()
     for share in shares:
         p = share.pipeline
-        if not p: continue # CRITICAL FIX: Skip orphaned records
+        if not p: continue 
         output.append({
             "id": p.id, "name": f"{p.name} (Shared)", "flow": json.loads(p.structure),
             "status": p.status, "created_at": p.created_at.strftime('%Y-%m-%d %H:%M'),
@@ -404,19 +467,13 @@ def run_pipeline():
     req_data = request.json
     pipeline_id = req_data.get('pipelineId')
 
-    # Create Run Record
     run_record = None
     pipeline_entry = None
     
     if pipeline_id:
         pipeline_entry = Pipeline.query.get(pipeline_id)
         if pipeline_entry:
-            if pipeline_entry.user_id != current_user_id:
-                 # Check shared access logic if needed, skipping for brevity
-                 pass
-                 
             pipeline_entry.status = 'Active'
-            
             run_record = PipelineRun(
                 pipeline_id=pipeline_id,
                 status='Running',
@@ -439,39 +496,27 @@ def run_pipeline():
         
         logs = engine.run()
         
-        # Update Run Record Success
         if run_record:
             run_record.status = 'Success'
             run_record.end_time = datetime.utcnow()
             run_record.logs = json.dumps(logs)
-            
             if pipeline_entry: pipeline_entry.status = 'Ready'
             db.session.commit()
         
         return jsonify({"message": "Pipeline Executed Successfully", "logs": logs})
 
     except Exception as e:
-        # Update Run Record Failure
         if run_record:
             run_record.status = 'Failed'
             run_record.end_time = datetime.utcnow()
-            
-            # Retrieve accumulated logs
-            current_logs = []
-            if engine and hasattr(engine, 'logs'):
-                current_logs = engine.logs
-            else:
-                current_logs = ["Pipeline failed before engine init."]
-            
+            current_logs = engine.logs if engine else ["Pipeline failed before engine init."]
             current_logs.append(f"CRITICAL ERROR: {str(e)}")
             run_record.logs = json.dumps(current_logs)
-            
             if pipeline_entry: pipeline_entry.status = 'Ready'
             db.session.commit()
             
         return jsonify({"error": str(e)}), 500
 
-# --- PREVIEW ROUTE ---
 @main.route('/preview-node', methods=['POST'])
 @jwt_required()
 def preview_node():
@@ -488,8 +533,6 @@ def preview_node():
 
     try:
         base_dir = os.path.abspath(os.path.dirname(__file__))
-        
-        # Initialize engine with preview_mode=True
         engine = PipelineEngine(
             nodes=nodes,
             edges=edges,
@@ -500,16 +543,12 @@ def preview_node():
         )
         
         result = engine.run_preview(target_node_id)
-        
-        if "error" in result:
-            return jsonify(result), 400
-            
+        if "error" in result: return jsonify(result), 400
         return jsonify(result)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- PROCESSED FILE PREVIEW ---
 @main.route('/processed-files/<int:id>/preview', methods=['GET'])
 @jwt_required()
 def preview_processed_file(id):
@@ -524,7 +563,6 @@ def preview_processed_file(id):
 
     try:
         df = None
-        # Read file based on extension (Limit to 100 rows for performance)
         if file_entry.filename.lower().endswith('.csv'):
             df = pd.read_csv(file_entry.filepath, nrows=100)
         elif file_entry.filename.lower().endswith('.json'):
@@ -534,7 +572,6 @@ def preview_processed_file(id):
              df = pd.read_excel(file_entry.filepath, nrows=100)
         
         if df is not None:
-             # Handle NaN/Infinity for JSON serialization
              records = df.where(pd.notnull(df), None).to_dict(orient='records')
              return jsonify({
                  "columns": list(df.columns), 
@@ -651,26 +688,3 @@ def delete_processed_file(id):
     db.session.delete(file_entry)
     db.session.commit()
     return jsonify({"message": "File deleted"})
-
-@main.route('/chat', methods=['POST'])
-def chat_with_gemini():
-    data = request.json
-    user_message = data.get('message', '')
-
-    if not user_message:
-        return jsonify({"error": "Empty message"}), 400
-
-    try:
-        # Initialize the model (Gemini 1.5 Flash is fast and free)
-        model = genai.GenerativeModel('gemini-flash-latest')
-
-        # Combine system context with user question
-        full_prompt = f"{SYSTEM_PROMPT}\n\nUser Question: {user_message}"
-
-        response = model.generate_content(full_prompt)
-
-        # Return the text response
-        return jsonify({"reply": response.text})
-
-    except Exception as e:
-        return jsonify({"reply": f"AI Error: {str(e)}"}), 500
