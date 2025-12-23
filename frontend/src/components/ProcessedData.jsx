@@ -30,7 +30,7 @@ const ProcessedData = () => {
     const fetchProcessedFiles = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get('http://192.168.1.12:5000/processed-files', {
+            const res = await axios.get('http://127.0.0.1:5000/processed-files', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setProcessedFiles(res.data);
@@ -44,7 +44,7 @@ const ProcessedData = () => {
 
   const handleDownload = (fileName) => {
     showToast("Download started...", "info");
-    window.open(`http://192.168.1.12:5000/download/processed/${fileName}`, '_blank');
+    window.open(`http://127.0.0.1:5000/download/processed/${fileName}`, '_blank');
   };
 
   // --- UPDATED VIEW LOGIC ---
@@ -65,7 +65,7 @@ const ProcessedData = () => {
           setPreviewPanel(prev => ({
               ...prev,
               loading: false,
-              imageSrc: `http://192.168.1.12:5000/download/processed/${file.name}`
+              imageSrc: `http://127.0.0.1:5000/download/processed/${file.name}`
           }));
           return;
       }
@@ -73,7 +73,7 @@ const ProcessedData = () => {
       // 2. Handle Text Data View (API Call)
       try {
           const token = localStorage.getItem('token');
-          const res = await axios.get(`http://192.168.1.12:5000/processed-files/${file.id}/preview`, {
+          const res = await axios.get(`http://127.0.0.1:5000/processed-files/${file.id}/preview`, {
               headers: { Authorization: `Bearer ${token}` }
           });
 
@@ -102,7 +102,7 @@ const ProcessedData = () => {
     const { id } = deleteModal;
     try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://192.168.1.12:5000/processed-files/${id}`, {
+        await axios.delete(`http://127.0.0.1:5000/processed-files/${id}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setProcessedFiles(processedFiles.filter(f => f.id !== id));

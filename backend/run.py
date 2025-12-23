@@ -1,5 +1,5 @@
 import os
-from app import create_app, db
+from app import create_app, db, socketio
 from app.models import Pipeline, User, PipelineRun
 from app.pipeline_engine import PipelineEngine
 from flask_apscheduler import APScheduler
@@ -72,4 +72,4 @@ def run_scheduled_job(pipeline_id):
 if __name__ == '__main__':
     # Ensure uploads/processed folders exist
     # ... your existing directory creation code ...
-    app.run(debug=True, use_reloader=False) # use_reloader=False prevents double scheduler init
+    socketio.run(app, debug=True, use_reloader=False) # use_reloader=False prevents double scheduler init

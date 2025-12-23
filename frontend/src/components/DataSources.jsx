@@ -38,7 +38,7 @@ const DataSources = () => {
 
   const fetchFiles = async (token) => {
     try {
-      const res = await axios.get('http://192.168.1.12:5000/datasources', {
+      const res = await axios.get('http://127.0.0.1:5000/datasources', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFiles(res.data);
@@ -59,7 +59,7 @@ const DataSources = () => {
     const token = localStorage.getItem('token');
 
     try {
-        await axios.post('http://192.168.1.12:5000/upload', formData, {
+        await axios.post('http://127.0.0.1:5000/upload', formData, {
             headers: { 
                 'Authorization': `Bearer ${token}`,
             }
@@ -111,7 +111,7 @@ const DataSources = () => {
     const { id } = deleteModal;
     const token = localStorage.getItem('token');
     try {
-        await axios.delete(`http://192.168.1.12:5000/datasources/${id}`, {
+        await axios.delete(`http://127.0.0.1:5000/datasources/${id}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setFiles(files.filter(f => f.id !== id));

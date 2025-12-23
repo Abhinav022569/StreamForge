@@ -25,7 +25,7 @@ const Dashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-        axios.get('http://192.168.1.12:5000/pipelines', {
+        axios.get('http://127.0.0.1:5000/pipelines', {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => {
@@ -36,7 +36,7 @@ const Dashboard = () => {
         })
         .catch(err => console.error("Error fetching pipelines:", err));
 
-        axios.get('http://192.168.1.12:5000/user-stats', {
+        axios.get('http://127.0.0.1:5000/user-stats', {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => setTotalDataSize(formatBytes(res.data.total_processed_bytes)))

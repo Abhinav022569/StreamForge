@@ -182,7 +182,7 @@ const PipelineBuilderContent = () => {
     useEffect(() => {
         if (!id) return; 
 
-        socketRef.current = io('http://192.168.1.12:5000');
+        socketRef.current = io('http://127.0.0.1:5000');
         socketRef.current.emit('join', { pipeline_id: id });
 
         socketRef.current.on('pipeline_updated', (data) => {
@@ -233,7 +233,7 @@ const PipelineBuilderContent = () => {
         if (id) {
             isLoadedRef.current = false; 
             const token = localStorage.getItem('token');
-            axios.get(`http://192.168.1.12:5000/pipelines/${id}`, {
+            axios.get(`http://127.0.0.1:5000/pipelines/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
             .then(response => {
@@ -327,7 +327,7 @@ const PipelineBuilderContent = () => {
             columns: [],
             error: null,
             nodeLabel: node.data.label || node.type
-        });
+        }); 
 
         const token = localStorage.getItem('token');
         const currentNodes = getNodes(); 
@@ -340,7 +340,7 @@ const PipelineBuilderContent = () => {
                 edges: currentEdges.map(e => ({ source: e.source, target: e.target }))
             };
 
-            const res = await axios.post('http://192.168.1.12:5000/preview-node', payload, {
+            const res = await axios.post('http://127.0.0.1:5000/preview-node', payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -409,7 +409,7 @@ const PipelineBuilderContent = () => {
 
         try {
             const payload = { name: pipelineName, flow: flow };
-            const url = id ? `http://192.168.1.12:5000/pipelines/${id}` : 'http://192.168.1.12:5000/pipelines';
+            const url = id ? `http://127.0.0.1:5000/pipelines/${id}` : 'http://127.0.0.1:5000/pipelines';
             const method = id ? axios.put : axios.post;
             
             const res = await method(url, payload, { headers: { Authorization: `Bearer ${token}` } });
@@ -432,7 +432,7 @@ const PipelineBuilderContent = () => {
                 return;
             }
             
-            await axios.post(`http://192.168.1.12:5000/pipelines/${id}/schedule`, {
+            await axios.post(`http://127.0.0.1:5000/pipelines/${id}/schedule`, {
                 type: 'cron',
                 value: scheduleTime
             }, { headers: { Authorization: `Bearer ${token}` }});
@@ -531,7 +531,7 @@ const PipelineBuilderContent = () => {
                 pipelineId: id 
             };
             const token = localStorage.getItem('token');
-            const res = await axios.post('http://192.168.1.12:5000/run-pipeline', payload, {
+            const res = await axios.post('http://127.0.0.1:5000/run-pipeline', payload, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             console.log(res.data.logs); 
