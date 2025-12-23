@@ -27,7 +27,7 @@ const ChatAssistant = () => {
 
     try {
       // Connects to your Flask Backend
-      const response = await fetch('http://localhost:5000/chat', {
+      const response = await fetch('http://192.168.1.12:5000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg })

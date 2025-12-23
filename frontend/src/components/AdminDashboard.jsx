@@ -42,7 +42,7 @@ const AdminDashboard = () => {
     }
 
     if (token) {
-        axios.get('http://127.0.0.1:5000/admin/stats', {
+        axios.get('http://192.168.1.12:5000/admin/stats', {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => setStats(res.data))

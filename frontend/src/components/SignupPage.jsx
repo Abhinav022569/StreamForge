@@ -19,7 +19,7 @@ const SignupPage = () => {
     setSuccess(''); // Clear previous success messages
 
     try {
-      await axios.post('http://127.0.0.1:5000/signup', formData);
+      await axios.post('http://192.168.1.12:5000/signup', formData);
       
       // REPLACED ALERT WITH IN-APP MESSAGE
       setSuccess("Account created successfully! Redirecting to login...");
