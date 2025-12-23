@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./backend
+    container_name: streamforge-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist the database and uploaded files on the NAS
+      - ./data/pipelines.db:/app/pipelines.db
+      - ./data/uploads:/app/uploads
+      - ./data/processed:/app/processed
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: streamforge-frontend
+    ports:
+      - "8080:80" # Access frontend at http://NAS-IP:8080
+    restart: unless-stopped
+    depends_on:
+      - backend
