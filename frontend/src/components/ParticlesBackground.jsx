@@ -1,77 +1,131 @@
-import React, { useCallback } from 'react';
-import Particles from "react-tsparticles";
-import { loadSlim } from "tsparticles-slim";
+import React, { useRef, useEffect } from 'react';
 
 const ParticlesBackground = ({ children }) => {
-  const particlesInit = useCallback(async engine => {
-    await loadSlim(engine);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+    let particles = [];
+    
+    // CONFIGURATION
+    const particleColor = 'rgba(16, 185, 129, 0.5)'; // Emerald Green
+    const lineColor = 'rgba(16, 185, 129, 0.15)';   // Faint Emerald lines
+    const particleCount = window.innerWidth < 768 ? 40 : 80; // Fewer dots on mobile
+    const connectionDistance = 150; // Max distance to draw a line
+    
+    // RESIZE HANDLER
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initParticles();
+    };
+
+    // PARTICLE CLASS
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.5; // Slow horizontal speed
+        this.vy = (Math.random() - 0.5) * 0.5; // Slow vertical speed
+        this.size = Math.random() * 2 + 1;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Bounce off edges
+        if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+      }
+
+      draw() {
+        ctx.fillStyle = particleColor;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const initParticles = () => {
+      particles = [];
+      for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle());
+      }
+    };
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Update and Draw Particles
+      particles.forEach((p, index) => {
+        p.update();
+        p.draw();
+
+        // Connect particles with lines
+        for (let j = index + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < connectionDistance) {
+            ctx.beginPath();
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 1;
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    // INITIALIZE
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    animate();
+
+    // CLEANUP
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: '100vh', backgroundColor: '#0f1115', overflowX: 'hidden' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', backgroundColor: '#0f1115' }}>
       
-      {/* ANIMATION LAYER (Behind everything) */}
-      <Particles
-        id="tsparticles"
-        init={particlesInit}
-        options={{
-          fullScreen: { enable: false },
-          background: {
-            color: { value: "transparent" },
-          },
-          fpsLimit: 120,
-          interactivity: {
-            events: {
-              onClick: { enable: true, mode: "push" },
-              onHover: { enable: true, mode: "grab" },
-              resize: true,
-            },
-            modes: {
-              grab: { distance: 140, links: { opacity: 1 } },
-              push: { quantity: 4 },
-            },
-          },
-          particles: {
-            color: { value: "#10b981" }, // Emerald Green Dots
-            links: {
-              color: "#10b981",
-              distance: 150,
-              enable: true,
-              opacity: 0.2,
-              width: 1,
-            },
-            move: {
-              enable: true,
-              speed: 1,
-              direction: "none",
-              random: false,
-              straight: false,
-              outModes: { default: "bounce" },
-            },
-            number: {
-              density: { enable: true, area: 800 },
-              value: 80,
-            },
-            opacity: { value: 0.5 },
-            shape: { type: "circle" },
-            size: { value: { min: 1, max: 3 } },
-          },
-          detectRetina: true,
-        }}
+      {/* 1. CANVAS LAYER (Fixed to viewport) */}
+      <canvas 
+        ref={canvasRef}
         style={{
-          position: "absolute",
+          position: 'fixed',
           top: 0,
           left: 0,
-          width: "100%",
-          height: "100%",
-          zIndex: 0, 
+          width: '100vw',
+          height: '100vh',
+          zIndex: 0,
+          pointerEvents: 'none' // Allows clicks to pass through
         }}
       />
 
-      {/* CONTENT LAYER (Sits on top) */}
+      {/* 2. SUBTLE STATIC GLOWS (For depth) */}
+      <div style={{
+          position: 'fixed', top: '-20%', left: '-10%', width: '50vw', height: '50vw',
+          background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%)',
+          borderRadius: '50%', zIndex: 0, pointerEvents: 'none'
+      }}></div>
+
+      {/* 3. CONTENT LAYER (Scrollable) */}
       <div style={{ position: 'relative', zIndex: 1 }}>
         {children}
       </div>
+
     </div>
   );
 };

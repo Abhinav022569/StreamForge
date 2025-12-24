@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, Network, Users, Database, 
-  HardDrive, Settings, LogOut, User, Zap 
+  HardDrive, Settings, LogOut, User, Menu, X 
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import '../../App.css';
@@ -13,6 +13,24 @@ const AppLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState({ username: 'User' });
+  
+  // Mobile Responsiveness State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Monitor screen size to handle responsiveness dynamically
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setIsSidebarOpen(false); // Reset sidebar state on desktop
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -34,20 +52,40 @@ const AppLayout = ({ children }) => {
   ];
 
   return (
-    <div className="app-container" style={{ background: '#0f1115', position: 'relative', overflow: 'hidden', display: 'flex', height: '100vh' }}>
+    <div className="app-container" style={{ background: '#0f1115', position: 'relative', overflow: 'hidden', display: 'flex', height: '100vh', flexDirection: 'row' }}>
       
       {/* Background Decor */}
       <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
       <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }}></div>
 
-      {/* SHARED SIDEBAR */}
+      {/* MOBILE HEADER (Visible only on mobile) */}
+      {isMobile && (
+        <div style={{ 
+          position: 'absolute', top: 0, left: 0, right: 0, 
+          height: '60px', zIndex: 40, padding: '0 20px', 
+          display: 'flex', alignItems: 'center',
+          background: 'rgba(15, 17, 21, 0.95)',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          backdropFilter: 'blur(10px)'
+        }}>
+           <button onClick={() => setIsSidebarOpen(true)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <Menu size={24} />
+           </button>
+           <span style={{ marginLeft: '15px', fontWeight: '700', color: 'white', fontSize: '18px' }}>StreamForge</span>
+        </div>
+      )}
+
+      {/* SIDEBAR (Responsive) */}
       <motion.aside 
         className="sidebar"
-        initial={{ x: -20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.4 }}
+        initial={false}
+        animate={{ 
+          x: isMobile && !isSidebarOpen ? -280 : 0,
+          opacity: 1 
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
         style={{
-            background: 'rgba(24, 24, 27, 0.6)', 
+            background: 'rgba(24, 24, 27, 0.95)', 
             backdropFilter: 'blur(12px)',
             borderRight: '1px solid rgba(255, 255, 255, 0.05)',
             display: 'flex',          
@@ -55,10 +93,27 @@ const AppLayout = ({ children }) => {
             justifyContent: 'space-between',
             padding: 0,
             flexShrink: 0,
-            width: '260px'
+            width: '260px',
+            position: isMobile ? 'absolute' : 'relative',
+            zIndex: 50,
+            height: '100vh',
+            top: 0,
+            left: 0,
+            boxShadow: isMobile && isSidebarOpen ? '5px 0 15px rgba(0,0,0,0.5)' : 'none'
         }}
       >
-        <div style={{ padding: '20px' }}>
+        <div style={{ padding: '20px', position: 'relative' }}>
+            
+            {/* Close Button for Mobile */}
+            {isMobile && (
+              <button 
+                onClick={() => setIsSidebarOpen(false)}
+                style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            )}
+
             <div className="sidebar-logo" style={{ marginBottom: '40px', paddingLeft: '10px' }}>
               <img src={logo} alt="Logo" style={{ width: '28px', height: '28px', borderRadius: '4px', boxShadow: '0 0 10px rgba(16,185,129,0.4)' }} />
               <span style={{ fontWeight: '700', letterSpacing: '0.5px' }}>StreamForge</span>
@@ -71,12 +126,16 @@ const AppLayout = ({ children }) => {
                   label={item.label} 
                   icon={item.icon} 
                   active={location.pathname === item.path}
-                  onClick={() => navigate(item.path)} 
+                  onClick={() => {
+                    navigate(item.path);
+                    if (isMobile) setIsSidebarOpen(false); // Close menu on navigation
+                  }} 
                 />
               ))}
             </nav>
         </div>
 
+        {/* User Footer Section */}
         <div style={{ 
             padding: '20px', 
             borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
@@ -97,8 +156,6 @@ const AppLayout = ({ children }) => {
                 </div>
                 <div style={{ overflow: 'hidden' }}>
                     <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: 'white' }}>{user.username}</p>
-                    <p style={{ margin: 0, fontSize: '11px', color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    </p>
                 </div>
             </div>
 
@@ -130,8 +187,28 @@ const AppLayout = ({ children }) => {
         </div>
       </motion.aside>
 
+      {/* MOBILE OVERLAY (Click to close sidebar) */}
+      {isMobile && isSidebarOpen && (
+        <div 
+            onClick={() => setIsSidebarOpen(false)}
+            style={{ 
+                position: 'absolute', inset: 0, 
+                background: 'rgba(0,0,0,0.5)', 
+                backdropFilter: 'blur(2px)',
+                zIndex: 45 
+            }}
+        />
+      )}
+
       {/* MAIN CONTENT AREA */}
-      <main className="main-content" style={{ position: 'relative', zIndex: 1, overflowY: 'auto', flexGrow: 1, height: '100%' }}>
+      <main className="main-content" style={{ 
+          position: 'relative', 
+          zIndex: 1, 
+          overflowY: 'auto', 
+          flexGrow: 1, 
+          height: '100%',
+          paddingTop: isMobile ? '60px' : '0' // Add padding for header on mobile
+      }}>
         {children}
       </main>
       <ChatAssistant />

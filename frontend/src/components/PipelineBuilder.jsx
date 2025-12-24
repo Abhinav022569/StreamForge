@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client'; 
 import { 
   ArrowLeft, LayoutTemplate, Upload, Download, Play, Save, 
-  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock 
+  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock, Menu 
 } from 'lucide-react';
 
 import Sidebar from './Sidebar';
@@ -112,6 +112,11 @@ const PipelineBuilderContent = () => {
     const [isRunning, setIsRunning] = useState(false); 
     const [showTemplateModal, setShowTemplateModal] = useState(false);
     
+    // --- RESPONSIVE STATE ---
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [isToolboxOpen, setIsToolboxOpen] = useState(!isMobile);
+    // ------------------------
+    
     // --- SCHEDULING STATE ---
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [scheduleTime, setScheduleTime] = useState('09:00');
@@ -123,6 +128,19 @@ const PipelineBuilderContent = () => {
     // --- Remote Cursors State ---
     const [remoteCursors, setRemoteCursors] = useState({});
     const lastCursorUpdate = useRef(0);
+
+    // Handle Window Resize
+    useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            // Auto-close toolbox on mobile, open on desktop
+            if (!mobile) setIsToolboxOpen(true);
+            else if (mobile) setIsToolboxOpen(false);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const getUserInfo = () => {
         const storedUser = localStorage.getItem('user');
@@ -396,8 +414,11 @@ const PipelineBuilderContent = () => {
 
             setNodes((nds) => nds.concat(newNode));
             setIsDirty(true);
+            
+            // On mobile, automatically close toolbox after dropping to see the canvas
+            if (isMobile) setIsToolboxOpen(false);
         },
-        [reactFlowInstance, updateNodeData]
+        [reactFlowInstance, updateNodeData, isMobile]
     );
 
     const savePipeline = async () => {
@@ -605,7 +626,9 @@ const PipelineBuilderContent = () => {
                     backdropFilter: 'blur(10px)',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px',
-                    zIndex: 10
+                    zIndex: 10,
+                    overflowX: 'auto', // Responsive scroll for toolbar
+                    whiteSpace: 'nowrap'
                 }}
                 initial={{ y: -50 }} animate={{ y: 0 }}
             >
@@ -648,9 +671,9 @@ const PipelineBuilderContent = () => {
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <ActionButton icon={<LayoutTemplate size={16}/>} label="Templates" onClick={() => setShowTemplateModal(true)} />
                     
-                    {/* --- SCHEDULE BUTTON (NEW) --- */}
+                    {/* --- SCHEDULE BUTTON --- */}
                     <ActionButton icon={<Clock size={16}/>} label="Schedule" onClick={() => setShowScheduleModal(true)} />
-                    {/* ----------------------------- */}
+                    {/* ----------------------- */}
 
                     <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)', alignSelf: 'center' }}></div>
                     <ActionButton icon={<Upload size={16}/>} label="Import" onClick={handleImportClick} />
@@ -689,13 +712,40 @@ const PipelineBuilderContent = () => {
             </motion.header>
 
             {/* WORKSPACE */}
-            <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                <Sidebar />
+            <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden', position: 'relative' }}>
+                
+                {/* Mobile Toggle Button for Sidebar */}
+                {isMobile && (
+                    <button 
+                        onClick={() => setIsToolboxOpen(!isToolboxOpen)}
+                        style={{
+                            position: 'absolute', top: '10px', left: '10px', zIndex: 50,
+                            background: '#27272a', border: '1px solid #3f3f46', color: 'white',
+                            padding: '8px', borderRadius: '6px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                    >
+                        {isToolboxOpen ? <X size={20} /> : <Menu size={20} />}
+                    </button>
+                )}
+
+                {/* Sidebar Container (Collapsible on Mobile) */}
+                <div style={{ 
+                    display: isToolboxOpen ? 'block' : 'none', 
+                    position: isMobile ? 'absolute' : 'relative',
+                    zIndex: 40, 
+                    height: '100%',
+                    backgroundColor: isMobile ? '#0f1115' : 'transparent', // Opaque bg when overlaying on mobile
+                    boxShadow: isMobile ? '5px 0 15px rgba(0,0,0,0.5)' : 'none'
+                }}>
+                    <Sidebar />
+                </div>
+
                 <div 
                     className="reactflow-wrapper" 
                     ref={reactFlowWrapper} 
                     style={{ width: '100%', height: '100%', backgroundColor: '#0f1115' }}
-                    onMouseMove={onMouseMove} // --- CAPTURE MOUSE MOVE FOR CURSORS ---
+                    onMouseMove={onMouseMove} 
                 >
                     <ReactFlow 
                         nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
@@ -704,9 +754,7 @@ const PipelineBuilderContent = () => {
                         fitView deleteKeyCode={['Backspace', 'Delete']}
                         proOptions={{ hideAttribution: true }}
                     >
-                        {/* --- RENDER REMOTE CURSORS USING CORRECT VIEWPORT TRANSFORM --- */}
                         <CursorsRenderer cursors={remoteCursors} />
-
                         <Background color="#27272a" gap={25} size={1} />
                         <Controls style={{ background: '#27272a', border: '1px solid rgba(255,255,255,0.1)', fill: 'white' }} />
                     </ReactFlow>
@@ -781,7 +829,7 @@ const PipelineBuilderContent = () => {
             )}
             </AnimatePresence>
 
-            {/* --- SCHEDULE MODAL (NEW) --- */}
+            {/* --- SCHEDULE MODAL --- */}
             <AnimatePresence>
             {showScheduleModal && (
                 <motion.div 

@@ -1031,3 +1031,46 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Add to the bottom of frontend/src/App.css */
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+  /* 1. General Layout */
+  .app-container {
+    flex-direction: column; /* Stack sidebar on top/bottom or hide it */
+  }
+
+  .content-wrapper {
+    padding: 20px !important; /* Reduce padding */
+    padding-bottom: 80px !important; /* Space for bottom nav if used */
+  }
+
+  /* 2. Typography & Cards */
+  h1 { font-size: 28px !important; }
+  h2 { font-size: 24px !important; }
+  
+  .flex { flex-direction: column; gap: 15px; }
+  .flex.justify-between { flex-direction: row; } /* Keep headers flexible */
+  
+  .card { padding: 15px !important; }
+  
+  /* 3. Landing Page Overrides */
+  .landing-h1 { font-size: 36px !important; }
+  .landing-p { font-size: 16px !important; padding: 0 20px; }
+  .landing-nav { padding: 15px 20px !important; }
+  .landing-grid-2, .landing-grid-3 { grid-template-columns: 1fr !important; }
+  
+  /* 4. Hide Scrollbars in Builder but allow in App */
+  .reactflow-wrapper { height: calc(100vh - 120px) !important; }
+  
+  /* 5. Adjust Tables */
+  .data-table th, .data-table td {
+    padding: 10px !important;
+    font-size: 12px !important;
+  }
+  
+  /* 6. Utility Helper */
+  .mobile-hidden { display: none !important; }
+  .mobile-only { display: block !important; }
+}
