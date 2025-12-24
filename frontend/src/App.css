@@ -1158,4 +1158,20 @@
   /* 8. Utility Helper */
   .mobile-hidden { display: none !important; }
   .mobile-only { display: block !important; }
+
+  /* 9. Auth Pages Mobile Styles */
+  .auth-card-responsive {
+    padding: 25px !important;
+    width: 90% !important; /* Ensure it doesn't touch screen edges */
+    max-width: 100% !important;
+    margin: 0 auto;
+  }
+
+  .auth-card-responsive h2 {
+    font-size: 26px !important;
+  }
+  
+  .auth-card-responsive .input-group {
+    margin-bottom: 15px !important;
+  }
 }

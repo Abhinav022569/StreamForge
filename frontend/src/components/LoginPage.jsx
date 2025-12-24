@@ -57,7 +57,7 @@ const LoginPage = () => {
 
   return (
     <ParticlesBackground>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', position: 'relative', padding: '20px' }}>
         
         {/* Background Glow Effect */}
         <div style={{
@@ -69,7 +69,7 @@ const LoginPage = () => {
         }}></div>
 
         <motion.div 
-          className="card" 
+          className="card auth-card-responsive" 
           style={{ 
             width: '100%', 
             maxWidth: '420px',
