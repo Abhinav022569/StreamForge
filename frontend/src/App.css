@@ -1032,137 +1032,110 @@
   cursor: not-allowed;
 }
 
-/* --- MOBILE RESPONSIVENESS & ALIGNMENT FIXES --- */
+/* =========================================
+   MOBILE RESPONSIVENESS (< 768px)
+   ========================================= */
+
+/* Default desktop stats-grid (equivalent to flex gap-20) */
+.stats-grid {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Ensure cards stretch evenly on Desktop (Restoring original look) */
+.stats-grid > .card, 
+.stats-grid > div {
+  flex: 1;
+}
+
+/* Default flex header */
+.dashboard-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 @media (max-width: 768px) {
-  /* 1. General Layout */
+  /* Layout adjustments */
   .app-container {
-    flex-direction: column; /* Stack sidebar on top/bottom or hide it */
+    flex-direction: column;
   }
-
+  
   .content-wrapper {
-    padding: 20px !important; /* Reduce padding */
-    padding-bottom: 80px !important; /* Space for bottom nav if used */
+    padding: 20px;
+  }
+  
+  /* Sidebar Overlay & Transitions */
+  .sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 90;
+    backdrop-filter: blur(2px);
   }
 
-  /* 2. Typography & Cards */
-  h1 { font-size: 28px !important; }
-  h2 { font-size: 24px !important; }
-  
-  .flex { flex-direction: column; gap: 15px; }
-  .flex.justify-between { flex-direction: row; } /* Keep headers flexible */
-  
-  .card { padding: 15px !important; }
-  
-  /* 3. Landing Page Overrides */
-  .landing-h1 { 
-    font-size: 36px !important; 
-    text-align: center !important; 
-    width: 100% !important; 
-    margin: 0 0 20px 0 !important;
+  /* Dashboard Header Stacking */
+  .dashboard-header-flex {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
   }
   
-  .landing-p { 
-    font-size: 16px !important; 
-    padding: 0 10px !important; 
-    text-align: center !important;
-    width: 100% !important;
-    margin: 0 auto 30px auto !important; /* Enforce auto margins */
+  .dashboard-header-flex h1 {
+    font-size: 24px !important;
   }
 
-  /* Removed !important to allow inline styles to win */
-  .landing-nav { padding: 10px 15px; }
-  
-  .landing-logo { font-size: 20px; }
-  
-  /* Grid Fixes */
-  .landing-grid-2, .landing-grid-3 { 
-    grid-template-columns: 1fr !important; 
-    gap: 40px !important; 
+  /* Stats Grid -> 1 Column Stack */
+  .stats-grid {
+    flex-direction: column;
+    gap: 15px;
   }
   
-  /* 4. Landing Buttons & Hero Alignment */
+  /* Reset flex behavior for mobile stacking */
+  .stats-grid > .card, 
+  .stats-grid > div {
+    flex: unset;
+    width: 100%;
+  }
+  
+  /* Table Scroll Wrapper */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  
+  .data-table {
+    min-width: 600px; /* Force width so scrolling happens */
+  }
+
+  /* Adjust typography for mobile */
+  .landing-h1 {
+    font-size: 32px !important;
+  }
+  
+  .landing-h2 {
+    font-size: 24px !important;
+  }
+  
+  /* Landing page grids */
+  .landing-grid-2, .landing-grid-3 {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  
+  /* Landing page hero specific */
   .landing-hero-section {
-    padding-top: 100px !important;
-    padding-bottom: 40px !important;
-    padding-left: 15px !important; /* Safe padding */
-    padding-right: 15px !important; /* Safe padding */
-    text-align: center !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
+    padding-top: 100px;
   }
   
-  .landing-hero-content {
-    text-align: center !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    width: 100% !important;
-    margin: 0 auto !important;
-  }
-  
-  /* Stack Hero Buttons */
-  .landing-hero-actions {
-    flex-direction: column !important;
-    width: 100% !important;
-    gap: 15px !important;
-    align-items: center !important;
-    margin: 30px 0 0 0 !important;
-  }
-  
-  .landing-hero-actions button {
-    width: 100% !important;
-    margin: 0 !important;
-    justify-content: center !important;
-  }
-
-  /* 5. Section Headers & Content Alignment */
-  .landing-text-content, 
-  .landing-section-header {
-    text-align: center !important;
-    align-items: center !important; 
-  }
-
-  /* Ensure paragraphs that were forced left are now centered */
-  .text-left {
-    text-align: center !important;
-  }
-  
-  /* Center the list items specifically */
-  .landing-list-item {
-    justify-content: center !important;
-  }
-
-  /* Nav Buttons small adjustments */
-  .landing-btn-nav-login, 
-  .landing-btn-nav-signup {
-    padding: 6px 12px;
-    font-size: 12px;
-  }
-
-  /* Code Block */
-  .code-block {
-    padding: 15px;
-    font-size: 11px;
-  }
-
-  /* 6. Hide Scrollbars in Builder but allow in App */
-  .reactflow-wrapper { height: calc(100vh - 120px) !important; }
-  
-  /* 7. Adjust Tables */
-  .data-table th, .data-table td {
-    padding: 10px !important;
-    font-size: 12px !important;
-  }
-  
-  /* 8. Utility Helper */
-  .mobile-hidden { display: none !important; }
-  .mobile-only { display: block !important; }
-
-  /* 9. Auth Pages Mobile Styles */
   .auth-card-responsive {
     padding: 25px !important;
-    width: 90% !important; /* Ensure it doesn't touch screen edges */
+    width: 90% !important;
     max-width: 100% !important;
     margin: 0 auto;
   }

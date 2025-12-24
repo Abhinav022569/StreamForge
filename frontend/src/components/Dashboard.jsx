@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Network, Activity, Server } from 'lucide-react';
-import AppLayout from './layout/AppLayout'; // Import the new layout
+import { Network, Activity, Server, Plus } from 'lucide-react';
+import AppLayout from './layout/AppLayout';
 import '../App.css';
 
 const formatBytes = (bytes, decimals = 2) => {
@@ -58,7 +58,7 @@ const Dashboard = () => {
     <AppLayout>
         <motion.div className="content-wrapper" variants={containerVariants} initial="hidden" animate="visible">
           
-          <motion.div className="flex justify-between items-center" style={{ marginBottom: '30px' }} variants={itemVariants}>
+          <motion.div className="dashboard-header-flex" style={{ marginBottom: '30px' }} variants={itemVariants}>
             <div>
               <h1 style={{ fontSize: '32px', marginBottom: '5px', margin: 0, background: 'linear-gradient(90deg, #fff, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Dashboard</h1>
               <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>Overview of your data operations</p>
@@ -69,13 +69,15 @@ const Dashboard = () => {
                 onClick={() => navigate('/builder')}
                 whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(16,185,129,0.4)' }}
                 whileTap={{ scale: 0.95 }}
-                style={{ fontWeight: '600' }}
+                style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px' }}
             >
-              + Create New Pipeline
+              <Plus size={18} />
+              <span>Create New Pipeline</span>
             </motion.button>
           </motion.div>
 
-          <motion.div className="flex gap-20" style={{ marginBottom: '30px' }} variants={itemVariants}>
+          {/* Updated to use responsive grid class instead of fixed flex */}
+          <motion.div className="stats-grid" style={{ marginBottom: '30px' }} variants={itemVariants}>
             <StatCard label="Total Pipelines" value={pipelines.length} icon={<Network size={24} />} color="#3b82f6" />
             <StatCard label="Active Runs" value={activeRuns} icon={<Activity size={24} />} color="#eab308" />
             <StatCard label="Data Processed" value={totalDataSize} icon={<Server size={24} />} color="#10b981" />
@@ -95,64 +97,68 @@ const Dashboard = () => {
               <span style={{ fontSize: '12px', color: '#71717a' }}>Last 5 pipelines</span>
             </div>
             
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th style={{ background: 'transparent', color: '#a1a1aa' }}>Pipeline Name</th>
-                  <th style={{ background: 'transparent', color: '#a1a1aa' }}>Status</th>
-                  <th style={{ background: 'transparent', color: '#a1a1aa' }}>Created</th>
-                  <th style={{ background: 'transparent', color: '#a1a1aa' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentPipelines.length === 0 ? (
+            {/* Added scroll wrapper for table */}
+            <div className="table-responsive">
+                <table className="data-table">
+                <thead>
                     <tr>
-                        <td colSpan="4" className="text-center text-muted" style={{ padding: '40px' }}>
-                            No pipelines found. <br/>
-                            <span style={{ fontSize: '12px', opacity: 0.7 }}>Create one to get started!</span>
-                        </td>
+                    <th style={{ background: 'transparent', color: '#a1a1aa' }}>Pipeline Name</th>
+                    <th style={{ background: 'transparent', color: '#a1a1aa' }}>Status</th>
+                    <th style={{ background: 'transparent', color: '#a1a1aa' }}>Created</th>
+                    <th style={{ background: 'transparent', color: '#a1a1aa' }}>Actions</th>
                     </tr>
-                ) : (
-                    recentPipelines.map((pipe, index) => (
-                        <motion.tr 
-                            key={pipe.id}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                            style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                        >
-                            <td className="font-medium" style={{ color: '#e4e4e7' }}>{pipe.name}</td>
-                            <td>
-                                <span className={`status-badge`}
-                                      style={{
-                                          background: pipe.status === 'Active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(113, 113, 122, 0.2)',
-                                          color: pipe.status === 'Active' ? '#10b981' : '#a1a1aa',
-                                          border: pipe.status === 'Active' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(113, 113, 122, 0.3)',
-                                          padding: '4px 10px', 
-                                          borderRadius: '12px', 
-                                          fontSize: '11px', 
-                                          fontWeight: '600',
-                                          boxShadow: pipe.status === 'Active' ? '0 0 10px rgba(16, 185, 129, 0.1)' : 'none'
-                                      }}>
-                                    {pipe.status === 'Active' ? '● Active' : '○ Ready'}
-                                </span>
+                </thead>
+                <tbody>
+                    {recentPipelines.length === 0 ? (
+                        <tr>
+                            <td colSpan="4" className="text-center text-muted" style={{ padding: '40px' }}>
+                                No pipelines found. <br/>
+                                <span style={{ fontSize: '12px', opacity: 0.7 }}>Create one to get started!</span>
                             </td>
-                            <td className="text-muted" style={{ fontSize: '13px' }}>{pipe.created_at || 'Just now'}</td>
-                            <td>
-                                <button 
-                                    className="btn btn-ghost" 
-                                    style={{ fontSize: '12px', padding: '6px 12px', border: '1px solid rgba(255,255,255,0.1)', color: '#d4d4d8' }}
-                                    onClick={() => navigate(`/builder/${pipe.id}`)}
-                                >
-                                    Open
-                                </button>
-                            </td>
-                        </motion.tr>
-                    ))
-                )}
-              </tbody>
-            </table>
+                        </tr>
+                    ) : (
+                        recentPipelines.map((pipe, index) => (
+                            <motion.tr 
+                                key={pipe.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+                                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                            >
+                                <td className="font-medium" style={{ color: '#e4e4e7' }}>{pipe.name}</td>
+                                <td>
+                                    <span className={`status-badge`}
+                                        style={{
+                                            background: pipe.status === 'Active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(113, 113, 122, 0.2)',
+                                            color: pipe.status === 'Active' ? '#10b981' : '#a1a1aa',
+                                            border: pipe.status === 'Active' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(113, 113, 122, 0.3)',
+                                            padding: '4px 10px', 
+                                            borderRadius: '12px', 
+                                            fontSize: '11px', 
+                                            fontWeight: '600',
+                                            boxShadow: pipe.status === 'Active' ? '0 0 10px rgba(16, 185, 129, 0.1)' : 'none',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                        {pipe.status === 'Active' ? '● Active' : '○ Ready'}
+                                    </span>
+                                </td>
+                                <td className="text-muted" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{pipe.created_at || 'Just now'}</td>
+                                <td>
+                                    <button 
+                                        className="btn btn-ghost" 
+                                        style={{ fontSize: '12px', padding: '6px 12px', border: '1px solid rgba(255,255,255,0.1)', color: '#d4d4d8' }}
+                                        onClick={() => navigate(`/builder/${pipe.id}`)}
+                                    >
+                                        Open
+                                    </button>
+                                </td>
+                            </motion.tr>
+                        ))
+                    )}
+                </tbody>
+                </table>
+            </div>
           </motion.div>
         </motion.div>
     </AppLayout>
@@ -163,7 +169,6 @@ const StatCard = ({ label, value, icon, color }) => (
   <motion.div 
     className="card" 
     style={{ 
-        flex: 1, 
         padding: '24px', 
         display: 'flex', 
         alignItems: 'center', 
@@ -184,13 +189,14 @@ const StatCard = ({ label, value, icon, color }) => (
         width: '60px', height: '60px', 
         borderRadius: '12px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: `1px solid rgba(${parseInt(color.slice(1,3),16)}, ${parseInt(color.slice(3,5),16)}, ${parseInt(color.slice(5,7),16)}, 0.2)`
+        border: `1px solid rgba(${parseInt(color.slice(1,3),16)}, ${parseInt(color.slice(3,5),16)}, ${parseInt(color.slice(5,7),16)}, 0.2)`,
+        flexShrink: 0
     }}>
       {icon}
     </div>
     <div>
       <h3 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#fff' }}>{value}</h3>
-      <p className="text-muted" style={{ margin: 0, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</p>
+      <p className="text-muted" style={{ margin: 0, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{label}</p>
     </div>
   </motion.div>
 );
