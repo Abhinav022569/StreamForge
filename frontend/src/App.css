@@ -524,7 +524,6 @@
     background: rgba(24, 24, 27, 0.7);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border-glass);
-    margin-bottom: 50px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1070,8 +1069,8 @@
     margin: 0 auto 30px auto !important; /* Enforce auto margins */
   }
 
-  .landing-nav { padding: 10px 15px !important; }
-  .docs-nav { padding: 10px 20px !important; } /* Docs Nav specific override */
+  /* Removed !important to allow inline styles to win */
+  .landing-nav { padding: 10px 15px; }
   
   .landing-logo { font-size: 20px; }
   

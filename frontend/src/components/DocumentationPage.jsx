@@ -80,55 +80,72 @@ const DocumentationPage = () => {
     <ParticlesBackground>
       <div style={{ minHeight: '100vh', paddingBottom: '50px', position: 'relative' }}>
         
-        {/* 1. SCROLL PROGRESS BAR */}
-        <motion.div
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, height: '3px',
-            background: '#10b981', transformOrigin: '0%', scaleX, zIndex: 2000
-          }}
-        />
-
-        {/* 2. STICKY NAVBAR */}
-        <motion.nav 
-          className="docs-nav"
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+        {/* 1. FIXED NAVBAR */}
+        {/* Changed class to avoid App.css !important conflicts and switched to 'nav' tag */}
+        <nav 
+          className="docs-nav-custom"
           style={{ 
             backdropFilter: 'blur(16px)', 
-            background: 'rgba(24, 24, 27, 0.8)',
+            WebkitBackdropFilter: 'blur(16px)',
+            background: 'rgba(24, 24, 27, 0.85)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: isMobile ? '15px 20px' : '15px 50px',
-            position: 'sticky',
+            padding: isMobile ? '8px 16px' : '15px 50px',
+            paddingTop: isMobile ? 'max(8px, env(safe-area-inset-top))' : '15px', // Handle notch
+            position: 'fixed',
             top: 0,
-            zIndex: 100,
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            transform: 'translateZ(0)', // Fix for mobile flickering
           }}
         >
+             {/* Progress Bar */}
+             <motion.div
+                style={{
+                    position: 'absolute', 
+                    bottom: -1, 
+                    left: 0, 
+                    right: 0, 
+                    height: '3px',
+                    background: '#10b981', 
+                    transformOrigin: '0%', 
+                    scaleX,
+                    zIndex: 1001
+                }}
+             />
+
              <div 
-                className="flex items-center gap-10 pointer" 
+                className="flex items-center pointer" 
                 onClick={() => navigate('/')} 
-                style={{ fontSize: '20px', fontWeight: 'bold', color: 'white' }}
+                style={{ 
+                    fontSize: isMobile ? '16px' : '20px', 
+                    fontWeight: 'bold', 
+                    color: 'white',
+                    gap: isMobile ? '8px' : '10px'
+                }}
              >
                 <motion.img 
                   src={logo} 
                   alt="Logo" 
-                  style={{ width: '30px', borderRadius: '4px' }}
+                  // Slim logo
+                  style={{ width: isMobile ? '24px' : '30px', borderRadius: '4px' }}
                   whileHover={{ scale: 1.05 }}
                   transition={{ duration: 0.3 }}
                 />
-                {isMobile ? 'SF Docs' : <span>StreamForge <span style={{ color: '#10b981' }}>Docs</span></span>}
+                {/* Text on right side, slimmed down */}
+                {isMobile ? <span style={{ whiteSpace: 'nowrap' }}>SF Docs</span> : <span>StreamForge <span style={{ color: '#10b981' }}>Docs</span></span>}
              </div>
              
              {isMobile ? (
                <div style={{ position: 'relative' }}>
                  <button 
                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                   style={{ background: 'transparent', border: 'none', color: 'white' }}
+                   style={{ background: 'transparent', border: 'none', color: 'white', display: 'flex', alignItems: 'center' }}
                  >
-                   {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                   {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
                  </button>
 
                  <AnimatePresence>
@@ -140,8 +157,8 @@ const DocumentationPage = () => {
                        variants={mobileMenuVariants}
                        style={{
                          position: 'absolute',
-                         top: '40px',
-                         right: '0',
+                         top: '35px',
+                         right: '-10px',
                          background: 'rgba(24, 24, 27, 0.95)',
                          backdropFilter: 'blur(12px)',
                          border: '1px solid rgba(255,255,255,0.1)',
@@ -150,14 +167,14 @@ const DocumentationPage = () => {
                          display: 'flex',
                          flexDirection: 'column',
                          gap: '10px',
-                         width: '200px',
+                         width: '180px',
                          boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
                        }}
                      >
                        <button 
                          className="btn btn-ghost"
                          onClick={() => navigate('/login')} 
-                         style={{ justifyContent: 'flex-start', width: '100%' }}
+                         style={{ justifyContent: 'flex-start', width: '100%', fontSize: '14px' }}
                        >
                          Log In
                        </button>
@@ -169,7 +186,8 @@ const DocumentationPage = () => {
                              color: 'var(--success)', 
                              background: 'rgba(16, 185, 129, 0.1)',
                              justifyContent: 'flex-start',
-                             width: '100%'
+                             width: '100%',
+                             fontSize: '14px'
                          }}
                        >
                          Back to Home
@@ -200,7 +218,10 @@ const DocumentationPage = () => {
                   </button>
                </div>
              )}
-        </motion.nav>
+        </nav>
+
+        {/* 2. SPACER DIV to prevent content hidden under fixed nav */}
+        <div style={{ height: isMobile ? '60px' : '90px' }} />
 
         {/* 3. MAIN CONTENT */}
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
@@ -208,7 +229,7 @@ const DocumentationPage = () => {
             {/* HERO SECTION */}
             <motion.div 
               className="text-center" 
-              style={{ marginBottom: '80px', marginTop: '60px', position: 'relative' }}
+              style={{ marginBottom: '80px', marginTop: '40px', position: 'relative' }}
               initial="hidden"
               animate="visible"
               variants={containerVariants}
@@ -220,7 +241,7 @@ const DocumentationPage = () => {
                         padding: '6px 16px', 
                         borderRadius: '20px', 
                         fontSize: '13px', 
-                        fontWeight: '600',
+                        fontWeight: '600', 
                         border: '1px solid rgba(16, 185, 129, 0.2)',
                         display: 'inline-flex',
                         alignItems: 'center',
