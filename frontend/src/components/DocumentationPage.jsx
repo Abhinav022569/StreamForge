@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ArrowUp, ChevronRight, BookOpen, Zap, Layers, Share2, Clock } from 'lucide-react';
+import { ChevronDown, ArrowUp, ChevronRight, BookOpen, Zap, Layers, Share2, Menu, X } from 'lucide-react';
 import ParticlesBackground from './ParticlesBackground';
 import logo from '../assets/logo.png';
 import '../App.css';
@@ -9,6 +9,8 @@ import '../App.css';
 const DocumentationPage = () => {
   const navigate = useNavigate();
   const [showTopBtn, setShowTopBtn] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // --- Scroll Progress Logic ---
   const { scrollYProgress } = useScroll();
@@ -17,6 +19,13 @@ const DocumentationPage = () => {
     damping: 30,
     restDelta: 0.001
   });
+
+  // Handle Resize
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Show "Back to Top" on scroll
   useEffect(() => {
@@ -62,6 +71,11 @@ const DocumentationPage = () => {
     }
   };
 
+  const mobileMenuVariants = {
+    closed: { opacity: 0, y: -20, pointerEvents: 'none' },
+    open: { opacity: 1, y: 0, pointerEvents: 'auto' }
+  };
+
   return (
     <ParticlesBackground>
       <div style={{ minHeight: '100vh', paddingBottom: '50px', position: 'relative' }}>
@@ -80,12 +94,23 @@ const DocumentationPage = () => {
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          style={{ backdropFilter: 'blur(16px)', background: 'rgba(24, 24, 27, 0.8)' }}
+          style={{ 
+            backdropFilter: 'blur(16px)', 
+            background: 'rgba(24, 24, 27, 0.8)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: isMobile ? '15px 20px' : '15px 50px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+          }}
         >
              <div 
                 className="flex items-center gap-10 pointer" 
                 onClick={() => navigate('/')} 
-                style={{ fontSize: '20px', fontWeight: 'bold' }}
+                style={{ fontSize: '20px', fontWeight: 'bold', color: 'white' }}
              >
                 <motion.img 
                   src={logo} 
@@ -94,28 +119,87 @@ const DocumentationPage = () => {
                   whileHover={{ scale: 1.05 }}
                   transition={{ duration: 0.3 }}
                 />
-                StreamForge <span style={{ color: '#10b981' }}>Docs</span>
+                {isMobile ? 'SF Docs' : <span>StreamForge <span style={{ color: '#10b981' }}>Docs</span></span>}
              </div>
              
-             <div className="flex gap-20">
-                <button 
-                    className="btn btn-ghost"
-                    onClick={() => navigate('/login')} 
-                >
-                    Log In
-                </button>
-                <button 
-                    className="btn"
-                    onClick={() => navigate('/')} 
-                    style={{ 
-                        border: '1px solid var(--success)', 
-                        color: 'var(--success)', 
-                        background: 'rgba(16, 185, 129, 0.1)' 
-                    }}
-                >
-                    Back to Home
-                </button>
-             </div>
+             {isMobile ? (
+               <div style={{ position: 'relative' }}>
+                 <button 
+                   onClick={() => setIsMenuOpen(!isMenuOpen)}
+                   style={{ background: 'transparent', border: 'none', color: 'white' }}
+                 >
+                   {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                 </button>
+
+                 <AnimatePresence>
+                   {isMenuOpen && (
+                     <motion.div
+                       initial="closed"
+                       animate="open"
+                       exit="closed"
+                       variants={mobileMenuVariants}
+                       style={{
+                         position: 'absolute',
+                         top: '40px',
+                         right: '0',
+                         background: 'rgba(24, 24, 27, 0.95)',
+                         backdropFilter: 'blur(12px)',
+                         border: '1px solid rgba(255,255,255,0.1)',
+                         borderRadius: '12px',
+                         padding: '15px',
+                         display: 'flex',
+                         flexDirection: 'column',
+                         gap: '10px',
+                         width: '200px',
+                         boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                       }}
+                     >
+                       <button 
+                         className="btn btn-ghost"
+                         onClick={() => navigate('/login')} 
+                         style={{ justifyContent: 'flex-start', width: '100%' }}
+                       >
+                         Log In
+                       </button>
+                       <button 
+                         className="btn"
+                         onClick={() => navigate('/')} 
+                         style={{ 
+                             border: '1px solid var(--success)', 
+                             color: 'var(--success)', 
+                             background: 'rgba(16, 185, 129, 0.1)',
+                             justifyContent: 'flex-start',
+                             width: '100%'
+                         }}
+                       >
+                         Back to Home
+                       </button>
+                     </motion.div>
+                   )}
+                 </AnimatePresence>
+               </div>
+             ) : (
+               <div className="flex" style={{ gap: '20px' }}>
+                  <button 
+                      className="btn btn-ghost"
+                      onClick={() => navigate('/login')} 
+                  >
+                      Log In
+                  </button>
+                  <button 
+                      className="btn"
+                      onClick={() => navigate('/')} 
+                      style={{ 
+                          border: '1px solid var(--success)', 
+                          color: 'var(--success)', 
+                          background: 'rgba(16, 185, 129, 0.1)',
+                          padding: '12px 24px'
+                      }}
+                  >
+                      Back to Home
+                  </button>
+               </div>
+             )}
         </motion.nav>
 
         {/* 3. MAIN CONTENT */}
@@ -149,7 +233,12 @@ const DocumentationPage = () => {
                 <motion.h1 
                   className="landing-h1 text-gradient"
                   variants={itemVariants}
-                  style={{ fontSize: '56px', marginTop: '24px', letterSpacing: '-0.02em' }}
+                  style={{ 
+                      fontSize: 'clamp(36px, 8vw, 56px)', 
+                      marginTop: '24px', 
+                      letterSpacing: '-0.02em',
+                      lineHeight: '1.2'
+                  }}
                 >
                     Master Your Data Pipelines
                 </motion.h1>
@@ -211,7 +300,9 @@ const DocumentationPage = () => {
                 <div style={{ position: 'relative', maxWidth: '800px', margin: '0 auto' }}>
                     {/* Connecting Line */}
                     <div style={{ 
-                        position: 'absolute', left: '24px', top: '24px', bottom: '24px', width: '2px', 
+                        position: 'absolute', 
+                        left: isMobile ? '12px' : '24px', 
+                        top: '24px', bottom: '24px', width: '2px', 
                         background: 'linear-gradient(to bottom, #10b981 0%, rgba(16, 185, 129, 0.05) 100%)', 
                         zIndex: 0 
                     }}></div>
@@ -221,25 +312,29 @@ const DocumentationPage = () => {
                             number="01" 
                             title="Create or Load" 
                             desc="Start from scratch or jumpstart with a template like 'Clean & Deduplicate'." 
-                            delay={0} 
+                            delay={0}
+                            isMobile={isMobile}
                         />
                         <Step 
                             number="02" 
                             title="Design Visual Flow" 
                             desc="Drag nodes from the sidebar. Connect Sources -> Transforms -> Destinations." 
-                            delay={0.1} 
+                            delay={0.1}
+                            isMobile={isMobile}
                         />
                         <Step 
                             number="03" 
                             title="Configure Nodes" 
                             desc="Click any node to set parameters: filter conditions, column names, or math formulas." 
                             delay={0.2} 
+                            isMobile={isMobile}
                         />
                         <Step 
                             number="04" 
                             title="Execute or Schedule" 
                             desc="Run immediately to view results/charts, or set a daily schedule to automate your pipeline." 
                             delay={0.3} 
+                            isMobile={isMobile}
                         />
                     </div>
                 </div>
@@ -257,8 +352,12 @@ const DocumentationPage = () => {
                     Capabilities & Nodes
                 </h2>
                 
-                {/* UPDATED: Increased gap to 50px for more distance between squares */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '50px', marginTop: '30px' }}>
+                <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+                    gap: 'clamp(20px, 4vw, 50px)', 
+                    marginTop: '30px' 
+                }}>
                     
                     <InteractiveNodeCard 
                         icon="📂" 
@@ -383,48 +482,57 @@ const DocumentationPage = () => {
 
 // --- Helper Components ---
 
-const Step = ({ number, title, desc, delay }) => (
-    <motion.div 
-      className="glass-card"
-      style={{ 
-          display: 'flex', gap: '20px', alignItems: 'flex-start',
-          padding: '24px', marginBottom: '20px', marginLeft: '50px',
-          border: '1px solid rgba(255,255,255,0.05)',
-          position: 'relative', zIndex: 1,
-          borderRadius: '12px'
-      }}
-      initial={{ opacity: 0, x: -15 }}
-      whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6, delay: delay, ease: "easeOut" }}
-      whileHover={{ 
-          x: 4, 
-          borderColor: 'rgba(16, 185, 129, 0.3)', 
-          backgroundColor: 'rgba(24, 24, 27, 0.6)' 
-      }}
-    >
-        {/* Connector Dot */}
-        <div style={{ 
-            position: 'absolute', left: '-34px', top: '32px', 
-            width: '14px', height: '14px', borderRadius: '50%', 
-            background: '#0f1115', border: '3px solid #10b981',
-            zIndex: 2
-        }}></div>
+const Step = ({ number, title, desc, delay, isMobile }) => {
+    // Calculate layout adjustments for mobile timeline
+    // Desktop: Line at 24px, Step marginLeft 50px, Dot left -34px
+    // Mobile: Line at 12px, Step marginLeft 30px, Dot left -25px (center on 12px line)
+    
+    const cardMarginLeft = isMobile ? '30px' : '50px';
+    const dotLeft = isMobile ? '-25px' : '-34px';
 
-        <div style={{ 
-            fontSize: '15px', fontWeight: 'bold', color: '#10b981', 
-            background: 'rgba(16, 185, 129, 0.08)', width: '36px', height: '36px', 
-            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, marginTop: '-2px'
-        }}>
-            {number}
-        </div>
-        <div>
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: 'white' }}>{title}</h3>
-            <p className="text-muted" style={{ margin: 0, fontSize: '15px', lineHeight: '1.5' }}>{desc}</p>
-        </div>
-    </motion.div>
-);
+    return (
+        <motion.div 
+        className="glass-card"
+        style={{ 
+            display: 'flex', gap: '20px', alignItems: 'flex-start',
+            padding: '24px', marginBottom: '20px', marginLeft: cardMarginLeft,
+            border: '1px solid rgba(255,255,255,0.05)',
+            position: 'relative', zIndex: 1,
+            borderRadius: '12px'
+        }}
+        initial={{ opacity: 0, x: -15 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, delay: delay, ease: "easeOut" }}
+        whileHover={{ 
+            x: 4, 
+            borderColor: 'rgba(16, 185, 129, 0.3)', 
+            backgroundColor: 'rgba(24, 24, 27, 0.6)' 
+        }}
+        >
+            {/* Connector Dot */}
+            <div style={{ 
+                position: 'absolute', left: dotLeft, top: '32px', 
+                width: '14px', height: '14px', borderRadius: '50%', 
+                background: '#0f1115', border: '3px solid #10b981',
+                zIndex: 2
+            }}></div>
+
+            <div style={{ 
+                fontSize: '15px', fontWeight: 'bold', color: '#10b981', 
+                background: 'rgba(16, 185, 129, 0.08)', width: '36px', height: '36px', 
+                borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, marginTop: '-2px'
+            }}>
+                {number}
+            </div>
+            <div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: 'white' }}>{title}</h3>
+                <p className="text-muted" style={{ margin: 0, fontSize: '15px', lineHeight: '1.5' }}>{desc}</p>
+            </div>
+        </motion.div>
+    );
+};
 
 const InteractiveNodeCard = ({ icon, title, desc, color, delay }) => {
     const [isHovered, setIsHovered] = useState(false);
@@ -432,7 +540,6 @@ const InteractiveNodeCard = ({ icon, title, desc, color, delay }) => {
     return (
         <motion.div 
           style={{ 
-            // RESTORED ORIGINAL BACKGROUND FOR GLASS LOOK
             background: 'rgba(255,255,255,0.02)', 
             padding: '20px', 
             borderRadius: '19px', 
@@ -441,7 +548,6 @@ const InteractiveNodeCard = ({ icon, title, desc, color, delay }) => {
             position: 'relative',
             overflow: 'hidden',
             height: '90%',
-            // ADDED MIN-HEIGHT TO KEEP SQUARES UNIFORM
             minHeight: '220px', 
             display: 'flex',
             flexDirection: 'column'

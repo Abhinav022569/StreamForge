@@ -1071,6 +1071,8 @@
   }
 
   .landing-nav { padding: 10px 15px !important; }
+  .docs-nav { padding: 10px 20px !important; } /* Docs Nav specific override */
+  
   .landing-logo { font-size: 20px; }
   
   /* Grid Fixes */
