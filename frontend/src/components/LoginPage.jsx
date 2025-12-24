@@ -16,7 +16,7 @@ const LoginPage = () => {
     setIsLoading(true);
     
     try {
-      const response = await axios.post('http://127.0.0.1:5000/login', formData);
+      const response = await axios.post('http://192.168.1.12:5000/login', formData);
       
       // 1. Store Token & User Data
       localStorage.setItem('token', response.data.token);

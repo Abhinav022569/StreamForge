@@ -50,16 +50,16 @@ const CollaborationPage = () => {
       try {
           const config = { headers: { Authorization: `Bearer ${token}` } };
           
-          const statsRes = await axios.get('http://127.0.0.1:5000/collaboration/stats', config);
+          const statsRes = await axios.get('http://192.168.1.12:5000/collaboration/stats', config);
           setStats(statsRes.data);
 
-          const withMeRes = await axios.get('http://127.0.0.1:5000/collaboration/shared-with-me', config);
+          const withMeRes = await axios.get('http://192.168.1.12:5000/collaboration/shared-with-me', config);
           setSharedWithMe(withMeRes.data);
 
-          const byMeRes = await axios.get('http://127.0.0.1:5000/collaboration/shared-by-me', config);
+          const byMeRes = await axios.get('http://192.168.1.12:5000/collaboration/shared-by-me', config);
           setSharedByMe(byMeRes.data);
 
-          const myPipesRes = await axios.get('http://127.0.0.1:5000/pipelines', config);
+          const myPipesRes = await axios.get('http://192.168.1.12:5000/pipelines', config);
           setMyPipelines(myPipesRes.data.filter(p => !p.is_shared)); // Only show non-shared pipelines in dropdown
 
       } catch (err) {
@@ -71,7 +71,7 @@ const CollaborationPage = () => {
   const handleShareSubmit = async () => {
       const token = localStorage.getItem('token');
       try {
-          await axios.post('http://127.0.0.1:5000/pipelines/share', {
+          await axios.post('http://192.168.1.12:5000/pipelines/share', {
               pipeline_id: shareForm.pipelineId,
               email: shareForm.email,
               role: shareForm.role
@@ -94,7 +94,7 @@ const CollaborationPage = () => {
       const { shareId } = revokeModal;
       const token = localStorage.getItem('token');
       try {
-          await axios.delete(`http://127.0.0.1:5000/pipelines/share/${shareId}`, {
+          await axios.delete(`http://192.168.1.12:5000/pipelines/share/${shareId}`, {
               headers: { Authorization: `Bearer ${token}` }
           });
           fetchData(token);

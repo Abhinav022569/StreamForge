@@ -19,13 +19,13 @@ const PipelineHistory = () => {
             const token = localStorage.getItem('token');
             try {
                 // Fetch Pipeline Details for Name
-                const pipeRes = await axios.get(`http://127.0.0.1:5000/pipelines/${id}`, {
+                const pipeRes = await axios.get(`http://192.168.1.12:5000/pipelines/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setPipelineName(pipeRes.data.name);
 
                 // Fetch History
-                const historyRes = await axios.get(`http://127.0.0.1:5000/pipelines/${id}/history`, {
+                const historyRes = await axios.get(`http://192.168.1.12:5000/pipelines/${id}/history`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setRuns(historyRes.data);

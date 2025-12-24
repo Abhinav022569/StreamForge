@@ -33,7 +33,7 @@ const AdminUsers = () => {
 
   const fetchUsers = async (token) => {
       try {
-          const res = await axios.get('http://127.0.0.1:5000/admin/users', {
+          const res = await axios.get('http://192.168.1.12:5000/admin/users', {
               headers: { Authorization: `Bearer ${token}` }
           });
           setUsers(res.data);
@@ -48,7 +48,7 @@ const AdminUsers = () => {
 
       const token = localStorage.getItem('token');
       try {
-          await axios.put(`http://127.0.0.1:5000/admin/users/${userId}/suspend`, 
+          await axios.put(`http://192.168.1.12:5000/admin/users/${userId}/suspend`, 
             { is_suspended: !currentStatus }, 
             { headers: { Authorization: `Bearer ${token}` } }
           );
