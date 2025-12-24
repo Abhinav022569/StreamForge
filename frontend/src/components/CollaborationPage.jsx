@@ -131,7 +131,8 @@ const CollaborationPage = () => {
                     color: 'white', padding: '12px 24px', borderRadius: '50px',
                     display: 'flex', alignItems: 'center', gap: '10px',
                     backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center'
+                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center',
+                    maxWidth: '90%'
                 }}
             >
                 {notification.type === 'error' ? <AlertCircle size={20} /> : 
@@ -159,13 +160,14 @@ const CollaborationPage = () => {
                 style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
                     background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
-                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '20px'
                 }}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             >
                 <motion.div 
                     style={{
-                        width: '400px', background: '#18181b', 
+                        width: '100%', maxWidth: '400px', background: '#18181b', 
                         border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
                         padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                     }}
@@ -220,7 +222,7 @@ const CollaborationPage = () => {
           style={{ paddingBottom: '60px' }}
         >
           
-          <motion.div className="flex justify-between items-end" style={{ marginBottom: '40px' }} variants={itemVariants}>
+          <motion.div className="dashboard-header-flex" style={{ marginBottom: '40px', alignItems: 'flex-end' }} variants={itemVariants}>
             <div>
                 <p className="text-muted" style={{ fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '1px', color: '#10b981' }}>Collaboration Hub</p>
                 <h1 style={{ fontSize: '32px', marginBottom: '5px', marginTop: '5px', background: 'linear-gradient(90deg, #fff, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Team Collaboration</h1>
@@ -242,7 +244,7 @@ const CollaborationPage = () => {
             </motion.button>
           </motion.div>
 
-          <motion.div className="flex gap-20" style={{ marginBottom: '40px' }} variants={itemVariants}>
+          <motion.div className="stats-grid" style={{ marginBottom: '40px' }} variants={itemVariants}>
               <CollabStatCard title="SHARED WITH ME" value={stats.shared_with_me} sub="Pipelines accessible" icon={<Inbox size={24} />} color="#3b82f6" />
               <CollabStatCard title="MY SHARED PIPELINES" value={stats.my_shared_pipelines} sub="Active shares" icon={<Share2 size={24} />} color="#a855f7" />
               <CollabStatCard title="TEAM MEMBERS" value={stats.team_members} sub="In your network" icon={<Users size={24} />} color="#eab308" />
@@ -260,80 +262,82 @@ const CollaborationPage = () => {
                 overflow: 'hidden'
             }}
           >
-            <table className="data-table">
-                <thead>
-                    <tr>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Pipeline Name</th>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Owner</th>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>My Role</th>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Updated</th>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {sharedWithMe.length === 0 ? (
-                        <tr><td colSpan="5" className="text-center text-muted" style={{ padding: '40px' }}>No pipelines shared with you yet.</td></tr>
-                    ) : (
-                        sharedWithMe.map(p => (
-                            <motion.tr 
-                                key={p.share_id}
-                                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                            >
-                                <td className="font-bold" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7' }}>
-                                    <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '6px', borderRadius: '6px', color: '#3b82f6' }}>
-                                        <Layers size={16} />
-                                    </div>
-                                    {p.name.replace(' (Shared)', '')}
-                                </td>
-                                <td>
-                                    <div className="flex items-center gap-10">
-                                        <div className="profile-avatar" style={{ width: '24px', height: '24px', fontSize: '10px', background: '#27272a', border: '1px solid #3f3f46' }}>{p.owner_name[0]}</div>
-                                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#d4d4d8' }}>{p.owner_name}</div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span style={{ 
-                                        background: 'rgba(59, 130, 246, 0.1)', 
-                                        color: '#3b82f6', 
-                                        border: '1px solid rgba(59, 130, 246, 0.2)',
-                                        padding: '2px 8px', 
-                                        borderRadius: '4px', 
-                                        fontSize: '11px', 
-                                        textTransform: 'uppercase',
-                                        fontWeight: '600' 
-                                    }}>
-                                        {p.role}
-                                    </span>
-                                </td>
-                                <td className="text-muted" style={{ fontSize: '13px' }}>{p.updated_at}</td>
-                                <td style={{ textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                        <motion.button 
-                                            className="btn btn-ghost" 
-                                            style={{ fontSize: '12px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
-                                            onClick={() => navigate(`/builder/${p.id}`)}
-                                            whileHover={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}
-                                        >
-                                            <ExternalLink size={12} /> Open
-                                        </motion.button>
-                                        <motion.button 
-                                            onClick={() => initiateRevoke(p.share_id, p.owner_name)} 
-                                            className="btn btn-ghost" 
-                                            style={{ fontSize: '12px', padding: '4px 10px', color: '#64748b', border: '1px solid transparent' }} 
-                                            title="Leave Share"
-                                            whileHover={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}
-                                        >
-                                            <X size={14} />
-                                        </motion.button>
-                                    </div>
-                                </td>
-                            </motion.tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
+            <div className="table-responsive">
+                <table className="data-table">
+                    <thead>
+                        <tr>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Pipeline Name</th>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Owner</th>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>My Role</th>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Updated</th>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {sharedWithMe.length === 0 ? (
+                            <tr><td colSpan="5" className="text-center text-muted" style={{ padding: '40px' }}>No pipelines shared with you yet.</td></tr>
+                        ) : (
+                            sharedWithMe.map(p => (
+                                <motion.tr 
+                                    key={p.share_id}
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                                >
+                                    <td className="font-bold" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7', minWidth: '200px' }}>
+                                        <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '6px', borderRadius: '6px', color: '#3b82f6' }}>
+                                            <Layers size={16} />
+                                        </div>
+                                        {p.name.replace(' (Shared)', '')}
+                                    </td>
+                                    <td>
+                                        <div className="flex items-center gap-10">
+                                            <div className="profile-avatar" style={{ width: '24px', height: '24px', fontSize: '10px', background: '#27272a', border: '1px solid #3f3f46' }}>{p.owner_name[0]}</div>
+                                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#d4d4d8', whiteSpace: 'nowrap' }}>{p.owner_name}</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span style={{ 
+                                            background: 'rgba(59, 130, 246, 0.1)', 
+                                            color: '#3b82f6', 
+                                            border: '1px solid rgba(59, 130, 246, 0.2)',
+                                            padding: '2px 8px', 
+                                            borderRadius: '4px', 
+                                            fontSize: '11px', 
+                                            textTransform: 'uppercase',
+                                            fontWeight: '600' 
+                                        }}>
+                                            {p.role}
+                                        </span>
+                                    </td>
+                                    <td className="text-muted" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{p.updated_at}</td>
+                                    <td style={{ textAlign: 'right' }}>
+                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                            <motion.button 
+                                                className="btn btn-ghost" 
+                                                style={{ fontSize: '12px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                onClick={() => navigate(`/builder/${p.id}`)}
+                                                whileHover={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}
+                                            >
+                                                <ExternalLink size={12} /> Open
+                                            </motion.button>
+                                            <motion.button 
+                                                onClick={() => initiateRevoke(p.share_id, p.owner_name)} 
+                                                className="btn btn-ghost" 
+                                                style={{ fontSize: '12px', padding: '4px 10px', color: '#64748b', border: '1px solid transparent' }} 
+                                                title="Leave Share"
+                                                whileHover={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}
+                                            >
+                                                <X size={14} />
+                                            </motion.button>
+                                        </div>
+                                    </td>
+                                </motion.tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
           </motion.div>
 
           {/* My Shared Pipelines */}
@@ -348,74 +352,76 @@ const CollaborationPage = () => {
                 overflow: 'hidden'
             }}
           >
-            <table className="data-table">
-                <thead>
-                    <tr>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Pipeline Name</th>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Shared With</th>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Status</th>
-                        <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Manage</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {sharedByMe.length === 0 ? (
-                        <tr><td colSpan="4" className="text-center text-muted" style={{ padding: '40px' }}>You haven't shared any pipelines yet.</td></tr>
-                    ) : (
-                        sharedByMe.map(p => (
-                            <motion.tr 
-                                key={p.id}
-                                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                            >
-                                <td className="font-bold" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7' }}>
-                                    <div style={{ background: 'rgba(234, 179, 8, 0.1)', padding: '6px', borderRadius: '6px', color: '#eab308' }}>
-                                        <Share2 size={16} />
-                                    </div>
-                                    {p.name}
-                                </td>
-                                <td>
-                                    <div className="flex items-center gap-5">
-                                        {p.shared_users.slice(0, 3).map((u, i) => (
-                                            <div key={i} className="profile-avatar" style={{ width: '24px', height: '24px', fontSize: '10px', border: '1px solid #3f3f46', background: '#27272a' }} title={`${u.username} (${u.role})`}>
-                                                {u.username[0]}
+            <div className="table-responsive">
+                <table className="data-table">
+                    <thead>
+                        <tr>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Pipeline Name</th>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Shared With</th>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Status</th>
+                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Manage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {sharedByMe.length === 0 ? (
+                            <tr><td colSpan="4" className="text-center text-muted" style={{ padding: '40px' }}>You haven't shared any pipelines yet.</td></tr>
+                        ) : (
+                            sharedByMe.map(p => (
+                                <motion.tr 
+                                    key={p.id}
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                                >
+                                    <td className="font-bold" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7', minWidth: '200px' }}>
+                                        <div style={{ background: 'rgba(234, 179, 8, 0.1)', padding: '6px', borderRadius: '6px', color: '#eab308' }}>
+                                            <Share2 size={16} />
+                                        </div>
+                                        {p.name}
+                                    </td>
+                                    <td>
+                                        <div className="flex items-center gap-5">
+                                            {p.shared_users.slice(0, 3).map((u, i) => (
+                                                <div key={i} className="profile-avatar" style={{ width: '24px', height: '24px', fontSize: '10px', border: '1px solid #3f3f46', background: '#27272a' }} title={`${u.username} (${u.role})`}>
+                                                    {u.username[0]}
+                                                </div>
+                                            ))}
+                                            {p.user_count > 3 && <span className="text-muted" style={{ fontSize: '12px' }}>+{p.user_count - 3}</span>}
+                                            <span className="text-muted" style={{ fontSize: '12px', marginLeft: '5px', whiteSpace: 'nowrap' }}>{p.user_count} users</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span style={{
+                                            background: 'rgba(16, 185, 129, 0.15)',
+                                            color: '#10b981',
+                                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                                            padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600'
+                                        }}>
+                                            Active
+                                        </span>
+                                    </td>
+                                    <td style={{ textAlign: 'right', minWidth: '150px' }}>
+                                        {p.shared_users.map(u => (
+                                            <div key={u.share_id} style={{ display: 'inline-flex', alignItems: 'center', marginRight: '8px', background: 'rgba(255,255,255,0.03)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}>
+                                                <span className="text-muted" style={{ fontSize: '11px', marginRight: '5px' }}>{u.username}</span>
+                                                <button 
+                                                    style={{ 
+                                                        background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 
+                                                    }}
+                                                    onClick={() => initiateRevoke(u.share_id, u.username)}
+                                                    title="Revoke Access"
+                                                >
+                                                    <X size={12} />
+                                                </button>
                                             </div>
                                         ))}
-                                        {p.user_count > 3 && <span className="text-muted" style={{ fontSize: '12px' }}>+{p.user_count - 3}</span>}
-                                        <span className="text-muted" style={{ fontSize: '12px', marginLeft: '5px' }}>{p.user_count} users</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span style={{
-                                        background: 'rgba(16, 185, 129, 0.15)',
-                                        color: '#10b981',
-                                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                                        padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600'
-                                    }}>
-                                        Active
-                                    </span>
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
-                                    {p.shared_users.map(u => (
-                                        <div key={u.share_id} style={{ display: 'inline-flex', alignItems: 'center', marginRight: '8px', background: 'rgba(255,255,255,0.03)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <span className="text-muted" style={{ fontSize: '11px', marginRight: '5px' }}>{u.username}</span>
-                                            <button 
-                                                style={{ 
-                                                    background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 
-                                                }}
-                                                onClick={() => initiateRevoke(u.share_id, u.username)}
-                                                title="Revoke Access"
-                                            >
-                                                <X size={12} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </td>
-                            </motion.tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
+                                    </td>
+                                </motion.tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
           </motion.div>
 
         </motion.div>
@@ -427,14 +433,15 @@ const CollaborationPage = () => {
             style={{
               position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
               backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-              zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center'
+              zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center',
+              padding: '20px'
             }}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           >
               <motion.div 
                 className="card" 
                 style={{ 
-                    width: '400px', padding: '30px',
+                    width: '100%', maxWidth: '400px', padding: '30px',
                     background: 'rgba(24, 24, 27, 0.9)', 
                     border: '1px solid rgba(255,255,255,0.1)',
                     boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
