@@ -157,7 +157,8 @@ const DataSources = () => {
                     color: 'white', padding: '12px 24px', borderRadius: '50px',
                     display: 'flex', alignItems: 'center', gap: '10px',
                     backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center'
+                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center',
+                    maxWidth: '90%'
                 }}
             >
                 {notification.type === 'error' ? <AlertCircle size={20} /> : 
@@ -185,13 +186,14 @@ const DataSources = () => {
                 style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
                     background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
-                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '20px'
                 }}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             >
                 <motion.div 
                     style={{
-                        width: '400px', background: '#18181b', 
+                        width: '100%', maxWidth: '400px', background: '#18181b', 
                         border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
                         padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                     }}
@@ -314,60 +316,62 @@ const DataSources = () => {
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#e4e4e7' }}>Connected Sources</h3>
             </div>
             
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>File Name</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Type</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Size</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Date Added</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence>
-                {files.length === 0 ? (
-                    <tr><td colSpan="5" className="text-center text-muted" style={{ padding: '40px' }}>No files uploaded yet.</td></tr>
-                ) : (
-                    files.map((file, index) => (
-                    <motion.tr 
-                        key={file.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -10 }}
-                        transition={{ delay: index * 0.05 }}
-                        whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                    >
-                        <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7' }}>
-                            {getFileIcon(file.type)} {file.name}
-                        </td>
-                        <td className="text-muted" style={{ fontSize: '13px' }}>{file.type}</td>
-                        <td className="text-muted" style={{ fontSize: '13px' }}>{file.size}</td>
-                        <td className="text-muted" style={{ fontSize: '13px' }}>{file.date}</td>
-                        <td style={{ textAlign: 'right' }}>
-                        <motion.button 
-                            onClick={() => confirmDelete(file.id)}
-                            className="btn" 
-                            style={{ 
-                                padding: '6px 12px', fontSize: '12px',
-                                background: 'rgba(239, 68, 68, 0.1)', 
-                                color: '#f87171',
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                display: 'inline-flex', alignItems: 'center', gap: '4px'
-                            }}
-                            whileHover={{ background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            <Trash2 size={12} /> Remove
-                        </motion.button>
-                        </td>
-                    </motion.tr>
-                    ))
-                )}
-                </AnimatePresence>
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>File Name</th>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Type</th>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Size</th>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Date Added</th>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence>
+                  {files.length === 0 ? (
+                      <tr><td colSpan="5" className="text-center text-muted" style={{ padding: '40px' }}>No files uploaded yet.</td></tr>
+                  ) : (
+                      files.map((file, index) => (
+                      <motion.tr 
+                          key={file.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                      >
+                          <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7', minWidth: '150px' }}>
+                              {getFileIcon(file.type)} {file.name}
+                          </td>
+                          <td className="text-muted" style={{ fontSize: '13px' }}>{file.type}</td>
+                          <td className="text-muted" style={{ fontSize: '13px' }}>{file.size}</td>
+                          <td className="text-muted" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{file.date}</td>
+                          <td style={{ textAlign: 'right' }}>
+                          <motion.button 
+                              onClick={() => confirmDelete(file.id)}
+                              className="btn" 
+                              style={{ 
+                                  padding: '6px 12px', fontSize: '12px',
+                                  background: 'rgba(239, 68, 68, 0.1)', 
+                                  color: '#f87171',
+                                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px'
+                              }}
+                              whileHover={{ background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                              whileTap={{ scale: 0.95 }}
+                          >
+                              <Trash2 size={12} /> Remove
+                          </motion.button>
+                          </td>
+                      </motion.tr>
+                      ))
+                  )}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
           </motion.div>
 
         </motion.div>

@@ -148,7 +148,8 @@ const ProcessedData = () => {
                     color: 'white', padding: '12px 24px', borderRadius: '50px',
                     display: 'flex', alignItems: 'center', gap: '10px',
                     backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center'
+                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center',
+                    maxWidth: '90%'
                 }}
             >
                 {notification.type === 'error' ? <AlertCircle size={20} /> : 
@@ -187,13 +188,14 @@ const ProcessedData = () => {
                 style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
                     background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
-                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '20px'
                 }}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             >
                 <motion.div 
                     style={{
-                        width: '400px', background: '#18181b', 
+                        width: '100%', maxWidth: '400px', background: '#18181b', 
                         border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
                         padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                     }}
@@ -267,113 +269,115 @@ const ProcessedData = () => {
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#e4e4e7' }}>Output Files</h3>
             </div>
             
-            <table className="data-table">
-              <thead>
-                <tr className="table-header">
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>File Name</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Type</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Size</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Created</th>
-                  <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence>
-                {processedFiles.length === 0 ? (
-                    <tr>
-                        <td colSpan="5" className="text-center text-muted" style={{ padding: '60px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                              <HardDrive size={32} style={{ opacity: 0.2 }} />
-                              <span>No processed files found. Run a pipeline to generate data.</span>
-                            </div>
-                        </td>
-                    </tr>
-                ) : (
-                    processedFiles.map((file, index) => (
-                    <motion.tr 
-                        key={file.id} 
-                        className="table-row"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -10 }}
-                        transition={{ delay: index * 0.05 }}
-                        whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                    >
-                        <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7' }}>
-                            {getFileIcon(file.type)} 
-                            {file.name}
-                        </td>
-                        <td className="text-muted">
-                            <span style={{ 
-                                background: file.type === 'Excel' ? 'rgba(22, 163, 74, 0.15)' : 
-                                            file.type === 'JSON' ? 'rgba(251, 191, 36, 0.15)' : 
-                                            file.type === 'Database' ? 'rgba(139, 92, 246, 0.15)' : 
-                                            file.type === 'Image' ? 'rgba(236, 72, 153, 0.15)' :
-                                            'rgba(59, 130, 246, 0.15)',
-                                color: file.type === 'Excel' ? '#16a34a' : 
-                                       file.type === 'JSON' ? '#fbbf24' : 
-                                       file.type === 'Database' ? '#8b5cf6' : 
-                                       file.type === 'Image' ? '#ec4899' :
-                                       '#3b82f6',
-                                padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', border: '1px solid rgba(255,255,255,0.05)' 
-                            }}>
-                                {file.type}
-                            </span>
-                        </td>
-                        <td className="text-muted" style={{ fontSize: '13px' }}>{file.size}</td>
-                        <td className="text-muted" style={{ fontSize: '13px' }}>{file.date}</td>
-                        <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                
-                                {/* --- VIEW BUTTON (Enabled for CSV, JSON, Excel AND Image) --- */}
-                                {(file.type === 'CSV' || file.type === 'JSON' || file.type === 'Excel' || file.type === 'Image') && (
-                                    <motion.button 
-                                        onClick={() => handleView(file)}
-                                        className="btn btn-ghost" 
-                                        style={{ 
-                                            padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px',
-                                            color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.05)'
-                                        }}
-                                        whileHover={{ background: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.4)' }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        <Eye size={14} /> View
-                                    </motion.button>
-                                )}
-                                
-                                <motion.button 
-                                    onClick={() => handleDownload(file.name)}
-                                    className="btn btn-ghost" 
-                                    style={{ 
-                                        padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px',
-                                        color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)', background: 'rgba(59, 130, 246, 0.05)'
-                                    }}
-                                    whileHover={{ background: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.4)' }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    <Download size={14} /> Download
-                                </motion.button>
-                                <motion.button 
-                                    onClick={() => initiateDelete(file.id, file.name)}
-                                    className="btn btn-ghost" 
-                                    style={{ 
-                                        padding: '6px 12px', fontSize: '12px', 
-                                        color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)'
-                                    }}
-                                    whileHover={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    <Trash2 size={14} />
-                                </motion.button>
-                            </div>
-                        </td>
-                    </motion.tr>
-                    ))
-                )}
-                </AnimatePresence>
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr className="table-header">
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>File Name</th>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Type</th>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Size</th>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Created</th>
+                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence>
+                  {processedFiles.length === 0 ? (
+                      <tr>
+                          <td colSpan="5" className="text-center text-muted" style={{ padding: '60px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                                <HardDrive size={32} style={{ opacity: 0.2 }} />
+                                <span>No processed files found. Run a pipeline to generate data.</span>
+                              </div>
+                          </td>
+                      </tr>
+                  ) : (
+                      processedFiles.map((file, index) => (
+                      <motion.tr 
+                          key={file.id} 
+                          className="table-row"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                      >
+                          <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7', minWidth: '200px' }}>
+                              {getFileIcon(file.type)} 
+                              {file.name}
+                          </td>
+                          <td className="text-muted">
+                              <span style={{ 
+                                  background: file.type === 'Excel' ? 'rgba(22, 163, 74, 0.15)' : 
+                                              file.type === 'JSON' ? 'rgba(251, 191, 36, 0.15)' : 
+                                              file.type === 'Database' ? 'rgba(139, 92, 246, 0.15)' : 
+                                              file.type === 'Image' ? 'rgba(236, 72, 153, 0.15)' :
+                                              'rgba(59, 130, 246, 0.15)',
+                                  color: file.type === 'Excel' ? '#16a34a' : 
+                                        file.type === 'JSON' ? '#fbbf24' : 
+                                        file.type === 'Database' ? '#8b5cf6' : 
+                                        file.type === 'Image' ? '#ec4899' :
+                                        '#3b82f6',
+                                  padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', border: '1px solid rgba(255,255,255,0.05)' 
+                              }}>
+                                  {file.type}
+                              </span>
+                          </td>
+                          <td className="text-muted" style={{ fontSize: '13px' }}>{file.size}</td>
+                          <td className="text-muted" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{file.date}</td>
+                          <td style={{ textAlign: 'right', minWidth: '150px' }}>
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                  
+                                  {/* --- VIEW BUTTON (Enabled for CSV, JSON, Excel AND Image) --- */}
+                                  {(file.type === 'CSV' || file.type === 'JSON' || file.type === 'Excel' || file.type === 'Image') && (
+                                      <motion.button 
+                                          onClick={() => handleView(file)}
+                                          className="btn btn-ghost" 
+                                          style={{ 
+                                              padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px',
+                                              color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.05)'
+                                          }}
+                                          whileHover={{ background: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.4)' }}
+                                          whileTap={{ scale: 0.95 }}
+                                      >
+                                          <Eye size={14} /> View
+                                      </motion.button>
+                                  )}
+                                  
+                                  <motion.button 
+                                      onClick={() => handleDownload(file.name)}
+                                      className="btn btn-ghost" 
+                                      style={{ 
+                                          padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px',
+                                          color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)', background: 'rgba(59, 130, 246, 0.05)'
+                                      }}
+                                      whileHover={{ background: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.4)' }}
+                                      whileTap={{ scale: 0.95 }}
+                                  >
+                                      <Download size={14} />
+                                  </motion.button>
+                                  <motion.button 
+                                      onClick={() => initiateDelete(file.id, file.name)}
+                                      className="btn btn-ghost" 
+                                      style={{ 
+                                          padding: '6px 12px', fontSize: '12px', 
+                                          color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)'
+                                      }}
+                                      whileHover={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                                      whileTap={{ scale: 0.95 }}
+                                  >
+                                      <Trash2 size={14} />
+                                  </motion.button>
+                              </div>
+                          </td>
+                      </motion.tr>
+                      ))
+                  )}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
           </motion.div>
 
         </motion.div>
