@@ -90,7 +90,8 @@ const LandingPage = () => {
               The power of Python Pandas meets a futuristic visual interface.
             </p>
             
-            <div className="mt-30" style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {/* Added class 'landing-hero-actions' here for mobile stacking */}
+            <div className="mt-30 landing-hero-actions" style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button 
                 className="landing-btn-primary" 
                 onClick={() => navigate('/app')}
@@ -270,7 +271,7 @@ const LandingPage = () => {
             style={{ padding: '40px 20px' }}
           >
             <h2 className="landing-h2 landing-cta-title text-gradient" style={{ fontSize: 'clamp(28px, 5vw, 48px)' }}>Ready to modernize your workflow?</h2>
-            <p className="landing-p mb-30" style={{ color: 'white', fontSize: '18px' }}>
+            <p className="landing-p mb-30" style={{ color: 'white', fontSize: '18px',textAlign: 'left', marginLeft: 0}}>
               Join the collaborative no-code revolution today.
             </p>
             <button className="landing-btn-primary" onClick={() => navigate('/app')} style={{ fontSize: '18px', padding: '15px 40px', maxWidth: '100%' }}>

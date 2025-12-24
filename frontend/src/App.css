@@ -31,6 +31,12 @@
   /* =========================================
      2. GLOBAL RESET & UTILS
      ========================================= */
+  
+  /* [CRITICAL FIX] Ensure padding doesn't add to width */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
   body {
     margin: 0;
     padding: 0;
@@ -38,6 +44,7 @@
     background-color: var(--bg-dark);
     color: var(--text-main);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden; /* Prevent horizontal scroll globally */
   }
   
   /* Utilities */
@@ -81,7 +88,6 @@
   .content-wrapper {
     padding: 40px;
     width: 100%;
-    box-sizing: border-box;
   }
   
   /* =========================================
@@ -100,7 +106,6 @@
   .sidebar.scrollable {
     height: 100vh;
     overflow-y: auto;
-    box-sizing: border-box;
   }
   
   .sidebar-logo {
@@ -299,9 +304,8 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     width: 100%;
     max-width: 400px;
-    padding: 40px; /* Restored padding */
+    padding: 40px; 
     border-radius: 12px;
-    box-sizing: border-box;
   }
   
   .auth-header {
@@ -352,7 +356,6 @@
     padding: 10px 15px;
     border-radius: 6px;
     outline: none;
-    box-sizing: border-box;
   }
   .input-field:focus { border-color: var(--primary); }
   
@@ -364,7 +367,6 @@
     padding: 10px 15px;
     border-radius: 6px;
     outline: none;
-    box-sizing: border-box;
     cursor: pointer;
   }
   .select-field:focus { border-color: var(--primary); }
@@ -558,7 +560,6 @@
     left: 0;
     width: 100%;
     z-index: 1000;
-    box-sizing: border-box;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1032,9 +1033,7 @@
   cursor: not-allowed;
 }
 
-/* Add to the bottom of frontend/src/App.css */
-
-/* --- MOBILE RESPONSIVENESS --- */
+/* --- MOBILE RESPONSIVENESS & ALIGNMENT FIXES --- */
 @media (max-width: 768px) {
   /* 1. General Layout */
   .app-container {
@@ -1056,21 +1055,106 @@
   .card { padding: 15px !important; }
   
   /* 3. Landing Page Overrides */
-  .landing-h1 { font-size: 36px !important; }
-  .landing-p { font-size: 16px !important; padding: 0 20px; }
-  .landing-nav { padding: 15px 20px !important; }
-  .landing-grid-2, .landing-grid-3 { grid-template-columns: 1fr !important; }
+  .landing-h1 { 
+    font-size: 36px !important; 
+    text-align: center !important; 
+    width: 100% !important; 
+    margin: 0 0 20px 0 !important;
+  }
   
-  /* 4. Hide Scrollbars in Builder but allow in App */
+  .landing-p { 
+    font-size: 16px !important; 
+    padding: 0 10px !important; 
+    text-align: center !important;
+    width: 100% !important;
+    margin: 0 auto 30px auto !important; /* Enforce auto margins */
+  }
+
+  .landing-nav { padding: 10px 15px !important; }
+  .landing-logo { font-size: 20px; }
+  
+  /* Grid Fixes */
+  .landing-grid-2, .landing-grid-3 { 
+    grid-template-columns: 1fr !important; 
+    gap: 40px !important; 
+  }
+  
+  /* 4. Landing Buttons & Hero Alignment */
+  .landing-hero-section {
+    padding-top: 100px !important;
+    padding-bottom: 40px !important;
+    padding-left: 15px !important; /* Safe padding */
+    padding-right: 15px !important; /* Safe padding */
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  
+  .landing-hero-content {
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+  }
+  
+  /* Stack Hero Buttons */
+  .landing-hero-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 15px !important;
+    align-items: center !important;
+    margin: 30px 0 0 0 !important;
+  }
+  
+  .landing-hero-actions button {
+    width: 100% !important;
+    margin: 0 !important;
+    justify-content: center !important;
+  }
+
+  /* 5. Section Headers & Content Alignment */
+  .landing-text-content, 
+  .landing-section-header {
+    text-align: center !important;
+    align-items: center !important; 
+  }
+
+  /* Ensure paragraphs that were forced left are now centered */
+  .text-left {
+    text-align: center !important;
+  }
+  
+  /* Center the list items specifically */
+  .landing-list-item {
+    justify-content: center !important;
+  }
+
+  /* Nav Buttons small adjustments */
+  .landing-btn-nav-login, 
+  .landing-btn-nav-signup {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  /* Code Block */
+  .code-block {
+    padding: 15px;
+    font-size: 11px;
+  }
+
+  /* 6. Hide Scrollbars in Builder but allow in App */
   .reactflow-wrapper { height: calc(100vh - 120px) !important; }
   
-  /* 5. Adjust Tables */
+  /* 7. Adjust Tables */
   .data-table th, .data-table td {
     padding: 10px !important;
     font-size: 12px !important;
   }
   
-  /* 6. Utility Helper */
+  /* 8. Utility Helper */
   .mobile-hidden { display: none !important; }
   .mobile-only { display: block !important; }
 }
