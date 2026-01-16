@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client'; 
 import { 
   ArrowLeft, LayoutTemplate, Upload, Download, Play, Save, 
-  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock, Menu 
+  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock, Menu, Eye 
 } from 'lucide-react';
 
 import Sidebar from './Sidebar';
@@ -111,6 +111,7 @@ const PipelineBuilderContent = () => {
     const [pipelineName, setPipelineName] = useState("My New Pipeline");
     const [isRunning, setIsRunning] = useState(false); 
     const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [selectedNode, setSelectedNode] = useState(null); // Track selected node
     
     // --- RESPONSIVE STATE ---
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -306,6 +307,15 @@ const PipelineBuilderContent = () => {
 
     const onNodesChange = useCallback((changes) => {
         setNodes((nds) => applyNodeChanges(changes, nds));
+        // Check if selection was cleared
+        const selectionChange = changes.find(c => c.type === 'select');
+        if (selectionChange && !selectionChange.selected) {
+             // Only clear if the currently selected node is the one being deselected
+             if (selectedNode && selectedNode.id === selectionChange.id) {
+                 setSelectedNode(null);
+             }
+        }
+
         if (isLoadedRef.current) setIsDirty(true);
 
         if (socketRef.current && id) {
@@ -313,7 +323,7 @@ const PipelineBuilderContent = () => {
                 pipeline_id: id, type: 'node_change', changes: changes
             });
         }
-    }, [id]);
+    }, [id, selectedNode]);
 
     const onEdgesChange = useCallback((changes) => {
         setEdges((eds) => applyEdgeChanges(changes, eds));
@@ -337,15 +347,9 @@ const PipelineBuilderContent = () => {
         }
     }, [id]);
 
-    // MODIFIED: Close preview panel on standard left click
-    const onNodeClick = useCallback((event, node) => {
-        setPreviewPanel(prev => ({ ...prev, isOpen: false }));
-    }, []);
-
-    // NEW: Handle Right Click for Preview
-    const onNodeContextMenu = useCallback(async (event, node) => {
-        event.preventDefault(); // Prevent browser context menu
-        
+    // Shared Preview Logic
+    const fetchPreview = async (node) => {
+        if (!node) return;
         setPreviewPanel({
             isOpen: true,
             loading: true,
@@ -370,12 +374,38 @@ const PipelineBuilderContent = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            setPreviewPanel(prev => ({
-                ...prev,
-                loading: false,
-                data: res.data.data,
-                columns: res.data.columns
-            }));
+            console.log("Preview Response:", res.data); // DEBUG LOG
+
+            let previewData = res.data.data || [];
+            let previewColumns = res.data.columns || [];
+
+            // Robust check: Backend might return empty data for Source nodes (Lazy Loading)
+            if (previewData.length === 0) {
+                 let msg = "No data returned from server.";
+                 if (node.type.includes('source')) {
+                     msg = "Source preview empty (Lazy Loaded). Add a transformation to see data.";
+                     showToast(msg, "info");
+                 } else {
+                     showToast("No data returned for this node.", "info");
+                 }
+                 
+                 // Update the panel with the explanation so the user knows WHY it is empty
+                 setPreviewPanel(prev => ({
+                    ...prev,
+                    loading: false,
+                    data: [],
+                    columns: [],
+                    error: msg
+                 }));
+            } else {
+                 setPreviewPanel(prev => ({
+                    ...prev,
+                    loading: false,
+                    data: previewData,
+                    columns: previewColumns,
+                    error: null
+                 }));
+            }
 
         } catch (err) {
             console.error("Preview error:", err);
@@ -385,7 +415,34 @@ const PipelineBuilderContent = () => {
                 error: err.response?.data?.error || "Failed to fetch preview."
             }));
         }
+    };
+
+    // MODIFIED: Select node on left click, close panel if different node
+    const onNodeClick = useCallback((event, node) => {
+        setSelectedNode(node);
+        // Explicitly close preview if simply selecting, to allow "Button" workflow
+        setPreviewPanel(prev => ({ ...prev, isOpen: false }));
+    }, []);
+
+    const onPaneClick = useCallback(() => {
+        setSelectedNode(null);
+    }, []);
+
+    // Handle Right Click for Preview
+    const onNodeContextMenu = useCallback((event, node) => {
+        event.preventDefault(); // Prevent browser context menu
+        setSelectedNode(node); // Also select it visually
+        fetchPreview(node);
     }, [getNodes, getEdges]);
+
+    // NEW: Handle "Preview" button click from Toolbar
+    const handleToolbarPreview = () => {
+        if (selectedNode) {
+            fetchPreview(selectedNode);
+        } else {
+            showToast("Please select a node to preview", "info");
+        }
+    };
 
     const onDragOver = useCallback((event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }, []);
 
@@ -422,6 +479,7 @@ const PipelineBuilderContent = () => {
 
             setNodes((nds) => nds.concat(newNode));
             setIsDirty(true);
+            setSelectedNode(newNode); // Auto-select dropped node
             
             // On mobile, automatically close toolbox after dropping to see the canvas
             if (isMobile) setIsToolboxOpen(false);
@@ -573,16 +631,17 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    const ActionButton = ({ icon, label, onClick }) => (
+    const ActionButton = ({ icon, label, onClick, disabled = false }) => (
         <motion.button 
             onClick={onClick}
+            disabled={disabled}
             style={{ 
-                background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#d4d4d8', 
-                padding: '8px 12px', fontSize: '13px', borderRadius: '6px', cursor: 'pointer',
+                background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: disabled ? '#52525b' : '#d4d4d8', 
+                padding: '8px 12px', fontSize: '13px', borderRadius: '6px', cursor: disabled ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', gap: '6px'
             }}
-            whileHover={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: 'white' }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={!disabled ? { background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: 'white' } : {}}
+            whileTap={!disabled ? { scale: 0.95 } : {}}
         >
             {icon} {label}
         </motion.button>
@@ -679,9 +738,15 @@ const PipelineBuilderContent = () => {
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <ActionButton icon={<LayoutTemplate size={16}/>} label="Templates" onClick={() => setShowTemplateModal(true)} />
                     
-                    {/* --- SCHEDULE BUTTON --- */}
+                    {/* --- PREVIEW BUTTON --- */}
+                    <ActionButton 
+                        icon={<Eye size={16}/>} 
+                        label="Preview" 
+                        onClick={handleToolbarPreview} 
+                        disabled={!selectedNode} 
+                    />
+                    
                     <ActionButton icon={<Clock size={16}/>} label="Schedule" onClick={() => setShowScheduleModal(true)} />
-                    {/* ----------------------- */}
 
                     <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)', alignSelf: 'center' }}></div>
                     <ActionButton icon={<Upload size={16}/>} label="Import" onClick={handleImportClick} />
@@ -758,7 +823,7 @@ const PipelineBuilderContent = () => {
                      {/* Helper Text Overlay */}
                     <div style={{ position: 'absolute', top: '20px', right: '20px', pointerEvents: 'none', zIndex: 10, background: 'rgba(24, 24, 27, 0.8)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
                         <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
-                        <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Right-click</span> a node to preview data
+                        <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Left-click</span> to select, <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Preview</span> in toolbar
                         </p>
                     </div>
 
@@ -766,6 +831,7 @@ const PipelineBuilderContent = () => {
                         nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
                         nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={setReactFlowInstance} onDrop={onDrop} onDragOver={onDragOver}
                         onNodeClick={onNodeClick} 
+                        onPaneClick={onPaneClick}
                         onNodeContextMenu={onNodeContextMenu}
                         fitView deleteKeyCode={['Backspace', 'Delete']}
                         proOptions={{ hideAttribution: true }}
