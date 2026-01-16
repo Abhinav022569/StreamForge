@@ -337,7 +337,15 @@ const PipelineBuilderContent = () => {
         }
     }, [id]);
 
-    const onNodeClick = useCallback(async (event, node) => {
+    // MODIFIED: Close preview panel on standard left click
+    const onNodeClick = useCallback((event, node) => {
+        setPreviewPanel(prev => ({ ...prev, isOpen: false }));
+    }, []);
+
+    // NEW: Handle Right Click for Preview
+    const onNodeContextMenu = useCallback(async (event, node) => {
+        event.preventDefault(); // Prevent browser context menu
+        
         setPreviewPanel({
             isOpen: true,
             loading: true,
@@ -747,10 +755,18 @@ const PipelineBuilderContent = () => {
                     style={{ width: '100%', height: '100%', backgroundColor: '#0f1115' }}
                     onMouseMove={onMouseMove} 
                 >
+                     {/* Helper Text Overlay */}
+                    <div style={{ position: 'absolute', top: '20px', right: '20px', pointerEvents: 'none', zIndex: 10, background: 'rgba(24, 24, 27, 0.8)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
+                        <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Right-click</span> a node to preview data
+                        </p>
+                    </div>
+
                     <ReactFlow 
                         nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
                         nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={setReactFlowInstance} onDrop={onDrop} onDragOver={onDragOver}
                         onNodeClick={onNodeClick} 
+                        onNodeContextMenu={onNodeContextMenu}
                         fitView deleteKeyCode={['Backspace', 'Delete']}
                         proOptions={{ hideAttribution: true }}
                     >
