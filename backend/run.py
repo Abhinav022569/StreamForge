@@ -72,4 +72,4 @@ def run_scheduled_job(pipeline_id):
 if __name__ == '__main__':
     # Ensure uploads/processed folders exist
     # ... your existing directory creation code ...
-    socketio.run(app, debug=True, use_reloader=False) # use_reloader=False prevents double scheduler init
+    socketio.run(app, debug=True, use_reloader=False, host='0.0.0.0', port=5000) # use_reloader=False prevents double scheduler init

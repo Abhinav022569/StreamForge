@@ -20,6 +20,7 @@ import google.generativeai as genai
 from . import db
 from .models import Pipeline, User, DataSource, ProcessedFile, SharedPipeline, PipelineRun
 from .pipeline_engine import PipelineEngine, get_size_format
+from .chatbot_context import get_gemini_response, generate_pipeline_plan 
 
 # Try to import the system prompt, handle error if file missing
 try:
@@ -457,6 +458,32 @@ def delete_pipeline(id):
     db.session.delete(pipeline)
     db.session.commit()
     return jsonify({"message": "Deleted"})
+
+@main.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    history = data.get('history', [])
+    message = data.get('message', '')
+    response_text = get_gemini_response(history, message)
+    return jsonify({'response': response_text})
+
+# 2. NEW Route for Pipeline Generation
+@main.route('/api/generate_pipeline', methods=['POST'])
+def generate_pipeline():
+    data = request.json
+    prompt = data.get('prompt')
+    
+    if not prompt:
+        return jsonify({"error": "No prompt provided"}), 400
+
+    print(f"Generating pipeline for prompt: {prompt}") # Debug print
+
+    ai_plan = generate_pipeline_plan(prompt)
+    
+    if "error" in ai_plan:
+        return jsonify(ai_plan), 500
+        
+    return jsonify(ai_plan)
 
 # --- EXECUTION & HISTORY ---
 

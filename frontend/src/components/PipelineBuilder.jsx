@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client'; 
 import { 
   ArrowLeft, LayoutTemplate, Upload, Download, Play, Save, 
-  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock, Menu, Eye 
+  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock, Menu, Eye, Wand2
 } from 'lucide-react';
 
 import Sidebar from './Sidebar';
@@ -121,6 +121,12 @@ const PipelineBuilderContent = () => {
     // --- SCHEDULING STATE ---
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [scheduleTime, setScheduleTime] = useState('09:00');
+    // ------------------------
+
+    // --- AI MODAL STATE ---
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState("");
+    const [isGenerating, setIsGenerating] = useState(false);
     // ------------------------
 
     const [isDirty, setIsDirty] = useState(false);
@@ -510,6 +516,49 @@ const PipelineBuilderContent = () => {
         }
     };
 
+    // --- AI GENERATOR FUNCTION ---
+    const handleAIGenerate = async () => {
+        if (!aiPrompt.trim()) return;
+        setIsGenerating(true);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post('http://127.0.0.1:5000/api/generate_pipeline', 
+                { prompt: aiPrompt },
+                { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+            );
+            
+            const data = res.data;
+            
+            if (data.nodes && data.edges) {
+                // Map nodes to include onUpdate handler
+                const newNodes = data.nodes.map(n => ({
+                    ...n,
+                    data: { ...n.data, onUpdate: updateNodeData }
+                }));
+                // Map edges to be deletable
+                const newEdges = data.edges.map(e => ({ ...e, type: 'deletableEdge', animated: true }));
+
+                setNodes(newNodes);
+                setEdges(newEdges);
+                setShowAIModal(false);
+                setAiPrompt("");
+                setIsDirty(true);
+                showToast("Pipeline generated from text!", "success");
+            } else if (data.error) {
+                showToast(`AI Error: ${data.error}`, "error");
+            } else {
+                showToast("AI could not generate a valid pipeline. Try a more specific prompt.", "error");
+            }
+        } catch (error) {
+            console.error(error);
+            const errMsg = error.response?.data?.error || error.message || "Connection failed";
+            showToast(`Server Error: ${errMsg}. Check if backend is running and 'google-generativeai' is installed.`, "error");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     // --- SCHEDULING LOGIC ---
     const saveSchedule = async () => {
         try {
@@ -631,16 +680,25 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    const ActionButton = ({ icon, label, onClick, disabled = false }) => (
+    const ActionButton = ({ icon, label, onClick, disabled = false, special = false }) => (
         <motion.button 
             onClick={onClick}
             disabled={disabled}
             style={{ 
-                background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: disabled ? '#52525b' : '#d4d4d8', 
-                padding: '8px 12px', fontSize: '13px', borderRadius: '6px', cursor: disabled ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px'
+                background: special ? 'linear-gradient(45deg, #ec4899, #8b5cf6)' : 'transparent', 
+                border: special ? 'none' : '1px solid rgba(255,255,255,0.1)', 
+                color: disabled ? '#52525b' : (special ? 'white' : '#d4d4d8'), 
+                padding: '8px 12px', fontSize: '13px', borderRadius: '6px', 
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                boxShadow: special ? '0 4px 15px rgba(236, 72, 153, 0.3)' : 'none',
+                fontWeight: special ? '600' : 'normal'
             }}
-            whileHover={!disabled ? { background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: 'white' } : {}}
+            whileHover={!disabled ? { 
+                background: special ? 'linear-gradient(45deg, #db2777, #7c3aed)' : 'rgba(255,255,255,0.05)', 
+                borderColor: special ? 'none' : 'rgba(255,255,255,0.2)', 
+                color: 'white' 
+            } : {}}
             whileTap={!disabled ? { scale: 0.95 } : {}}
         >
             {icon} {label}
@@ -736,6 +794,15 @@ const PipelineBuilderContent = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
+                    
+                    {/* --- AI GENERATE BUTTON --- */}
+                    <ActionButton 
+                        icon={<Wand2 size={16}/>} 
+                        label="AI Generate" 
+                        onClick={() => setShowAIModal(true)} 
+                        special={true}
+                    />
+
                     <ActionButton icon={<LayoutTemplate size={16}/>} label="Templates" onClick={() => setShowTemplateModal(true)} />
                     
                     {/* --- PREVIEW BUTTON --- */}
@@ -905,6 +972,80 @@ const PipelineBuilderContent = () => {
                                     </div>
                                 </motion.div>
                             ))}
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+            </AnimatePresence>
+
+            {/* --- AI GENERATE MODAL --- */}
+            <AnimatePresence>
+            {showAIModal && (
+                <motion.div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
+                        zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center'
+                    }}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                >
+                    <motion.div 
+                        style={{
+                            width: '500px', backgroundColor: '#18181b',
+                            border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '30px',
+                            display: 'flex', flexDirection: 'column',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                        }}
+                        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ margin: 0, color: 'white', fontSize: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <Wand2 size={20} color="#d946ef" /> AI Pipeline Generator
+                            </h2>
+                            <button onClick={() => setShowAIModal(false)} style={{ background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}><X size={20} /></button>
+                        </div>
+                        
+                        <p style={{ color: '#a1a1aa', fontSize: '14px', marginTop: 0, marginBottom: '20px' }}>
+                            Describe your pipeline in plain English. For example: <br/>
+                            <i style={{ color: '#94a3b8' }}>"Load sales.csv, filter rows where Amount = 500, and save as high_value.json"</i>
+                        </p>
+
+                        <textarea 
+                            value={aiPrompt}
+                            onChange={(e) => setAiPrompt(e.target.value)}
+                            placeholder="Type your request here..."
+                            style={{
+                                width: '100%', height: '100px', background: '#27272a',
+                                border: '1px solid #3f3f46', borderRadius: '8px',
+                                color: 'white', padding: '12px', marginBottom: '20px',
+                                resize: 'none', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
+                            }}
+                        />
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button 
+                                onClick={() => setShowAIModal(false)}
+                                style={{ 
+                                    background: 'transparent', border: '1px solid #3f3f46', color: '#e4e4e7',
+                                    padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '500'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleAIGenerate}
+                                disabled={isGenerating}
+                                style={{ 
+                                    background: 'linear-gradient(45deg, #ec4899, #8b5cf6)', 
+                                    border: 'none', color: 'white',
+                                    padding: '10px 20px', borderRadius: '6px', cursor: isGenerating ? 'not-allowed' : 'pointer', 
+                                    fontWeight: '600', display: 'flex', gap: '8px', alignItems: 'center',
+                                    opacity: isGenerating ? 0.7 : 1
+                                }}
+                            >
+                                {isGenerating ? <Loader2 size={16} className="spin"/> : <Wand2 size={16}/>}
+                                {isGenerating ? 'Generating...' : 'Generate Pipeline'}
+                            </button>
                         </div>
                     </motion.div>
                 </motion.div>
