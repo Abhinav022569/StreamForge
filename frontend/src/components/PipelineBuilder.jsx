@@ -31,7 +31,7 @@ import DeletableEdge from './edges/DeletableEdge';
 // IMPORT ALL TRANSFORMATIONS
 import { 
     SortNode, SelectNode, RenameNode, DedupeNode, FillNaNode, GroupByNode, JoinNode,
-    CastNode, StringNode, CalcNode, LimitNode, ConstantNode, ChartNode 
+    CastNode, StringNode, CalcNode, LimitNode, ConstantNode, ChartNode, PythonNode 
 } from './nodes/Transformations';
 
 import { TEMPLATES } from '../data/templates';
@@ -198,7 +198,7 @@ const PipelineBuilderContent = () => {
         trans_sort: SortNode, trans_select: SelectNode, trans_rename: RenameNode, trans_dedupe: DedupeNode,
         trans_fillna: FillNaNode, trans_group: GroupByNode, trans_join: JoinNode,
         trans_cast: CastNode, trans_string: StringNode, trans_calc: CalcNode, trans_limit: LimitNode,
-        trans_constant: ConstantNode, vis_chart: ChartNode,
+        trans_constant: ConstantNode, vis_chart: ChartNode, trans_python: PythonNode
     }), []);
 
     const edgeTypes = useMemo(() => ({ deletableEdge: DeletableEdge }), []);
@@ -473,6 +473,7 @@ const PipelineBuilderContent = () => {
             if (type.includes('dest')) defaultData.destinationType = type.split('_')[1]?.toUpperCase() || 'DB';
             if (type === 'filterNode') { defaultData.column = ''; defaultData.condition = '>'; defaultData.value = ''; }
             if (type === 'vis_chart') { defaultData.chartType = 'bar'; defaultData.x_col = ''; defaultData.y_col = ''; defaultData.outputName = 'my_chart'; }
+            if (type === 'trans_python') { defaultData.code = "df['new_col'] = df['old_col'] * 2"; }
 
             defaultData.onUpdate = updateNodeData;
 

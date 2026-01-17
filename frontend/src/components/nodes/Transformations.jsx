@@ -226,7 +226,46 @@ export const ConstantNode = memo(({ id, data, isConnectable }) => {
     );
 });
 
-// --- NEW VISUALIZATION NODE ---
+// 13. PYTHON SCRIPT (Custom Code Node)
+export const PythonNode = memo(({ id, data, isConnectable }) => {
+    const { update, remove } = useNodeState(id, data);
+    
+    // Fix: Ensure we use the value from data.code even if it is an empty string. 
+    // Fallback to default only if data.code is undefined or null.
+    const codeValue = data.code !== undefined && data.code !== null 
+        ? data.code 
+        : "df['new_col'] = df['old_col'] * 2";
+
+    return (
+        <NodeShell title="Python Script" icon="🐍" color="#FCD34D" id={id} isConnectable={isConnectable} onDelete={remove}>
+            <p style={{fontSize: '10px', color: '#9ca3af', marginBottom: '5px'}}>
+                Modify <code>df</code> directly. Ex:
+            </p>
+            <textarea 
+                className="input-field code-editor" 
+                style={{ 
+                    fontFamily: 'monospace', 
+                    height: '100px', 
+                    whiteSpace: 'pre',
+                    overflowX: 'auto',
+                    fontSize: '11px',
+                    lineHeight: '1.4',
+                    backgroundColor: '#1e293b',
+                    color: '#e2e8f0',
+                    border: '1px solid #334155'
+                }}
+                value={codeValue}
+                onChange={(e) => update('code', e.target.value)}
+                placeholder="# Write python code here..."
+            />
+            <p style={{fontSize: '9px', color: '#64748b', marginTop: '4px'}}>
+                Available: <code>pd</code>, <code>np</code>, <code>math</code>, <code>datetime</code>
+            </p>
+        </NodeShell>
+    );
+});
+
+// --- VISUALIZATION NODE ---
 export const ChartNode = memo(({ id, data, isConnectable }) => {
     const { update, remove } = useNodeState(id, data);
     return (

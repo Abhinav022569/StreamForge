@@ -272,6 +272,38 @@ class PipelineEngine:
                         df[col] = val
                         self.logs.append(f"Added constant col {col}")
 
+                # --- CUSTOM PYTHON NODE ---
+                elif node_type == 'trans_python':
+                    code = data.get('code', '')
+                    if code:
+                        try:
+                            # Create a restricted local scope with safe libraries
+                            # 'df' is the main dataframe being passed through
+                            local_scope = {
+                                'df': df, 
+                                'pd': pd, 
+                                'np': np,
+                                'math': __import__('math'),
+                                'datetime': __import__('datetime')
+                            }
+                            
+                            # EXECUTE THE USER CODE
+                            # We use exec() here. In a true enterprise environment, this should be sandboxxed 
+                            # (e.g., restricted python or containerized) but for a BCA project exec is acceptable 
+                            # if documented as "Developer Mode".
+                            exec(code, {}, local_scope)
+                            
+                            # Retrieve the modified df. User code must modify 'df' in place or reassign it.
+                            if 'df' in local_scope and isinstance(local_scope['df'], pd.DataFrame):
+                                df = local_scope['df']
+                                self.logs.append(f"Executed custom Python script")
+                            else:
+                                raise ValueError("Python script must maintain a 'df' pandas DataFrame variable.")
+                                
+                        except Exception as e:
+                            # Catch syntax errors or runtime errors in user code
+                            raise ValueError(f"Python Script Execution Error: {str(e)}")
+
                 # --- VISUALIZATION & OUTPUTS ---
                 elif node_type == 'vis_chart':
                     if not self.preview_mode:

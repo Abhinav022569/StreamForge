@@ -4,7 +4,7 @@ import {
   FileText, FileJson, FileSpreadsheet, 
   Filter, ArrowUpDown, MousePointerClick, Tag, Scissors, Sparkles, Sigma, Link, 
   RefreshCw, Type, Calculator, ListMinus, PlusSquare, 
-  BarChart3, Database 
+  BarChart3, Database, Code, Combine, FileType 
 } from 'lucide-react';
 import '../App.css'; 
 
@@ -63,6 +63,16 @@ export default () => {
         <ToolItem type="trans_calc" label="Math Formula" icon={<Calculator size={16} />} color="#60a5fa" onDragStart={onDragStart} />
         <ToolItem type="trans_limit" label="Limit Rows" icon={<ListMinus size={16} />} color="#f87171" onDragStart={onDragStart} />
         <ToolItem type="trans_constant" label="Add Column" icon={<PlusSquare size={16} />} color="#34d399" onDragStart={onDragStart} />
+        
+        {/* NEW PYTHON NODE */}
+        <ToolItem 
+            type="trans_python" 
+            label="Python Script" 
+            icon={<Code size={16} />} 
+            color="#FCD34D" 
+            onDragStart={onDragStart}
+            style={{ border: '1px solid #FCD34D' }} 
+        />
       </div>
 
       {/* 3. Visualization */}
@@ -85,7 +95,7 @@ export default () => {
 };
 
 // Helper Component for Tool Items
-const ToolItem = ({ type, label, icon, color, onDragStart }) => (
+const ToolItem = ({ type, label, icon, color, onDragStart, style }) => (
     <div 
         className="sidebar-tool" 
         draggable 
@@ -97,7 +107,8 @@ const ToolItem = ({ type, label, icon, color, onDragStart }) => (
             border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px',
             cursor: 'grab', color: '#e4e4e7', fontSize: '13px', fontWeight: '500',
             borderLeft: `3px solid ${color || '#71717a'}`,
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            ...style
         }}
         onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
