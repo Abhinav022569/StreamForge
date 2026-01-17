@@ -12,7 +12,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from flask_apscheduler import APScheduler
 
-# --- NEW IMPORTS FOR CHATBOT ---
+# --- CHATBOT IMPORTS ---
 from dotenv import load_dotenv
 import google.generativeai as genai
 # -------------------------------
@@ -33,7 +33,6 @@ main = Blueprint('main', __name__)
 # --- CONFIGURATION START ---
 
 # 1. Force load .env from the backend root folder
-# This fixes the "No API_KEY" error by finding the file wherever it is.
 current_dir = os.path.dirname(os.path.abspath(__file__)) # backend/app
 backend_root = os.path.dirname(current_dir)              # backend/
 env_path = os.path.join(backend_root, '.env')
@@ -72,7 +71,7 @@ def safe_convert(val):
 def home():
     return jsonify({"message": "The Modular ETL Engine is Online!"})
 
-# --- CHATBOT ROUTE (NEW) ---
+# --- CHATBOT ROUTE ---
 
 @main.route('/chat', methods=['POST'])
 def chat_with_ai():
@@ -467,7 +466,6 @@ def chat():
     response_text = get_gemini_response(history, message)
     return jsonify({'response': response_text})
 
-# 2. NEW Route for Pipeline Generation
 @main.route('/api/generate_pipeline', methods=['POST'])
 def generate_pipeline():
     data = request.json
@@ -476,7 +474,7 @@ def generate_pipeline():
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
 
-    print(f"Generating pipeline for prompt: {prompt}") # Debug print
+    print(f"Generating pipeline for prompt: {prompt}") 
 
     ai_plan = generate_pipeline_plan(prompt)
     
@@ -485,7 +483,259 @@ def generate_pipeline():
         
     return jsonify(ai_plan)
 
-# --- EXECUTION & HISTORY ---
+# --- NEW DATA CATALOG & LINEAGE ROUTES ---
+
+@main.route('/api/catalog/search', methods=['GET'])
+@jwt_required()
+def catalog_search():
+    current_user_id = int(get_jwt_identity())
+    query = request.args.get('q', '').lower()
+    
+    # Search DataSources
+    raw_files = DataSource.query.filter_by(user_id=current_user_id).all()
+    # Search ProcessedFiles
+    proc_files = ProcessedFile.query.filter_by(user_id=current_user_id).all()
+    
+    results = []
+    
+    # Helper to check match
+    def check_match(file_obj, ftype):
+        match_found = False
+        match_reason = []
+        
+        # 1. Filename match
+        if query in file_obj.filename.lower():
+            match_found = True
+            match_reason.append("Filename")
+            
+        # 2. Column match
+        cols = {}
+        if file_obj.columns:
+            try:
+                cols = json.loads(file_obj.columns)
+                for c_name in cols.keys():
+                    if query in c_name.lower():
+                        match_found = True
+                        match_reason.append(f"Column: {c_name}")
+            except: pass
+            
+        if match_found:
+            results.append({
+                "id": file_obj.id,
+                "name": file_obj.filename,
+                "type": ftype, # 'Source' or 'Processed'
+                "rows": file_obj.row_count,
+                "columns": cols,
+                "matches": match_reason[:3] # Top 3 reasons
+            })
+
+    for f in raw_files: check_match(f, 'Source')
+    for f in proc_files: check_match(f, 'Processed')
+    
+    return jsonify(results)
+
+@main.route('/api/catalog/lineage/<string:ftype>/<int:fid>', methods=['GET'])
+@jwt_required()
+def get_lineage(ftype, fid):
+    current_user_id = int(get_jwt_identity())
+    
+    lineage_data = {
+        "used_in": [],      # Forward lineage (Impact)
+        "created_by": None  # Backward lineage (Provenance)
+    }
+    
+    # 1. Backward Lineage (Where did this file come from?)
+    target_filename = ""
+    if ftype == 'Processed':
+        f = ProcessedFile.query.get(fid)
+        if f and f.source_pipeline:
+            lineage_data['created_by'] = {
+                "id": f.source_pipeline.id,
+                "name": f.source_pipeline.name
+            }
+        target_filename = f.filename if f else ""
+    elif ftype == 'Source':
+        f = DataSource.query.get(fid)
+        lineage_data['created_by'] = {"name": "User Upload"}
+        target_filename = f.filename if f else ""
+
+    # 2. Forward Lineage (Where is this file used?)
+    # We must scan pipeline structures. In a production system, we'd have a 'PipelineDependency' table.
+    if target_filename:
+        all_pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
+        for p in all_pipelines:
+            try:
+                structure = json.loads(p.structure)
+                # Check nodes for sources matching this filename
+                for node in structure:
+                    if node['type'].startswith('source_'):
+                        # Loose matching by filename (since pipelines reference filenames, not IDs currently)
+                        p_file = node['data'].get('filename') or node['data'].get('label')
+                        if p_file == target_filename:
+                            lineage_data['used_in'].append({
+                                "id": p.id,
+                                "name": p.name
+                            })
+                            break
+            except:
+                continue
+
+    return jsonify(lineage_data)
+
+
+# --- UPDATED UPLOAD ROUTE (Auto-Index Schema) ---
+
+@main.route('/upload', methods=['POST'])
+@jwt_required()
+def upload_file():
+    current_user_id = int(get_jwt_identity())
+    
+    if 'file' not in request.files: return jsonify({"error": "No file part"}), 400
+    file = request.files['file']
+    if file.filename == '': return jsonify({"error": "No selected file"}), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        upload_folder = os.path.join(base_dir, '..', 'uploads')
+        if not os.path.exists(upload_folder): os.makedirs(upload_folder)
+            
+        file_path = os.path.join(upload_folder, filename)
+        file.save(file_path)
+        
+        file_size = os.path.getsize(file_path)
+        formatted_size = get_size_format(file_size)
+        file_ext = filename.rsplit('.', 1)[1].upper() if '.' in filename else 'UNKNOWN'
+
+        # --- EXTRACT METADATA ---
+        row_count = 0
+        columns_json = "{}"
+        try:
+            df = None
+            if filename.lower().endswith('.csv'):
+                # Read just header and a few rows for schema
+                df = pd.read_csv(file_path, nrows=5) 
+                # Helper for quick row count
+                with open(file_path) as f:
+                    row_count = sum(1 for line in f) - 1 
+            elif filename.lower().endswith('.json'):
+                df = pd.read_json(file_path)
+                row_count = len(df)
+            elif filename.lower().endswith(('.xls', '.xlsx')):
+                df = pd.read_excel(file_path)
+                row_count = len(df)
+            
+            if df is not None:
+                col_map = {col: str(dtype) for col, dtype in df.dtypes.items()}
+                columns_json = json.dumps(col_map)
+        except Exception as e:
+            print(f"Metadata extraction failed: {e}")
+
+        new_source = DataSource(
+            filename=filename, file_type=file_ext, file_size=formatted_size,
+            filepath=file_path, user_id=current_user_id,
+            # NEW FIELDS
+            row_count=row_count, columns=columns_json
+        )
+        db.session.add(new_source)
+        db.session.commit()
+        return jsonify({"message": "File uploaded successfully", "id": new_source.id}), 201
+
+@main.route('/datasources', methods=['GET'])
+@jwt_required()
+def get_datasources():
+    current_user_id = int(get_jwt_identity())
+    sources = DataSource.query.filter_by(user_id=current_user_id).all()
+    return jsonify([{"id": s.id, "name": s.filename, "size": s.file_size, "type": s.file_type, "date": s.upload_date.strftime("%Y-%m-%d")} for s in sources])
+
+@main.route('/datasources/<int:id>', methods=['DELETE'])
+@jwt_required()
+def delete_datasource(id):
+    current_user_id = int(get_jwt_identity())
+    source = DataSource.query.filter_by(id=id, user_id=current_user_id).first()
+    if not source: return jsonify({"error": "File not found"}), 404
+
+    if os.path.exists(source.filepath): os.remove(source.filepath)
+    db.session.delete(source)
+    db.session.commit()
+    return jsonify({"message": "File removed successfully!"})
+
+@main.route('/processed-files', methods=['GET'])
+@jwt_required()
+def get_processed_files():
+    current_user_id = int(get_jwt_identity())
+    files = ProcessedFile.query.filter_by(user_id=current_user_id).order_by(ProcessedFile.created_at.desc()).all()
+    return jsonify([{"id": f.id, "name": f.filename, "type": f.file_type, "size": f.file_size_display, "size_bytes": f.file_size_bytes, "date": f.created_at.strftime('%Y-%m-%d %H:%M')} for f in files])
+
+@main.route('/download/processed/<path:filename>', methods=['GET'])
+def download_processed_file(filename):
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    processed_dir = os.path.join(base_dir, '..', 'processed')
+    return send_from_directory(processed_dir, filename, as_attachment=True)
+
+@main.route('/processed-files/<int:id>', methods=['DELETE'])
+@jwt_required()
+def delete_processed_file(id):
+    current_user_id = int(get_jwt_identity())
+    file_entry = ProcessedFile.query.filter_by(id=id, user_id=current_user_id).first()
+    if not file_entry: return jsonify({"error": "File not found"}), 404
+
+    if os.path.exists(file_entry.filepath): os.remove(file_entry.filepath)
+    db.session.delete(file_entry)
+    db.session.commit()
+    return jsonify({"message": "File deleted"})
+
+@main.route('/pipelines/<int:id>/schedule', methods=['POST'])
+@jwt_required()
+def set_schedule(id):
+    current_user_id = int(get_jwt_identity())
+    pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
+    if not pipeline: return jsonify({"error": "Pipeline not found"}), 404
+
+    data = request.json
+    cron_type = data.get('type') # 'interval' or 'cron'
+    value = data.get('value')    # '30' (minutes) or '0 9 * * *'
+
+    # 1. Remove existing job if any
+    from run import scheduler, run_scheduled_job 
+    try:
+        scheduler.remove_job(f"pipeline_{id}")
+    except:
+        pass 
+
+    # 2. If turning off
+    if not value:
+        pipeline.schedule = None
+        db.session.commit()
+        return jsonify({"message": "Schedule removed"})
+
+    # 3. Add new job
+    if cron_type == 'interval':
+        minutes = int(value)
+        scheduler.add_job(
+            id=f"pipeline_{id}",
+            func=run_scheduled_job,
+            args=[id],
+            trigger='interval',
+            minutes=minutes
+        )
+    elif cron_type == 'cron':
+        hour, minute = value.split(':')
+        scheduler.add_job(
+            id=f"pipeline_{id}",
+            func=run_scheduled_job,
+            args=[id],
+            trigger='cron',
+            hour=int(hour),
+            minute=int(minute)
+        )
+
+    pipeline.schedule = f"{cron_type}:{value}"
+    db.session.commit()
+    
+    return jsonify({"message": f"Pipeline scheduled ({cron_type}: {value})"})
+
+# --- EXECUTION ---
 
 @main.route('/run-pipeline', methods=['POST'])
 @jwt_required()
@@ -519,7 +769,8 @@ def run_pipeline():
             edges=req_data.get('edges', []),
             user=user,
             base_dir=base_dir,
-            db_session=db.session
+            db_session=db.session,
+            pipeline_id=pipeline_id # NEW: Pass ID for lineage
         )
         
         logs = engine.run()
@@ -640,132 +891,3 @@ def get_pipeline_history(id):
         })
         
     return jsonify(output)
-
-# --- DATA SOURCE ROUTES ---
-
-@main.route('/upload', methods=['POST'])
-@jwt_required()
-def upload_file():
-    current_user_id = int(get_jwt_identity())
-    
-    if 'file' not in request.files: return jsonify({"error": "No file part"}), 400
-    file = request.files['file']
-    if file.filename == '': return jsonify({"error": "No selected file"}), 400
-
-    if file:
-        filename = secure_filename(file.filename)
-        base_dir = os.path.abspath(os.path.dirname(__file__))
-        upload_folder = os.path.join(base_dir, '..', 'uploads')
-        if not os.path.exists(upload_folder): os.makedirs(upload_folder)
-            
-        file_path = os.path.join(upload_folder, filename)
-        file.save(file_path)
-        
-        file_size = os.path.getsize(file_path)
-        formatted_size = get_size_format(file_size)
-        file_ext = filename.rsplit('.', 1)[1].upper() if '.' in filename else 'UNKNOWN'
-
-        new_source = DataSource(
-            filename=filename, file_type=file_ext, file_size=formatted_size,
-            filepath=file_path, user_id=current_user_id
-        )
-        db.session.add(new_source)
-        db.session.commit()
-        return jsonify({"message": "File uploaded successfully", "id": new_source.id}), 201
-
-@main.route('/datasources', methods=['GET'])
-@jwt_required()
-def get_datasources():
-    current_user_id = int(get_jwt_identity())
-    sources = DataSource.query.filter_by(user_id=current_user_id).all()
-    return jsonify([{"id": s.id, "name": s.filename, "size": s.file_size, "type": s.file_type, "date": s.upload_date.strftime("%Y-%m-%d")} for s in sources])
-
-@main.route('/datasources/<int:id>', methods=['DELETE'])
-@jwt_required()
-def delete_datasource(id):
-    current_user_id = int(get_jwt_identity())
-    source = DataSource.query.filter_by(id=id, user_id=current_user_id).first()
-    if not source: return jsonify({"error": "File not found"}), 404
-
-    if os.path.exists(source.filepath): os.remove(source.filepath)
-    db.session.delete(source)
-    db.session.commit()
-    return jsonify({"message": "File removed successfully!"})
-
-@main.route('/processed-files', methods=['GET'])
-@jwt_required()
-def get_processed_files():
-    current_user_id = int(get_jwt_identity())
-    files = ProcessedFile.query.filter_by(user_id=current_user_id).order_by(ProcessedFile.created_at.desc()).all()
-    return jsonify([{"id": f.id, "name": f.filename, "type": f.file_type, "size": f.file_size_display, "size_bytes": f.file_size_bytes, "date": f.created_at.strftime('%Y-%m-%d %H:%M')} for f in files])
-
-@main.route('/download/processed/<path:filename>', methods=['GET'])
-def download_processed_file(filename):
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    processed_dir = os.path.join(base_dir, '..', 'processed')
-    return send_from_directory(processed_dir, filename, as_attachment=True)
-
-@main.route('/processed-files/<int:id>', methods=['DELETE'])
-@jwt_required()
-def delete_processed_file(id):
-    current_user_id = int(get_jwt_identity())
-    file_entry = ProcessedFile.query.filter_by(id=id, user_id=current_user_id).first()
-    if not file_entry: return jsonify({"error": "File not found"}), 404
-
-    if os.path.exists(file_entry.filepath): os.remove(file_entry.filepath)
-    db.session.delete(file_entry)
-    db.session.commit()
-    return jsonify({"message": "File deleted"})
-
-@main.route('/pipelines/<int:id>/schedule', methods=['POST'])
-@jwt_required()
-def set_schedule(id):
-    current_user_id = int(get_jwt_identity())
-    pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
-    if not pipeline: return jsonify({"error": "Pipeline not found"}), 404
-
-    data = request.json
-    cron_type = data.get('type') # 'interval' or 'cron'
-    value = data.get('value')    # '30' (minutes) or '0 9 * * *'
-
-    # 1. Remove existing job if any
-    from run import scheduler, run_scheduled_job # Import here to avoid circular dependency at top level
-    try:
-        scheduler.remove_job(f"pipeline_{id}")
-    except:
-        pass # Job didn't exist
-
-    # 2. If turning off
-    if not value:
-        pipeline.schedule = None
-        db.session.commit()
-        return jsonify({"message": "Schedule removed"})
-
-    # 3. Add new job
-    if cron_type == 'interval':
-        # value is minutes
-        minutes = int(value)
-        scheduler.add_job(
-            id=f"pipeline_{id}",
-            func=run_scheduled_job,
-            args=[id],
-            trigger='interval',
-            minutes=minutes
-        )
-    elif cron_type == 'cron':
-        # basic parsing for a daily schedule string like "09:00"
-        # For simplicity, let's assume user sends "09:00" for daily run
-        hour, minute = value.split(':')
-        scheduler.add_job(
-            id=f"pipeline_{id}",
-            func=run_scheduled_job,
-            args=[id],
-            trigger='cron',
-            hour=int(hour),
-            minute=int(minute)
-        )
-
-    pipeline.schedule = f"{cron_type}:{value}"
-    db.session.commit()
-    
-    return jsonify({"message": f"Pipeline scheduled ({cron_type}: {value})"})

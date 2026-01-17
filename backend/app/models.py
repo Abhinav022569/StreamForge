@@ -23,9 +23,12 @@ class Pipeline(db.Model):
     schedule = db.Column(db.String(50), nullable=True) # e.g., "0 9 * * *" or "every_10_minutes"
     next_run = db.Column(db.DateTime, nullable=True)
 
-    # FIXED: Added cascade to delete shared records when pipeline is deleted
+    # Relationships
     shares = db.relationship('SharedPipeline', backref='pipeline', lazy='dynamic', cascade="all, delete-orphan")
     runs = db.relationship('PipelineRun', backref='pipeline', lazy='dynamic', cascade="all, delete-orphan")
+    
+    # NEW: Lineage relationship (Files created by this pipeline)
+    outputs = db.relationship('ProcessedFile', backref='source_pipeline', lazy='dynamic')
 
 class PipelineRun(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -50,6 +53,10 @@ class DataSource(db.Model):
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
+    # NEW: Metadata Fields
+    row_count = db.Column(db.Integer, default=0)
+    columns = db.Column(db.Text) # JSON string: {"col1": "int", "col2": "string"}
+
 class ProcessedFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(140))
@@ -59,3 +66,8 @@ class ProcessedFile(db.Model):
     filepath = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+    # NEW: Metadata & Lineage Fields
+    row_count = db.Column(db.Integer, default=0)
+    columns = db.Column(db.Text) # JSON string
+    source_pipeline_id = db.Column(db.Integer, db.ForeignKey('pipeline.id'), nullable=True)

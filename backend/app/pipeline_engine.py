@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np  # Required for handling Infinity/NaN
 import sqlite3
+import json
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -27,7 +28,7 @@ def safe_convert(val):
             return val
 
 class PipelineEngine:
-    def __init__(self, nodes, edges, user, base_dir, db_session, preview_mode=False):
+    def __init__(self, nodes, edges, user, base_dir, db_session, preview_mode=False, pipeline_id=None):
         self.nodes = {n['id']: n for n in nodes}
         self.adj_list = {n['id']: [] for n in nodes}
         self.in_degree = {n['id']: 0 for n in nodes}
@@ -39,6 +40,7 @@ class PipelineEngine:
         self.base_dir = base_dir
         self.processed_bytes = 0
         self.preview_mode = preview_mode
+        self.pipeline_id = pipeline_id # NEW: Track which pipeline is running
         
         # Paths
         self.uploads_dir = os.path.join(base_dir, '..', 'uploads')
@@ -418,16 +420,34 @@ class PipelineEngine:
             ftype = 'Database'
         
         if path and os.path.exists(path):
-            self.save_db_record(name, ftype, path)
+            # NEW: Pass df for Metadata extraction
+            self.save_db_record(name, ftype, path, df)
             self.logs.append(f"Saved output to {name}")
 
-    def save_db_record(self, filename, ftype, path):
+    def save_db_record(self, filename, ftype, path, df=None):
         size = os.path.getsize(path)
         self.processed_bytes += size
+        
+        # NEW: Extract Metadata
+        row_count = 0
+        columns_json = "{}"
+        if df is not None and not df.empty:
+            row_count = len(df)
+            # Create dict: {"col_name": "dtype_string"}
+            col_map = {col: str(dtype) for col, dtype in df.dtypes.items()}
+            columns_json = json.dumps(col_map)
+
         new_file = ProcessedFile(
-            filename=filename, file_type=ftype,
-            file_size_bytes=size, file_size_display=get_size_format(size),
-            filepath=path, user_id=self.user.id
+            filename=filename, 
+            file_type=ftype,
+            file_size_bytes=size, 
+            file_size_display=get_size_format(size),
+            filepath=path, 
+            user_id=self.user.id,
+            # NEW: Store metadata & lineage
+            row_count=row_count,
+            columns=columns_json,
+            source_pipeline_id=self.pipeline_id
         )
         self.db.add(new_file)
         self.db.commit()

@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Network, Users, Database, 
-  HardDrive, Settings, LogOut, User, Menu, X 
+  HardDrive, Settings, LogOut, User, Menu, X,
+  Search // Added Search icon for Catalog
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import '../../App.css';
@@ -38,6 +39,7 @@ const AppLayout = ({ children }) => {
   const menuItems = [
     { label: 'Overview', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
     { label: 'All Pipelines', icon: <Network size={20} />, path: '/pipelines' },
+    { label: 'Data Catalog', icon: <Search size={20} />, path: '/catalog' }, // NEW: Catalog Link
     { label: 'Collaboration', icon: <Users size={20} />, path: '/collaboration' },
     { label: 'Data Sources', icon: <Database size={20} />, path: '/datasources' },
     { label: 'Processed Data', icon: <HardDrive size={20} />, path: '/processed' },

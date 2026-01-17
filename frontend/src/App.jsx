@@ -13,7 +13,8 @@ import AdminDashboard from './components/AdminDashboard';
 import AdminUsers from './components/AdminUsers';
 import SettingsPage from './components/SettingsPage'; 
 import CollaborationPage from './components/CollaborationPage';
-import PipelineHistory from './components/PipelineHistory'; // Added History Page
+import PipelineHistory from './components/PipelineHistory';
+import DataCatalog from './components/DataCatalog'; // IMPORT NEW COMPONENT
 
 // Security Guard: Checks for a token before letting you in
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -42,7 +43,14 @@ function App() {
         <Route path="/docs" element={<DocumentationPage />} />
         
         {/* Protected Routes */}
-        <Route path="/datasources" element={<ProtectedRoute><DataSources /></ProtectedRoute>} />
+        <Route 
+          path="/datasources" 
+          element={
+            <ProtectedRoute>
+              <DataSources />
+            </ProtectedRoute>
+          } 
+        />
         
         <Route 
           path="/dashboard" 
@@ -62,7 +70,6 @@ function App() {
           } 
         />
 
-        {/* Pipeline History Route (New) */}
         <Route 
           path="/pipelines/:id/history" 
           element={
@@ -106,6 +113,16 @@ function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* NEW DATA CATALOG ROUTE */}
+        <Route 
+          path="/catalog" 
+          element={
+            <ProtectedRoute>
+              <DataCatalog />
             </ProtectedRoute>
           } 
         />
