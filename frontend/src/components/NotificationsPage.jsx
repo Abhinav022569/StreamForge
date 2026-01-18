@@ -22,7 +22,7 @@ const NotificationsPage = () => {
             });
             setNotifications(res.data);
         } catch (err) {
-            console.error(err);
+            console.error("Failed to fetch notifications", err);
         }
         setLoading(false);
     };
@@ -35,15 +35,25 @@ const NotificationsPage = () => {
             });
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
         } catch (err) {
-            console.error(err);
+            console.error("Failed to mark read", err);
         }
     };
 
-    // Optional: Helper to delete a single notification (needs API support)
-    const deleteNotification = (id) => {
+    // --- NEW: DELETE FUNCTION LINKED TO API ---
+    const deleteNotification = async (id) => {
         // Optimistic UI update
         setNotifications(prev => prev.filter(n => n.id !== id));
-        // Add API call here if backend supports deletion
+        
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`http://127.0.0.1:5000/api/notifications/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        } catch (err) {
+            console.error("Failed to delete notification", err);
+            // Optional: Revert UI if API fails (could refetch)
+            fetchNotifications(); 
+        }
     };
 
     const formatDate = (dateString) => {
@@ -59,7 +69,6 @@ const NotificationsPage = () => {
 
     return (
         <AppLayout>
-            {/* UPDATED: Expanded container to match Settings Page */}
             <div style={{ padding: '40px 60px', maxWidth: '1800px', margin: '0 auto', width: '100%', color: '#e4e4e7' }}>
                 
                 {/* Header Section */}
@@ -187,13 +196,19 @@ const NotificationsPage = () => {
                                                 <p style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#e4e4e7', lineHeight: '1.5', fontWeight: notif.read ? '400' : '500' }}>
                                                     {notif.message}
                                                 </p>
-                                                {/* Optional Delete Button */}
+                                                {/* DELETE BUTTON */}
                                                 <button 
                                                     onClick={() => deleteNotification(notif.id)}
-                                                    style={{ background: 'transparent', border: 'none', color: '#52525b', cursor: 'pointer', padding: '4px', marginLeft: '10px' }}
-                                                    className="hover-text-red" // Assuming you have a CSS class or use inline
+                                                    style={{ 
+                                                        background: 'transparent', border: 'none', color: '#52525b', 
+                                                        cursor: 'pointer', padding: '6px', marginLeft: '10px', borderRadius: '6px',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; e.currentTarget.style.color = '#ef4444'; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#52525b'; }}
+                                                    title="Delete Notification"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </div>
                                             

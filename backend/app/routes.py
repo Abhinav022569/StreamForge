@@ -14,8 +14,9 @@ from flask_apscheduler import APScheduler
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-# Be sure to import socketio instance
-from . import db, socketio
+# Import global extensions and the jobs module
+from . import db, socketio, scheduler
+from . import jobs 
 from .models import Pipeline, User, DataSource, ProcessedFile, SharedPipeline, PipelineRun, Notification
 from .pipeline_engine import PipelineEngine, get_size_format
 from .chatbot_context import get_gemini_response, generate_pipeline_plan 
@@ -126,7 +127,7 @@ def delete_account():
         Pipeline.query.filter_by(user_id=current_user_id).delete()
         DataSource.query.filter_by(user_id=current_user_id).delete()
         ProcessedFile.query.filter_by(user_id=current_user_id).delete()
-        Notification.query.filter_by(user_id=current_user_id).delete() 
+        Notification.query.filter_by(user_id=current_user_id).delete()
         db.session.delete(user)
         db.session.commit()
         return jsonify({"message": "Account deleted successfully"})
@@ -162,12 +163,25 @@ def mark_notifications_read():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+@main.route('/api/notifications/<int:id>', methods=['DELETE'])
+@jwt_required()
+def delete_notification(id):
+    current_user_id = int(get_jwt_identity())
+    notif = Notification.query.filter_by(id=id, user_id=current_user_id).first()
+    if not notif: return jsonify({"error": "Notification not found"}), 404
+    try:
+        db.session.delete(notif)
+        db.session.commit()
+        return jsonify({"message": "Notification deleted"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
 @main.route('/api/user/settings', methods=['GET', 'PUT'])
 @jwt_required()
 def user_settings():
     current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
-    
     if request.method == 'GET':
         return jsonify({
             "user": { "username": user.username, "email": user.email },
@@ -176,21 +190,18 @@ def user_settings():
                 "notify_on_failure": user.notify_on_failure
             }
         })
-    
     data = request.json
     if 'user' in data:
         if 'username' in data['user']: user.username = data['user']['username']
         if 'email' in data['user']: user.email = data['user']['email']
-    
     if 'preferences' in data:
         prefs = data['preferences']
         user.notify_on_success = prefs.get('notify_on_success', True)
         user.notify_on_failure = prefs.get('notify_on_failure', True)
-        
     db.session.commit()
     return jsonify({"message": "Settings updated"})
 
-# --- ADMIN COMMUNICATION ROUTES (NEW) ---
+# --- ADMIN COMMUNICATION ROUTES ---
 
 @main.route('/admin/broadcast', methods=['POST'])
 @jwt_required()
@@ -216,7 +227,6 @@ def admin_broadcast():
             db.session.add(new_notif)
             count += 1
             
-            # Emit socket event safely
             try:
                 socketio.emit('notification', {
                     'type': notif_type,
@@ -248,9 +258,7 @@ def admin_send_email():
     if not subject or not body:
         return jsonify({"error": "Subject and Body required"}), 400
         
-    # STUB: Integration with email provider goes here
     print(f"--- EMAIL BLAST ---\nSubject: {subject}\nBody: {body}\n-------------------")
-    
     return jsonify({"message": "Email blast queued successfully (Stub Mode)"})
 
 # --- PIPELINE & DATA ROUTES ---
@@ -299,7 +307,6 @@ def run_pipeline():
             run_record.logs = json.dumps(logs)
             if pipeline_entry: pipeline_entry.status = 'Ready'
             
-            # NOTIFICATION: SUCCESS
             if user.notify_on_success:
                 msg = f"Pipeline '{pipeline_entry.name}' completed successfully."
                 try:
@@ -322,7 +329,6 @@ def run_pipeline():
             run_record.logs = json.dumps(current_logs)
             if pipeline_entry: pipeline_entry.status = 'Ready'
             
-            # NOTIFICATION: FAILURE
             if user.notify_on_failure and pipeline_entry:
                 msg = f"Pipeline '{pipeline_entry.name}' failed: {str(e)}"
                 try:
@@ -678,25 +684,70 @@ def delete_processed_file(id):
 def set_schedule(id):
     current_user_id = int(get_jwt_identity())
     pipeline = Pipeline.query.filter_by(id=id, user_id=current_user_id).first()
-    if not pipeline: return jsonify({"error": "Pipeline not found"}), 404
+    
+    if not pipeline: 
+        return jsonify({"error": "Pipeline not found"}), 404
+        
     data = request.json
-    cron_type = data.get('type') 
+    cron_type = data.get('type') # 'interval' or 'cron'
     value = data.get('value')
-    from run import scheduler, run_scheduled_job 
-    try: scheduler.remove_job(f"pipeline_{id}")
-    except: pass 
+    
+    job_id = f"pipeline_{id}"
+    
+    # 1. Remove existing job if any
+    try: 
+        scheduler.remove_job(job_id)
+    except: 
+        pass 
+        
+    # 2. If clearing schedule
     if not value:
         pipeline.schedule = None
         db.session.commit()
         return jsonify({"message": "Schedule removed"})
-    if cron_type == 'interval':
-        scheduler.add_job(id=f"pipeline_{id}", func=run_scheduled_job, args=[id], trigger='interval', minutes=int(value))
-    elif cron_type == 'cron':
-        hour, minute = value.split(':')
-        scheduler.add_job(id=f"pipeline_{id}", func=run_scheduled_job, args=[id], trigger='cron', hour=int(hour), minute=int(minute))
-    pipeline.schedule = f"{cron_type}:{value}"
-    db.session.commit()
-    return jsonify({"message": f"Pipeline scheduled ({cron_type}: {value})"})
+
+    # 3. Add new job
+    # We pass 'current_app._get_current_object()' to ensure the real app object is passed to the thread
+    app_obj = current_app._get_current_object()
+    
+    try:
+        if cron_type == 'interval':
+            # Run every X minutes
+            scheduler.add_job(
+                id=job_id, 
+                func=jobs.run_pipeline_job, 
+                args=[app_obj, id], 
+                trigger='interval', 
+                minutes=int(value)
+            )
+        elif cron_type == 'cron':
+            # Run at HH:MM
+            try:
+                hour, minute = value.split(':')
+                scheduler.add_job(
+                    id=job_id, 
+                    func=jobs.run_pipeline_job, 
+                    args=[app_obj, id], 
+                    trigger='cron', 
+                    hour=int(hour), 
+                    minute=int(minute)
+                )
+            except ValueError:
+                return jsonify({"error": "Invalid time format. Use HH:MM"}), 400
+
+        # 4. Save to DB
+        pipeline.schedule = f"{cron_type}:{value}"
+        db.session.commit()
+        
+        # 5. Debug info for user
+        now = datetime.now().strftime("%H:%M")
+        return jsonify({
+            "message": f"Pipeline scheduled ({cron_type}: {value})",
+            "server_time": f"Server time is {now}. Ensure you match this timezone."
+        })
+    except Exception as e:
+        print(f"Scheduler Error: {e}")
+        return jsonify({"error": f"Failed to schedule: {str(e)}"}), 500
 
 @main.route('/preview-node', methods=['POST'])
 @jwt_required()
