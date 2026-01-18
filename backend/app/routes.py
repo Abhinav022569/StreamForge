@@ -339,8 +339,6 @@ def generate_pipeline():
     if "error" in ai_plan: return jsonify(ai_plan), 500
     return jsonify(ai_plan)
 
-# --- NEW DATA CATALOG & LINEAGE ROUTES ---
-
 @main.route('/api/catalog/search', methods=['GET'])
 @jwt_required()
 def catalog_search():
@@ -370,33 +368,64 @@ def catalog_search():
     for f in proc_files: check_match(f, 'Processed')
     return jsonify(results)
 
+# --- UPDATED: Enhanced Lineage Endpoint ---
 @main.route('/api/catalog/lineage/<string:ftype>/<int:fid>', methods=['GET'])
 @jwt_required()
 def get_lineage(ftype, fid):
     current_user_id = int(get_jwt_identity())
-    lineage_data = {"used_in": [], "created_by": None}
+    
+    lineage_data = {
+        "used_in": [],      # Forward lineage (Impact)
+        "created_by": None  # Backward lineage (Provenance)
+    }
+    
     target_filename = ""
+
+    # 1. Determine Identity & Backward Lineage
     if ftype == 'Processed':
         f = ProcessedFile.query.get(fid)
-        if f and f.source_pipeline:
-            lineage_data['created_by'] = {"id": f.source_pipeline.id, "name": f.source_pipeline.name}
-        target_filename = f.filename if f else ""
+        if f:
+            if f.source_pipeline:
+                lineage_data['created_by'] = {
+                    "id": f.source_pipeline.id,
+                    "name": f.source_pipeline.name
+                }
+            target_filename = f.filename
+            
     elif ftype == 'Source':
         f = DataSource.query.get(fid)
-        lineage_data['created_by'] = {"name": "User Upload"}
-        target_filename = f.filename if f else ""
+        if f:
+            target_filename = f.filename
+            # CRITICAL: Even if it's a "Source", check if a processed file exists with same name 
+            # to see if it was actually created by a pipeline (bridging the gap)
+            linked_processed = ProcessedFile.query.filter_by(user_id=current_user_id, filename=target_filename).order_by(ProcessedFile.created_at.desc()).first()
+            if linked_processed and linked_processed.source_pipeline:
+                 lineage_data['created_by'] = {
+                    "id": linked_processed.source_pipeline.id,
+                    "name": linked_processed.source_pipeline.name
+                }
+            else:
+                lineage_data['created_by'] = {"name": "User Upload"}
+
+    # 2. Forward Lineage (Where is this filename used?)
     if target_filename:
         all_pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
         for p in all_pipelines:
             try:
                 structure = json.loads(p.structure)
+                # Check nodes for sources matching this filename
                 for node in structure:
                     if node['type'].startswith('source_') or node['type'] == 'sourceNode':
                         p_file = node['data'].get('filename') or node['data'].get('label')
                         if p_file == target_filename:
-                            lineage_data['used_in'].append({"id": p.id, "name": p.name})
+                            lineage_data['used_in'].append({
+                                "id": p.id,
+                                "name": p.name
+                            })
                             break
-            except: continue
+            except:
+                continue
+
     return jsonify(lineage_data)
 
 @main.route('/upload', methods=['POST'])
@@ -439,7 +468,6 @@ def upload_file():
         db.session.commit()
         return jsonify({"message": "File uploaded successfully", "id": new_source.id}), 201
 
-# --- MODIFIED: UNIFIED DATA SOURCE ENDPOINT ---
 @main.route('/datasources', methods=['GET'])
 @jwt_required()
 def get_datasources():

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Search, Database, FileText, ArrowRight, Layers, Table, 
-    Filter, Activity, ChevronRight, Clock, AlertCircle, XCircle 
+    Filter, Activity, ChevronRight, Clock, AlertCircle, XCircle, GitCommit 
 } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,12 +36,10 @@ const DataCatalog = () => {
     };
 
     const fetchLineage = async (asset) => {
-        // Don't refetch if clicking the same asset
         if (selectedAsset?.id === asset.id && selectedAsset?.type === asset.type) return;
         
-        // Optimistic update for UI responsiveness
         setSelectedAsset(asset);
-        setLineage(null); // Clear previous lineage while loading
+        setLineage(null); 
 
         try {
             const token = localStorage.getItem('token');
@@ -59,7 +57,6 @@ const DataCatalog = () => {
         searchCatalog(query);
     };
 
-    // Staggered list animation
     const listVariants = {
         hidden: { opacity: 0 },
         visible: { 
@@ -78,10 +75,8 @@ const DataCatalog = () => {
 
     return (
         <AppLayout>
-            {/* Adjusted padding to move content up while keeping side spacing */}
             <div style={{ padding: '10px 48px 32px 48px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', width: '100%' }}>
                 
-                {/* Header Section with animated gradient text */}
                 <div style={{ marginBottom: '30px' }}>
                     <motion.div 
                         initial={{ opacity: 0, y: -20 }}
@@ -115,7 +110,6 @@ const DataCatalog = () => {
                     </motion.div>
                 </div>
 
-                {/* Search Bar - Floating effect */}
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -180,10 +174,8 @@ const DataCatalog = () => {
                     </form>
                 </motion.div>
 
-                {/* Main Content Area - Split View */}
                 <div style={{ display: 'flex', gap: '32px', flex: 1, overflow: 'hidden' }}>
                     
-                    {/* Left: Results List */}
                     <div style={{ width: '35%', display: 'flex', flexDirection: 'column', minWidth: '350px', maxWidth: '500px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '0 4px' }}>
                             <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '1.2px' }}>
@@ -201,10 +193,9 @@ const DataCatalog = () => {
                             variants={listVariants}
                             initial="hidden"
                             animate="visible"
-                            key={loading ? 'loading' : 'loaded'} // Force animation re-trigger on load
+                            key={loading ? 'loading' : 'loaded'} 
                         >
                             {loading ? (
-                                // Skeleton Loading State
                                 Array.from({ length: 4 }).map((_, i) => (
                                     <SkeletonCard key={i} />
                                 ))
@@ -233,7 +224,6 @@ const DataCatalog = () => {
                         </motion.div>
                     </div>
 
-                    {/* Right: Details Panel */}
                     <AnimatePresence mode="wait">
                         {selectedAsset ? (
                             <motion.div 
@@ -256,7 +246,6 @@ const DataCatalog = () => {
                                     boxShadow: '-10px 0 40px rgba(0,0,0,0.2)'
                                 }}
                             >
-                                {/* Asset Header */}
                                 <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '24px' }}>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
                                         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
@@ -291,7 +280,6 @@ const DataCatalog = () => {
                                     </div>
                                 </div>
 
-                                {/* Lineage Section - Enhanced Visual */}
                                 <div>
                                     <h4 style={{ 
                                         color: '#e4e4e7', fontSize: '15px', fontWeight: '600', marginBottom: '20px',
@@ -315,7 +303,6 @@ const DataCatalog = () => {
                                         ) : (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', position: 'relative' }}>
                                                 
-                                                {/* Connecting Line - SVG for perfect alignment */}
                                                 <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}>
                                                     <line x1="28" y1="30" x2="28" y2="100%" stroke="rgba(255,255,255,0.1)" strokeWidth="2" strokeDasharray="6 4" />
                                                 </svg>
@@ -345,8 +332,8 @@ const DataCatalog = () => {
                                                 </div>
 
                                                 <LineageStep 
-                                                    icon={<ArrowRight size={16} />} color="#38bdf8"
-                                                    label="IMPACT / USAGE"
+                                                    icon={<GitCommit size={16} />} color="#38bdf8"
+                                                    label="DOWNSTREAM USAGE"
                                                     isList={true}
                                                     listItems={lineage.used_in}
                                                 />
@@ -355,7 +342,6 @@ const DataCatalog = () => {
                                     </div>
                                 </div>
 
-                                {/* Schema Section */}
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                                     <h4 style={{ 
                                         color: '#e4e4e7', fontSize: '15px', fontWeight: '600', marginBottom: '16px',
@@ -441,8 +427,6 @@ const DataCatalog = () => {
     );
 };
 
-// --- SUB-COMPONENTS ---
-
 const SkeletonCard = () => (
     <div style={{ 
         padding: '16px', marginBottom: '12px', borderRadius: '12px',
@@ -460,7 +444,6 @@ const SkeletonCard = () => (
 
 const AssetCard = ({ asset, isSelected, onClick, variants }) => (
     <motion.div 
-        // Removed 'layout' prop entirely to prevent layout thrashing on hover/select
         variants={variants}
         onClick={onClick}
         whileHover={{ 
@@ -476,11 +459,11 @@ const AssetCard = ({ asset, isSelected, onClick, variants }) => (
             border: isSelected ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid rgba(255,255,255,0.05)',
             borderRadius: '16px',
             cursor: 'pointer',
-            transition: 'border 0.2s', // Removed background/transform transitions that conflict with Framer Motion
+            transition: 'border 0.2s',
             boxShadow: isSelected ? '0 4px 20px rgba(139, 92, 246, 0.15)' : 'none',
             position: 'relative',
             overflow: 'hidden',
-            transformOrigin: 'center center' // Ensure scaling happens from center
+            transformOrigin: 'center center'
         }}
     >
         {isSelected && (
@@ -513,7 +496,7 @@ const AssetCard = ({ asset, isSelected, onClick, variants }) => (
                             fontSize: '10px', 
                             background: 'rgba(255,255,255,0.08)', 
                             padding: '3px 8px', 
-                            borderRadius: '6px',
+                            borderRadius: '6px', 
                             color: '#e4e4e7',
                             border: '1px solid rgba(255,255,255,0.05)'
                         }}>
