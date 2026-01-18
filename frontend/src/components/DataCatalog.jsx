@@ -460,13 +460,13 @@ const SkeletonCard = () => (
 
 const AssetCard = ({ asset, isSelected, onClick, variants }) => (
     <motion.div 
-        // Removed 'layout' prop to prevent vigorous flashing during updates
+        // Removed 'layout' prop entirely to prevent layout thrashing on hover/select
         variants={variants}
         onClick={onClick}
         whileHover={{ 
-            scale: 1.01, // Reduced scale slightly to avoid scrollbar jitter
+            scale: 1.01, 
             backgroundColor: 'rgba(255,255,255,0.04)', 
-            x: 2 // Reduced horizontal movement
+            x: 2 
         }}
         whileTap={{ scale: 0.99 }}
         style={{ 
@@ -476,12 +476,11 @@ const AssetCard = ({ asset, isSelected, onClick, variants }) => (
             border: isSelected ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid rgba(255,255,255,0.05)',
             borderRadius: '16px',
             cursor: 'pointer',
-            transition: 'border 0.2s',
+            transition: 'border 0.2s', // Removed background/transform transitions that conflict with Framer Motion
             boxShadow: isSelected ? '0 4px 20px rgba(139, 92, 246, 0.15)' : 'none',
             position: 'relative',
             overflow: 'hidden',
-            // Added explicit transform to help with animation performance
-            transformOrigin: 'center center'
+            transformOrigin: 'center center' // Ensure scaling happens from center
         }}
     >
         {isSelected && (
