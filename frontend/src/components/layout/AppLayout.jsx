@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Network, Users, Database, 
   HardDrive, Settings, LogOut, User, Menu, X,
-  Search // Added Search icon for Catalog
+  Search 
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import '../../App.css';
 import ChatAssistant from '../ChatAssistant';
+import NotificationCenter from '../NotificationCenter'; 
 
 const AppLayout = ({ children }) => {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ const AppLayout = ({ children }) => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (!mobile) setIsSidebarOpen(true); // Reset on desktop
+      if (!mobile) setIsSidebarOpen(true); 
     };
 
     window.addEventListener('resize', handleResize);
@@ -39,7 +40,7 @@ const AppLayout = ({ children }) => {
   const menuItems = [
     { label: 'Overview', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
     { label: 'All Pipelines', icon: <Network size={20} />, path: '/pipelines' },
-    { label: 'Data Catalog', icon: <Search size={20} />, path: '/catalog' }, // NEW: Catalog Link
+    { label: 'Data Catalog', icon: <Search size={20} />, path: '/catalog' }, 
     { label: 'Collaboration', icon: <Users size={20} />, path: '/collaboration' },
     { label: 'Data Sources', icon: <Database size={20} />, path: '/datasources' },
     { label: 'Processed Data', icon: <HardDrive size={20} />, path: '/processed' },
@@ -71,9 +72,12 @@ const AppLayout = ({ children }) => {
             <img src={logo} alt="Logo" style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
             <span style={{ fontWeight: '700', color: 'white' }}>StreamForge</span>
           </div>
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'transparent', border: 'none', color: 'white' }}>
-            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+             <NotificationCenter /> 
+             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'transparent', border: 'none', color: 'white' }}>
+               {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+             </button>
+          </div>
         </div>
       )}
 
@@ -97,7 +101,7 @@ const AppLayout = ({ children }) => {
                   justifyContent: 'space-between',
                   padding: 0,
                   flexShrink: 0,
-                  width: '260px',
+                  width: '240px', 
                   // Mobile Overrides
                   position: isMobile ? 'fixed' : 'relative',
                   height: '100vh',
@@ -105,12 +109,14 @@ const AppLayout = ({ children }) => {
                   top: 0, left: 0
               }}
             >
-              <div style={{ padding: '20px' }}>
-                  <div className="sidebar-logo" style={{ marginBottom: '40px', paddingLeft: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ padding: '16px' }}>
+                  <div className="sidebar-logo" style={{ marginBottom: '24px', paddingLeft: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                        <img src={logo} alt="Logo" style={{ width: '28px', height: '28px', borderRadius: '4px', boxShadow: '0 0 10px rgba(16,185,129,0.4)' }} />
                        <span style={{ fontWeight: '700', letterSpacing: '0.5px' }}>StreamForge</span>
                     </div>
+                    {/* ADDED NOTIFICATION BELL FOR DESKTOP */}
+                    {!isMobile && <NotificationCenter />}
                   </div>
 
                   <nav className="sidebar-nav">
@@ -130,7 +136,7 @@ const AppLayout = ({ children }) => {
               </div>
 
               <div style={{ 
-                  padding: '20px', 
+                  padding: '16px', 
                   borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
                   background: 'linear-gradient(to top, rgba(0,0,0,0.2), transparent)',
                   width: '100%',
@@ -138,19 +144,17 @@ const AppLayout = ({ children }) => {
               }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                       <div style={{ 
-                          width: '40px', height: '40px', 
-                          borderRadius: '10px', 
+                          width: '36px', height: '36px', 
+                          borderRadius: '8px', 
                           background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           color: 'white',
                           boxShadow: '0 4px 10px rgba(16,185,129,0.2)'
                       }}>
-                          <User size={20} strokeWidth={2.5} />
+                          <User size={18} strokeWidth={2.5} />
                       </div>
                       <div style={{ overflow: 'hidden' }}>
-                          <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: 'white' }}>{user.username}</p>
-                          <p style={{ margin: 0, fontSize: '11px', color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          </p>
+                          <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'white' }}>{user.username}</p>
                       </div>
                   </div>
 
@@ -159,12 +163,12 @@ const AppLayout = ({ children }) => {
                       style={{ 
                           width: '100%',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                          padding: '10px',
+                          padding: '8px',
                           borderRadius: '8px',
                           border: '1px solid rgba(239, 68, 68, 0.15)',
                           background: 'rgba(239, 68, 68, 0.05)',
                           color: '#f87171',
-                          fontSize: '13px',
+                          fontSize: '12px',
                           fontWeight: '600',
                           cursor: 'pointer',
                           transition: 'all 0.2s'
@@ -176,7 +180,7 @@ const AppLayout = ({ children }) => {
                       }}
                       whileTap={{ scale: 0.98 }}
                   >
-                      <LogOut size={16} />
+                      <LogOut size={14} />
                       Logout
                   </motion.button>
               </div>
@@ -198,14 +202,14 @@ const SidebarItem = ({ label, icon, active, onClick }) => (
   <motion.div 
     className={`sidebar-item ${active ? 'active' : ''}`} 
     onClick={onClick}
-    whileHover={{ x: 5, backgroundColor: 'rgba(255,255,255,0.05)' }}
+    whileHover={{ x: 3, backgroundColor: 'rgba(255,255,255,0.05)' }}
     whileTap={{ scale: 0.98 }}
     style={{ 
         cursor: 'pointer', 
         borderLeft: active ? '3px solid #10b981' : '3px solid transparent',
         background: active ? 'rgba(16, 185, 129, 0.05)' : 'transparent',
-        padding: '10px 15px',
-        marginBottom: '5px',
+        padding: '10px 12px', // Reduced padding
+        marginBottom: '4px',
         borderRadius: '0 6px 6px 0',
         color: active ? '#fff' : '#a1a1aa',
         transition: 'none',
@@ -213,8 +217,8 @@ const SidebarItem = ({ label, icon, active, onClick }) => (
         alignItems: 'center'
     }}
   >
-    <span style={{ marginRight: '12px', display: 'flex', alignItems: 'center', color: active ? '#10b981' : 'inherit' }}>{icon}</span>
-    <span style={{ fontWeight: active ? '600' : '400', fontSize: '14px' }}>{label}</span>
+    <span style={{ marginRight: '10px', display: 'flex', alignItems: 'center', color: active ? '#10b981' : 'inherit' }}>{icon}</span>
+    <span style={{ fontWeight: active ? '600' : '400', fontSize: '13px' }}>{label}</span>
   </motion.div>
 );
 

@@ -10,8 +10,21 @@ class User(db.Model):
     is_suspended = db.Column(db.Boolean, default=False)
     total_processed_bytes = db.Column(db.Integer, default=0)
     
+    # --- Notification Preferences ---
+    notify_on_success = db.Column(db.Boolean, default=True)
+    notify_on_failure = db.Column(db.Boolean, default=True)
+    
     pipelines = db.relationship('Pipeline', backref='owner', lazy='dynamic')
     datasources = db.relationship('DataSource', backref='owner', lazy='dynamic')
+    notifications = db.relationship('Notification', backref='user', lazy='dynamic', cascade="all, delete-orphan")
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.String(500))
+    type = db.Column(db.String(20)) # 'success', 'error', 'info'
+    read = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Pipeline(db.Model):
     id = db.Column(db.Integer, primary_key=True)

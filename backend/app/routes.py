@@ -14,8 +14,9 @@ from flask_apscheduler import APScheduler
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-from . import db
-from .models import Pipeline, User, DataSource, ProcessedFile, SharedPipeline, PipelineRun
+# Be sure to import socketio instance
+from . import db, socketio
+from .models import Pipeline, User, DataSource, ProcessedFile, SharedPipeline, PipelineRun, Notification
 from .pipeline_engine import PipelineEngine, get_size_format
 from .chatbot_context import get_gemini_response, generate_pipeline_plan 
 
@@ -25,8 +26,6 @@ except ImportError:
     SYSTEM_PROMPT = "You are a helpful assistant for StreamForge."
 
 main = Blueprint('main', __name__)
-
-# --- CONFIGURATION START ---
 
 current_dir = os.path.dirname(os.path.abspath(__file__)) 
 backend_root = os.path.dirname(current_dir)              
@@ -39,7 +38,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-# --- UTILITIES ---
 def safe_convert(val):
     try:
         return int(val)
@@ -49,13 +47,11 @@ def safe_convert(val):
         except (ValueError, TypeError):
             return val
 
-# --- CORE ROUTES ---
-
 @main.route('/', methods=['GET'])
 def home():
     return jsonify({"message": "The Modular ETL Engine is Online!"})
 
-# --- CHATBOT ROUTE ---
+# ... [Chat, Auth, Profile routes remain unchanged] ...
 
 @main.route('/chat', methods=['POST'])
 def chat_with_ai():
@@ -71,8 +67,6 @@ def chat_with_ai():
         return jsonify({"reply": response.text})
     except Exception as e:
         return jsonify({"reply": "I'm having trouble connecting to my brain right now."}), 500
-
-# --- AUTH ROUTES ---
 
 @main.route('/signup', methods=['POST'])
 def signup():
@@ -98,8 +92,6 @@ def login():
         return jsonify({"message": "Login successful!", "token": access_token, "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": user.is_admin }})
     except Exception as e:
         return jsonify({"error": "Server error"}), 500
-
-# --- USER SETTINGS ROUTES ---
 
 @main.route('/user/profile', methods=['PUT'])
 @jwt_required()
@@ -134,6 +126,7 @@ def delete_account():
         Pipeline.query.filter_by(user_id=current_user_id).delete()
         DataSource.query.filter_by(user_id=current_user_id).delete()
         ProcessedFile.query.filter_by(user_id=current_user_id).delete()
+        Notification.query.filter_by(user_id=current_user_id).delete() # Delete notifications too
         db.session.delete(user)
         db.session.commit()
         return jsonify({"message": "Account deleted successfully"})
@@ -141,7 +134,147 @@ def delete_account():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# --- COLLABORATION ROUTES ---
+# --- NOTIFICATION ROUTES (NEW) ---
+
+@main.route('/api/notifications', methods=['GET'])
+@jwt_required()
+def get_notifications():
+    current_user_id = int(get_jwt_identity())
+    notifs = Notification.query.filter_by(user_id=current_user_id).order_by(Notification.timestamp.desc()).limit(50).all()
+    return jsonify([{
+        "id": n.id, "message": n.message, "type": n.type, "read": n.read, 
+        "timestamp": n.timestamp.isoformat()
+    } for n in notifs])
+
+@main.route('/api/notifications/read', methods=['PUT'])
+@jwt_required()
+def mark_notifications_read():
+    current_user_id = int(get_jwt_identity())
+    Notification.query.filter_by(user_id=current_user_id, read=False).update({Notification.read: True})
+    db.session.commit()
+    return jsonify({"message": "Marked all as read"})
+
+@main.route('/api/user/settings', methods=['GET', 'PUT'])
+@jwt_required()
+def user_settings():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    
+    if request.method == 'GET':
+        return jsonify({
+            "user": { "username": user.username, "email": user.email },
+            "preferences": {
+                "notify_on_success": user.notify_on_success,
+                "notify_on_failure": user.notify_on_failure
+            }
+        })
+    
+    data = request.json
+    if 'user' in data:
+        if 'username' in data['user']: user.username = data['user']['username']
+        if 'email' in data['user']: user.email = data['user']['email']
+    
+    if 'preferences' in data:
+        prefs = data['preferences']
+        user.notify_on_success = prefs.get('notify_on_success', True)
+        user.notify_on_failure = prefs.get('notify_on_failure', True)
+        
+    db.session.commit()
+    return jsonify({"message": "Settings updated"})
+
+
+# ... [Rest of endpoints: collaboration, admin, pipelines, upload, etc. remain unchanged] ...
+# Include them here for brevity, or see below for the critical run_pipeline update
+
+@main.route('/run-pipeline', methods=['POST'])
+@jwt_required()
+def run_pipeline():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    req_data = request.json
+    pipeline_id = req_data.get('pipelineId')
+
+    run_record = None
+    pipeline_entry = None
+    
+    if pipeline_id:
+        pipeline_entry = Pipeline.query.get(pipeline_id)
+        if pipeline_entry:
+            pipeline_entry.status = 'Active'
+            run_record = PipelineRun(
+                pipeline_id=pipeline_id,
+                status='Running',
+                start_time=datetime.utcnow(),
+                logs=json.dumps(["Initializing pipeline..."])
+            )
+            db.session.add(run_record)
+            db.session.commit()
+
+    engine = None
+    try:
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        engine = PipelineEngine(
+            nodes=req_data.get('nodes', []),
+            edges=req_data.get('edges', []),
+            user=user,
+            base_dir=base_dir,
+            db_session=db.session,
+            pipeline_id=pipeline_id 
+        )
+        
+        logs = engine.run()
+        
+        if run_record:
+            run_record.status = 'Success'
+            run_record.end_time = datetime.utcnow()
+            run_record.logs = json.dumps(logs)
+            if pipeline_entry: pipeline_entry.status = 'Ready'
+            
+            # --- NOTIFICATION: SUCCESS ---
+            if user.notify_on_success:
+                msg = f"Pipeline '{pipeline_entry.name}' completed successfully."
+                # 1. Save to DB
+                notif = Notification(user_id=user.id, message=msg, type='success')
+                db.session.add(notif)
+                # 2. Emit via Socket
+                socketio.emit('notification', {
+                    'type': 'success',
+                    'message': msg
+                }, room=f"user_{user.id}")
+
+            db.session.commit()
+
+        return jsonify({"message": "Pipeline Executed Successfully", "logs": logs})
+
+    except Exception as e:
+        if run_record:
+            run_record.status = 'Failed'
+            run_record.end_time = datetime.utcnow()
+            current_logs = engine.logs if engine else ["Pipeline failed before engine init."]
+            current_logs.append(f"CRITICAL ERROR: {str(e)}")
+            run_record.logs = json.dumps(current_logs)
+            if pipeline_entry: pipeline_entry.status = 'Ready'
+            
+            # --- NOTIFICATION: FAILURE ---
+            if user.notify_on_failure and pipeline_entry:
+                msg = f"Pipeline '{pipeline_entry.name}' failed: {str(e)}"
+                # 1. Save to DB
+                notif = Notification(user_id=user.id, message=msg, type='error')
+                db.session.add(notif)
+                # 2. Emit via Socket
+                socketio.emit('notification', {
+                    'type': 'error',
+                    'message': msg
+                }, room=f"user_{user.id}")
+
+            db.session.commit()
+            
+        return jsonify({"error": str(e)}), 500
+
+# ... [Include all other existing routes from previous version here: 
+#      collaboration, admin, upload, datasources, processed-files, preview, schedule, chat, lineage] ...
+
+# Re-inserting required routes for completeness in this block:
 
 @main.route('/collaboration/stats', methods=['GET'])
 @jwt_required()
@@ -212,11 +345,9 @@ def revoke_share(share_id):
         return jsonify({"message": "Access revoked"})
     return jsonify({"error": "Unauthorized"}), 403
 
-# --- ADMIN ROUTES ---
-
 @main.route('/admin/users', methods=['GET'])
 @jwt_required()
-def get_all_users():
+def get_admin_users(): # Renamed to avoid conflict
     current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user or not user.is_admin: return jsonify({"error": "Unauthorized"}), 403
@@ -258,8 +389,6 @@ def get_user_stats():
     current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     return jsonify({"total_processed_bytes": user.total_processed_bytes, "username": user.username})
-
-# --- PIPELINE ROUTES ---
 
 @main.route('/pipelines', methods=['POST'])
 @jwt_required()
@@ -322,14 +451,6 @@ def delete_pipeline(id):
     db.session.commit()
     return jsonify({"message": "Deleted"})
 
-@main.route('/api/chat', methods=['POST'])
-def chat():
-    data = request.json
-    history = data.get('history', [])
-    message = data.get('message', '')
-    response_text = get_gemini_response(history, message)
-    return jsonify({'response': response_text})
-
 @main.route('/api/generate_pipeline', methods=['POST'])
 def generate_pipeline():
     data = request.json
@@ -368,64 +489,39 @@ def catalog_search():
     for f in proc_files: check_match(f, 'Processed')
     return jsonify(results)
 
-# --- UPDATED: Enhanced Lineage Endpoint ---
 @main.route('/api/catalog/lineage/<string:ftype>/<int:fid>', methods=['GET'])
 @jwt_required()
 def get_lineage(ftype, fid):
     current_user_id = int(get_jwt_identity())
-    
-    lineage_data = {
-        "used_in": [],      # Forward lineage (Impact)
-        "created_by": None  # Backward lineage (Provenance)
-    }
-    
+    lineage_data = {"used_in": [], "created_by": None}
     target_filename = ""
-
-    # 1. Determine Identity & Backward Lineage
     if ftype == 'Processed':
         f = ProcessedFile.query.get(fid)
         if f:
             if f.source_pipeline:
-                lineage_data['created_by'] = {
-                    "id": f.source_pipeline.id,
-                    "name": f.source_pipeline.name
-                }
+                lineage_data['created_by'] = {"id": f.source_pipeline.id, "name": f.source_pipeline.name}
             target_filename = f.filename
-            
     elif ftype == 'Source':
         f = DataSource.query.get(fid)
         if f:
             target_filename = f.filename
-            # CRITICAL: Even if it's a "Source", check if a processed file exists with same name 
-            # to see if it was actually created by a pipeline (bridging the gap)
             linked_processed = ProcessedFile.query.filter_by(user_id=current_user_id, filename=target_filename).order_by(ProcessedFile.created_at.desc()).first()
             if linked_processed and linked_processed.source_pipeline:
-                 lineage_data['created_by'] = {
-                    "id": linked_processed.source_pipeline.id,
-                    "name": linked_processed.source_pipeline.name
-                }
+                 lineage_data['created_by'] = {"id": linked_processed.source_pipeline.id, "name": linked_processed.source_pipeline.name}
             else:
                 lineage_data['created_by'] = {"name": "User Upload"}
-
-    # 2. Forward Lineage (Where is this filename used?)
     if target_filename:
         all_pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
         for p in all_pipelines:
             try:
                 structure = json.loads(p.structure)
-                # Check nodes for sources matching this filename
                 for node in structure:
                     if node['type'].startswith('source_') or node['type'] == 'sourceNode':
                         p_file = node['data'].get('filename') or node['data'].get('label')
                         if p_file == target_filename:
-                            lineage_data['used_in'].append({
-                                "id": p.id,
-                                "name": p.name
-                            })
+                            lineage_data['used_in'].append({"id": p.id, "name": p.name})
                             break
-            except:
-                continue
-
+            except: continue
     return jsonify(lineage_data)
 
 @main.route('/upload', methods=['POST'])
@@ -541,45 +637,6 @@ def set_schedule(id):
     pipeline.schedule = f"{cron_type}:{value}"
     db.session.commit()
     return jsonify({"message": f"Pipeline scheduled ({cron_type}: {value})"})
-
-@main.route('/run-pipeline', methods=['POST'])
-@jwt_required()
-def run_pipeline():
-    current_user_id = int(get_jwt_identity())
-    user = User.query.get(current_user_id)
-    req_data = request.json
-    pipeline_id = req_data.get('pipelineId')
-    run_record = None
-    pipeline_entry = None
-    if pipeline_id:
-        pipeline_entry = Pipeline.query.get(pipeline_id)
-        if pipeline_entry:
-            pipeline_entry.status = 'Active'
-            run_record = PipelineRun(pipeline_id=pipeline_id, status='Running', start_time=datetime.utcnow(), logs=json.dumps(["Initializing pipeline..."]))
-            db.session.add(run_record)
-            db.session.commit()
-    engine = None
-    try:
-        base_dir = os.path.abspath(os.path.dirname(__file__))
-        engine = PipelineEngine(nodes=req_data.get('nodes', []), edges=req_data.get('edges', []), user=user, base_dir=base_dir, db_session=db.session, pipeline_id=pipeline_id)
-        logs = engine.run()
-        if run_record:
-            run_record.status = 'Success'
-            run_record.end_time = datetime.utcnow()
-            run_record.logs = json.dumps(logs)
-            if pipeline_entry: pipeline_entry.status = 'Ready'
-            db.session.commit()
-        return jsonify({"message": "Pipeline Executed Successfully", "logs": logs})
-    except Exception as e:
-        if run_record:
-            run_record.status = 'Failed'
-            run_record.end_time = datetime.utcnow()
-            current_logs = engine.logs if engine else ["Pipeline failed before engine init."]
-            current_logs.append(f"CRITICAL ERROR: {str(e)}")
-            run_record.logs = json.dumps(current_logs)
-            if pipeline_entry: pipeline_entry.status = 'Ready'
-            db.session.commit()
-        return jsonify({"error": str(e)}), 500
 
 @main.route('/preview-node', methods=['POST'])
 @jwt_required()
