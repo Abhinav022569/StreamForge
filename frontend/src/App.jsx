@@ -22,6 +22,7 @@ import NotificationsPage from './components/NotificationsPage';
 // Admin Pages
 import AdminDashboard from './components/AdminDashboard';
 import AdminUsers from './components/AdminUsers';
+import AdminCommunication from './components/AdminCommunication'; // NEW
 
 // Auth Guard
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -48,7 +49,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/docs" element={<DocumentationPage />} />
-        <Route path="/documentation" element={<DocumentationPage />} /> {/* Alias for docs */}
+        <Route path="/documentation" element={<DocumentationPage />} />
         
         {/* --- User Routes --- */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -66,6 +67,7 @@ function App() {
         {/* --- Admin Routes --- */}
         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute adminOnly={true}><AdminUsers /></ProtectedRoute>} />
+        <Route path="/admin/communication" element={<ProtectedRoute adminOnly={true}><AdminCommunication /></ProtectedRoute>} />
 
         {/* --- Fallback --- */}
         <Route path="/app" element={<Navigate to="/dashboard" replace />} />

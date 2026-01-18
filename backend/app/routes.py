@@ -51,7 +51,7 @@ def safe_convert(val):
 def home():
     return jsonify({"message": "The Modular ETL Engine is Online!"})
 
-# ... [Chat, Auth, Profile routes remain unchanged] ...
+# --- CHAT & AUTH ---
 
 @main.route('/chat', methods=['POST'])
 def chat_with_ai():
@@ -126,7 +126,7 @@ def delete_account():
         Pipeline.query.filter_by(user_id=current_user_id).delete()
         DataSource.query.filter_by(user_id=current_user_id).delete()
         ProcessedFile.query.filter_by(user_id=current_user_id).delete()
-        Notification.query.filter_by(user_id=current_user_id).delete() # Delete notifications too
+        Notification.query.filter_by(user_id=current_user_id).delete() 
         db.session.delete(user)
         db.session.commit()
         return jsonify({"message": "Account deleted successfully"})
@@ -134,25 +134,33 @@ def delete_account():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# --- NOTIFICATION ROUTES (NEW) ---
+# --- NOTIFICATION ROUTES ---
 
 @main.route('/api/notifications', methods=['GET'])
 @jwt_required()
 def get_notifications():
     current_user_id = int(get_jwt_identity())
-    notifs = Notification.query.filter_by(user_id=current_user_id).order_by(Notification.timestamp.desc()).limit(50).all()
-    return jsonify([{
-        "id": n.id, "message": n.message, "type": n.type, "read": n.read, 
-        "timestamp": n.timestamp.isoformat()
-    } for n in notifs])
+    try:
+        notifs = Notification.query.filter_by(user_id=current_user_id).order_by(Notification.timestamp.desc()).limit(50).all()
+        return jsonify([{
+            "id": n.id, "message": n.message, "type": n.type, "read": n.read, 
+            "timestamp": n.timestamp.isoformat()
+        } for n in notifs])
+    except Exception as e:
+        print(f"Error fetching notifications (DB likely missing table): {e}")
+        return jsonify([]), 200
 
 @main.route('/api/notifications/read', methods=['PUT'])
 @jwt_required()
 def mark_notifications_read():
     current_user_id = int(get_jwt_identity())
-    Notification.query.filter_by(user_id=current_user_id, read=False).update({Notification.read: True})
-    db.session.commit()
-    return jsonify({"message": "Marked all as read"})
+    try:
+        Notification.query.filter_by(user_id=current_user_id, read=False).update({Notification.read: True})
+        db.session.commit()
+        return jsonify({"message": "Marked all as read"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @main.route('/api/user/settings', methods=['GET', 'PUT'])
 @jwt_required()
@@ -182,9 +190,70 @@ def user_settings():
     db.session.commit()
     return jsonify({"message": "Settings updated"})
 
+# --- ADMIN COMMUNICATION ROUTES (NEW) ---
 
-# ... [Rest of endpoints: collaboration, admin, pipelines, upload, etc. remain unchanged] ...
-# Include them here for brevity, or see below for the critical run_pipeline update
+@main.route('/admin/broadcast', methods=['POST'])
+@jwt_required()
+def admin_broadcast():
+    try:
+        current_user_id = int(get_jwt_identity())
+        user = User.query.get(current_user_id)
+        if not user or not user.is_admin:
+            return jsonify({"error": "Unauthorized"}), 403
+        
+        data = request.get_json()
+        message = data.get('message')
+        notif_type = data.get('type', 'info') 
+        
+        if not message:
+            return jsonify({"error": "Message is required"}), 400
+
+        all_users = User.query.all()
+        count = 0
+        
+        for u in all_users:
+            new_notif = Notification(user_id=u.id, message=message, type=notif_type)
+            db.session.add(new_notif)
+            count += 1
+            
+            # Emit socket event safely
+            try:
+                socketio.emit('notification', {
+                    'type': notif_type,
+                    'message': message
+                }, room=f"user_{u.id}")
+            except Exception as e:
+                print(f"Socket emit failed: {e}")
+
+        db.session.commit()
+        return jsonify({"message": f"Broadcast sent to {count} users"})
+    
+    except Exception as e:
+        db.session.rollback()
+        print(f"BROADCAST ERROR: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@main.route('/admin/email', methods=['POST'])
+@jwt_required()
+def admin_send_email():
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+    if not user or not user.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    data = request.get_json()
+    subject = data.get('subject')
+    body = data.get('body')
+    
+    if not subject or not body:
+        return jsonify({"error": "Subject and Body required"}), 400
+        
+    # STUB: Integration with email provider goes here
+    print(f"--- EMAIL BLAST ---\nSubject: {subject}\nBody: {body}\n-------------------")
+    
+    return jsonify({"message": "Email blast queued successfully (Stub Mode)"})
+
+# --- PIPELINE & DATA ROUTES ---
 
 @main.route('/run-pipeline', methods=['POST'])
 @jwt_required()
@@ -230,17 +299,15 @@ def run_pipeline():
             run_record.logs = json.dumps(logs)
             if pipeline_entry: pipeline_entry.status = 'Ready'
             
-            # --- NOTIFICATION: SUCCESS ---
+            # NOTIFICATION: SUCCESS
             if user.notify_on_success:
                 msg = f"Pipeline '{pipeline_entry.name}' completed successfully."
-                # 1. Save to DB
-                notif = Notification(user_id=user.id, message=msg, type='success')
-                db.session.add(notif)
-                # 2. Emit via Socket
-                socketio.emit('notification', {
-                    'type': 'success',
-                    'message': msg
-                }, room=f"user_{user.id}")
+                try:
+                    notif = Notification(user_id=user.id, message=msg, type='success')
+                    db.session.add(notif)
+                    socketio.emit('notification', {'type': 'success', 'message': msg}, room=f"user_{user.id}")
+                except Exception as e:
+                    print(f"Notif Error: {e}")
 
             db.session.commit()
 
@@ -255,26 +322,19 @@ def run_pipeline():
             run_record.logs = json.dumps(current_logs)
             if pipeline_entry: pipeline_entry.status = 'Ready'
             
-            # --- NOTIFICATION: FAILURE ---
+            # NOTIFICATION: FAILURE
             if user.notify_on_failure and pipeline_entry:
                 msg = f"Pipeline '{pipeline_entry.name}' failed: {str(e)}"
-                # 1. Save to DB
-                notif = Notification(user_id=user.id, message=msg, type='error')
-                db.session.add(notif)
-                # 2. Emit via Socket
-                socketio.emit('notification', {
-                    'type': 'error',
-                    'message': msg
-                }, room=f"user_{user.id}")
+                try:
+                    notif = Notification(user_id=user.id, message=msg, type='error')
+                    db.session.add(notif)
+                    socketio.emit('notification', {'type': 'error', 'message': msg}, room=f"user_{user.id}")
+                except Exception as e:
+                    print(f"Notif Error: {e}")
 
             db.session.commit()
             
         return jsonify({"error": str(e)}), 500
-
-# ... [Include all other existing routes from previous version here: 
-#      collaboration, admin, upload, datasources, processed-files, preview, schedule, chat, lineage] ...
-
-# Re-inserting required routes for completeness in this block:
 
 @main.route('/collaboration/stats', methods=['GET'])
 @jwt_required()
@@ -347,7 +407,7 @@ def revoke_share(share_id):
 
 @main.route('/admin/users', methods=['GET'])
 @jwt_required()
-def get_admin_users(): # Renamed to avoid conflict
+def get_admin_users(): 
     current_user_id = int(get_jwt_identity())
     user = User.query.get(current_user_id)
     if not user or not user.is_admin: return jsonify({"error": "Unauthorized"}), 403

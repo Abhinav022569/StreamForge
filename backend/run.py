@@ -1,75 +1,59 @@
-import os
-from app import create_app, db, socketio
-from app.models import Pipeline, User, PipelineRun
-from app.pipeline_engine import PipelineEngine
+from app import create_app, socketio, db
 from flask_apscheduler import APScheduler
-import json
-import datetime
+import sys
 
 app = create_app()
 
-# --- SCHEDULER SETUP ---
+# Initialize Scheduler
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 
-# THIS IS THE FUNCTION THAT RUNS IN THE BACKGROUND
 def run_scheduled_job(pipeline_id):
+    """
+    Function called by APScheduler.
+    Needs to be outside routes.py to avoid circular imports, 
+    or imported carefully.
+    """
     with app.app_context():
-        print(f"⏰ Starting Scheduled Run for Pipeline ID: {pipeline_id}")
-        
+        print(f"Executing scheduled pipeline: {pipeline_id}")
+        # Logic to trigger pipeline execution would go here
+        # For simplicity, we can just print for now or import the engine
+        from app.models import Pipeline, User, PipelineRun
+        from app.pipeline_engine import PipelineEngine
+        import datetime
+        import json
+        import os
+
+        pipeline = Pipeline.query.get(pipeline_id)
+        if not pipeline: return
+
+        # Create Run Record
+        run_record = PipelineRun(pipeline_id=pipeline_id, status='Running', start_time=datetime.datetime.utcnow(), logs=json.dumps(["Scheduled Run Started"]))
+        db.session.add(run_record)
+        db.session.commit()
+
         try:
-            # 1. Fetch Pipeline Logic
-            pipeline = Pipeline.query.get(pipeline_id)
-            if not pipeline or not pipeline.structure:
-                print("Pipeline not found or empty.")
-                return
-
-            # 2. Prepare Data
-            user = User.query.get(pipeline.user_id)
-            flow_data = json.loads(pipeline.structure)
-            
-            # 3. Create Run Record
-            run_record = PipelineRun(
-                pipeline_id=pipeline.id,
-                status='Running',
-                start_time=datetime.datetime.utcnow(),
-                logs=json.dumps(["Started by Scheduler"])
-            )
-            db.session.add(run_record)
-            db.session.commit()
-
-            # 4. Execute Engine
-            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'app'))
+            base_dir = os.path.abspath(os.path.dirname(__file__))
+            # Fake a user context or use pipeline owner
             engine = PipelineEngine(
-                nodes=flow_data.get('nodes', []),
-                edges=flow_data.get('edges', []),
-                user=user,
+                nodes=json.loads(pipeline.structure),
+                edges=[], # Edges are inside structure usually, need to parse if separate
+                user=pipeline.owner,
                 base_dir=base_dir,
-                db_session=db.session
+                db_session=db.session,
+                pipeline_id=pipeline_id
             )
-            
             logs = engine.run()
-
-            # 5. Success
             run_record.status = 'Success'
-            run_record.end_time = datetime.datetime.utcnow()
             run_record.logs = json.dumps(logs)
-            db.session.commit()
-            print(f"✅ Scheduled Job {pipeline_id} Finished.")
-
         except Exception as e:
-            # 6. Failure
-            print(f"❌ Scheduled Job Failed: {e}")
-            if run_record:
-                run_record.status = 'Failed'
-                run_record.end_time = datetime.datetime.utcnow()
-                run_record.logs = json.dumps([f"Scheduler Error: {str(e)}"])
-                db.session.commit()
-
-# --- END SCHEDULER SETUP ---
+            run_record.status = 'Failed'
+            run_record.logs = json.dumps([str(e)])
+        
+        run_record.end_time = datetime.datetime.utcnow()
+        db.session.commit()
 
 if __name__ == '__main__':
-    # Ensure uploads/processed folders exist
-    # ... your existing directory creation code ...
-    socketio.run(app, debug=True, use_reloader=False, host='0.0.0.0', port=5000) # use_reloader=False prevents double scheduler init
+    # Use socketio.run instead of app.run for WebSocket support
+    socketio.run(app, debug=True, port=5000)

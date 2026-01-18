@@ -1,9 +1,0 @@
-id,name,department,salary,join_date,email
-1,Alice,Engineering,90000,2023-01-15,alice@example.com
-2,Bob,HR,60000,2022-05-20,bob@example.com
-3,Charlie,Engineering,95000,2021-08-10,charlie@example.com
-4,David,Sales,70000,2023-03-01,david@example.com
-5,Eve,Engineering,88000,2023-06-12,eve@example.com
-6,Frank,HR,62000,2020-11-05,frank@example.com
-7,Grace,Sales,72000,2021-02-28,grace@example.com
-8,Hank,Marketing,65000,2022-09-15,hank@example.com

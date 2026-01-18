@@ -58,7 +58,7 @@ const AdminDashboard = () => {
   return (
     <div className="app-container">
       
-      {/* SIDEBAR (Simplified for Admin) */}
+      {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="sidebar-logo">
           <img src={logo} alt="Logo" style={{ width: '28px', height: '28px' }} />
@@ -67,13 +67,8 @@ const AdminDashboard = () => {
 
         <nav className="sidebar-nav">
           <div className="sidebar-item active"><span>🏠</span> Overview</div>
-          <div 
-            className="sidebar-item" 
-            onClick={() => navigate('/admin/users')}
-            style={{ cursor: 'pointer' }}
-          >
-            <span>👥</span> Users
-          </div>
+          <div className="sidebar-item" onClick={() => navigate('/admin/users')}><span>👥</span> Users</div>
+          <div className="sidebar-item" onClick={() => navigate('/admin/communication')}><span>📢</span> Communication</div>
         </nav>
 
         <div className="sidebar-profile">
