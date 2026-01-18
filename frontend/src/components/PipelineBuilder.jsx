@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client'; 
 import { 
   ArrowLeft, LayoutTemplate, Upload, Download, Play, Save, 
-  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock, Menu, Eye, Wand2
+  Loader2, AlertCircle, CheckCircle2, X, Info, MousePointer2, Clock, Menu, Eye, Wand2, Calendar
 } from 'lucide-react';
 
 import Sidebar from './Sidebar';
@@ -96,6 +96,148 @@ const CursorsRenderer = ({ cursors }) => {
 
 const initialNodes = [];
 
+// --- NEW: Schedule Modal Component ---
+const ScheduleModal = ({ isOpen, onClose, onSave, currentSchedule }) => {
+  if (!isOpen) return null;
+
+  const [mode, setMode] = useState('daily'); // 'daily' or 'date'
+  const [time, setTime] = useState('09:00');
+  const [date, setDate] = useState('');
+
+  // Initialize state when modal opens
+  useEffect(() => {
+    if (currentSchedule) {
+      if (currentSchedule.startsWith('cron:')) {
+        setMode('daily');
+        const [_, val] = currentSchedule.split(':', 1); // Split only first colon? No, wait. cron:HH:MM
+        // Correct splitting for cron:HH:MM
+        const parts = currentSchedule.split(':');
+        if (parts.length >= 3) {
+             setTime(`${parts[1]}:${parts[2]}`);
+        }
+      } else if (currentSchedule.startsWith('date:')) {
+        setMode('date');
+        // date:YYYY-MM-DD HH:MM:SS
+        // Remove "date:" prefix
+        const raw = currentSchedule.substring(5);
+        const [d, t] = raw.split(' ');
+        setDate(d);
+        if(t) setTime(t.slice(0, 5));
+      }
+    }
+  }, [currentSchedule]);
+
+  const handleSave = () => {
+    if (mode === 'daily') {
+      onSave('cron', time);
+    } else {
+      if (!date || !time) return alert("Please select both date and time");
+      const formattedDate = `${date} ${time}:00`;
+      onSave('date', formattedDate);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div style={{ background: '#18181b', padding: '30px', borderRadius: '16px', width: '400px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: 'white' }}>
+            <Clock size={20} color="#a78bfa" /> Schedule Pipeline
+          </h2>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer' }}><X size={20} /></button>
+        </div>
+
+        {/* Toggle Switches */}
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px', marginBottom: '20px' }}>
+          <button 
+            onClick={() => setMode('daily')}
+            style={{ 
+              flex: 1, padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+              background: mode === 'daily' ? '#27272a' : 'transparent',
+              color: mode === 'daily' ? '#fff' : '#a1a1aa',
+              boxShadow: mode === 'daily' ? '0 2px 5px rgba(0,0,0,0.2)' : 'none'
+            }}
+          >
+            Run Daily
+          </button>
+          <button 
+            onClick={() => setMode('date')}
+            style={{ 
+              flex: 1, padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+              background: mode === 'date' ? '#27272a' : 'transparent',
+              color: mode === 'date' ? '#fff' : '#a1a1aa',
+              boxShadow: mode === 'date' ? '0 2px 5px rgba(0,0,0,0.2)' : 'none'
+            }}
+          >
+            Specific Date
+          </button>
+        </div>
+
+        <p style={{ color: '#a1a1aa', fontSize: '13px', marginBottom: '20px' }}>
+          {mode === 'daily' ? 'Run this pipeline automatically every day at a specific time.' : 'Run this pipeline exactly once on a specific date.'}
+        </p>
+
+        {/* Inputs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          
+          {/* Date Picker (Only for Specific Date mode) */}
+          {mode === 'date' && (
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', color: '#a1a1aa', marginBottom: '8px' }}>Date</label>
+              <div style={{ position: 'relative' }}>
+                <Calendar size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
+                <input 
+                  type="date" 
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  style={{ 
+                    width: '100%', background: '#27272a', border: '1px solid rgba(255,255,255,0.1)', 
+                    padding: '12px 12px 12px 40px', borderRadius: '8px', color: 'white', outline: 'none' 
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Time Picker (Always visible) */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', color: '#a1a1aa', marginBottom: '8px' }}>Time (Server Time)</label>
+            <div style={{ position: 'relative' }}>
+              <Clock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
+              <input 
+                type="time" 
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                style={{ 
+                  width: '100%', background: '#27272a', border: '1px solid rgba(255,255,255,0.1)', 
+                  padding: '12px 12px 12px 40px', borderRadius: '8px', color: 'white', outline: 'none' 
+                }}
+              />
+            </div>
+          </div>
+
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '30px' }}>
+          <button onClick={onClose} style={{ background: 'transparent', border: '1px solid #3f3f46', color: '#e4e4e7', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+          <button 
+            onClick={handleSave}
+            style={{ 
+              background: '#3b82f6', color: 'white', border: 'none', 
+              padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' 
+            }}
+          >
+            Save Schedule
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+// ------------------------------------
+
 const PipelineBuilderContent = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -111,23 +253,20 @@ const PipelineBuilderContent = () => {
     const [pipelineName, setPipelineName] = useState("My New Pipeline");
     const [isRunning, setIsRunning] = useState(false); 
     const [showTemplateModal, setShowTemplateModal] = useState(false);
-    const [selectedNode, setSelectedNode] = useState(null); // Track selected node
+    const [selectedNode, setSelectedNode] = useState(null); 
     
     // --- RESPONSIVE STATE ---
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [isToolboxOpen, setIsToolboxOpen] = useState(!isMobile);
-    // ------------------------
     
     // --- SCHEDULING STATE ---
     const [showScheduleModal, setShowScheduleModal] = useState(false);
-    const [scheduleTime, setScheduleTime] = useState('09:00');
-    // ------------------------
-
+    const [currentScheduleStr, setCurrentScheduleStr] = useState(''); // Store the string from DB to pass to modal
+    
     // --- AI MODAL STATE ---
     const [showAIModal, setShowAIModal] = useState(false);
     const [aiPrompt, setAiPrompt] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
-    // ------------------------
 
     const [isDirty, setIsDirty] = useState(false);
     const isLoadedRef = useRef(false);
@@ -141,7 +280,6 @@ const PipelineBuilderContent = () => {
         const handleResize = () => {
             const mobile = window.innerWidth < 768;
             setIsMobile(mobile);
-            // Auto-close toolbox on mobile, open on desktop
             if (!mobile) setIsToolboxOpen(true);
             else if (mobile) setIsToolboxOpen(false);
         };
@@ -193,7 +331,6 @@ const PipelineBuilderContent = () => {
     const nodeTypes = useMemo(() => ({ 
         filterNode: FilterNode,
         source_unified: SourceNode,
-        // Map all source variations to the updated SourceNode
         source_csv: SourceNode, source_json: SourceNode, source_excel: SourceNode, sourceNode: SourceNode, 
         dest_db: DestinationNode, dest_csv: DestinationNode, dest_json: DestinationNode, dest_excel: DestinationNode, destinationNode: DestinationNode,
         trans_sort: SortNode, trans_select: SelectNode, trans_rename: RenameNode, trans_dedupe: DedupeNode,
@@ -263,13 +400,9 @@ const PipelineBuilderContent = () => {
                 headers: { Authorization: `Bearer ${token}` }
             })
             .then(response => {
-                const { name, flow, schedule } = response.data; // Added schedule
+                const { name, flow, schedule } = response.data;
                 setPipelineName(name);
-                
-                // If schedule exists (e.g., "cron:09:00"), extract time
-                if (schedule && schedule.startsWith('cron:')) {
-                    setScheduleTime(schedule.split(':')[1] + ':' + schedule.split(':')[2]);
-                }
+                setCurrentScheduleStr(schedule); // Store raw schedule string
 
                 if (flow) {
                     const loadedNodes = (flow.nodes || []).map(n => ({
@@ -314,10 +447,8 @@ const PipelineBuilderContent = () => {
 
     const onNodesChange = useCallback((changes) => {
         setNodes((nds) => applyNodeChanges(changes, nds));
-        // Check if selection was cleared
         const selectionChange = changes.find(c => c.type === 'select');
         if (selectionChange && !selectionChange.selected) {
-             // Only clear if the currently selected node is the one being deselected
              if (selectedNode && selectedNode.id === selectionChange.id) {
                  setSelectedNode(null);
              }
@@ -354,7 +485,6 @@ const PipelineBuilderContent = () => {
         }
     }, [id]);
 
-    // Shared Preview Logic
     const fetchPreview = async (node) => {
         if (!node) return;
         setPreviewPanel({
@@ -381,12 +511,9 @@ const PipelineBuilderContent = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            console.log("Preview Response:", res.data); // DEBUG LOG
-
             let previewData = res.data.data || [];
             let previewColumns = res.data.columns || [];
 
-            // Robust check: Backend might return empty data for Source nodes (Lazy Loading)
             if (previewData.length === 0) {
                  let msg = "No data returned from server.";
                  if (node.type.includes('source')) {
@@ -396,7 +523,6 @@ const PipelineBuilderContent = () => {
                      showToast("No data returned for this node.", "info");
                  }
                  
-                 // Update the panel with the explanation so the user knows WHY it is empty
                  setPreviewPanel(prev => ({
                     ...prev,
                     loading: false,
@@ -424,10 +550,8 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    // MODIFIED: Select node on left click, close panel if different node
     const onNodeClick = useCallback((event, node) => {
         setSelectedNode(node);
-        // Explicitly close preview if simply selecting, to allow "Button" workflow
         setPreviewPanel(prev => ({ ...prev, isOpen: false }));
     }, []);
 
@@ -435,14 +559,12 @@ const PipelineBuilderContent = () => {
         setSelectedNode(null);
     }, []);
 
-    // Handle Right Click for Preview
     const onNodeContextMenu = useCallback((event, node) => {
-        event.preventDefault(); // Prevent browser context menu
-        setSelectedNode(node); // Also select it visually
+        event.preventDefault(); 
+        setSelectedNode(node); 
         fetchPreview(node);
     }, [getNodes, getEdges]);
 
-    // NEW: Handle "Preview" button click from Toolbar
     const handleToolbarPreview = () => {
         if (selectedNode) {
             fetchPreview(selectedNode);
@@ -468,9 +590,8 @@ const PipelineBuilderContent = () => {
 
             let defaultData = { label: label };
             
-            // Handle both unified and legacy source types
             if (type.includes('source') || type === 'sourceNode' || type === 'source_unified') {
-                defaultData.fileType = 'UNIFIED'; // Or 'CSV' as fallback, handled by SourceNode component
+                defaultData.fileType = 'UNIFIED'; 
             }
             if (type.includes('dest')) defaultData.destinationType = type.split('_')[1]?.toUpperCase() || 'DB';
             if (type === 'filterNode') { defaultData.column = ''; defaultData.condition = '>'; defaultData.value = ''; }
@@ -488,9 +609,8 @@ const PipelineBuilderContent = () => {
 
             setNodes((nds) => nds.concat(newNode));
             setIsDirty(true);
-            setSelectedNode(newNode); // Auto-select dropped node
+            setSelectedNode(newNode); 
             
-            // On mobile, automatically close toolbox after dropping to see the canvas
             if (isMobile) setIsToolboxOpen(false);
         },
         [reactFlowInstance, updateNodeData, isMobile]
@@ -519,7 +639,6 @@ const PipelineBuilderContent = () => {
         }
     };
 
-    // --- AI GENERATOR FUNCTION ---
     const handleAIGenerate = async () => {
         if (!aiPrompt.trim()) return;
         setIsGenerating(true);
@@ -534,12 +653,10 @@ const PipelineBuilderContent = () => {
             const data = res.data;
             
             if (data.nodes && data.edges) {
-                // Map nodes to include onUpdate handler
                 const newNodes = data.nodes.map(n => ({
                     ...n,
                     data: { ...n.data, onUpdate: updateNodeData }
                 }));
-                // Map edges to be deletable
                 const newEdges = data.edges.map(e => ({ ...e, type: 'deletableEdge', animated: true }));
 
                 setNodes(newNodes);
@@ -556,14 +673,14 @@ const PipelineBuilderContent = () => {
         } catch (error) {
             console.error(error);
             const errMsg = error.response?.data?.error || error.message || "Connection failed";
-            showToast(`Server Error: ${errMsg}. Check if backend is running and 'google-generativeai' is installed.`, "error");
+            showToast(`Server Error: ${errMsg}`, "error");
         } finally {
             setIsGenerating(false);
         }
     };
 
-    // --- SCHEDULING LOGIC ---
-    const saveSchedule = async () => {
+    // --- SCHEDULING LOGIC (UPDATED) ---
+    const saveSchedule = async (type, value) => {
         try {
             const token = localStorage.getItem('token');
             if (!id) {
@@ -572,10 +689,11 @@ const PipelineBuilderContent = () => {
             }
             
             await axios.post(`http://127.0.0.1:5000/pipelines/${id}/schedule`, {
-                type: 'cron',
-                value: scheduleTime
+                type: type,
+                value: value
             }, { headers: { Authorization: `Bearer ${token}` }});
             
+            setCurrentScheduleStr(`${type}:${value}`); // Update local state
             showToast('Schedule Saved!', 'success');
             setShowScheduleModal(false);
         } catch (err) {
@@ -583,7 +701,7 @@ const PipelineBuilderContent = () => {
             showToast('Failed to save schedule', 'error');
         }
     };
-    // ------------------------
+    // ----------------------------------
 
     const handleExport = () => {
         const currentNodes = getNodes(); 
@@ -755,7 +873,7 @@ const PipelineBuilderContent = () => {
                     borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px',
                     zIndex: 10,
-                    overflowX: 'auto', // Responsive scroll for toolbar
+                    overflowX: 'auto', 
                     whiteSpace: 'nowrap'
                 }}
                 initial={{ y: -50 }} animate={{ y: 0 }}
@@ -816,6 +934,7 @@ const PipelineBuilderContent = () => {
                         disabled={!selectedNode} 
                     />
                     
+                    {/* --- SCHEDULE BUTTON (Use updated state) --- */}
                     <ActionButton icon={<Clock size={16}/>} label="Schedule" onClick={() => setShowScheduleModal(true)} />
 
                     <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)', alignSelf: 'center' }}></div>
@@ -857,7 +976,6 @@ const PipelineBuilderContent = () => {
             {/* WORKSPACE */}
             <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden', position: 'relative' }}>
                 
-                {/* Mobile Toggle Button for Sidebar */}
                 {isMobile && (
                     <button 
                         onClick={() => setIsToolboxOpen(!isToolboxOpen)}
@@ -872,13 +990,12 @@ const PipelineBuilderContent = () => {
                     </button>
                 )}
 
-                {/* Sidebar Container (Collapsible on Mobile) */}
                 <div style={{ 
                     display: isToolboxOpen ? 'block' : 'none', 
                     position: isMobile ? 'absolute' : 'relative',
                     zIndex: 40, 
                     height: '100%',
-                    backgroundColor: isMobile ? '#0f1115' : 'transparent', // Opaque bg when overlaying on mobile
+                    backgroundColor: isMobile ? '#0f1115' : 'transparent',
                     boxShadow: isMobile ? '5px 0 15px rgba(0,0,0,0.5)' : 'none'
                 }}>
                     <Sidebar />
@@ -890,8 +1007,7 @@ const PipelineBuilderContent = () => {
                     style={{ width: '100%', height: '100%', backgroundColor: '#0f1115' }}
                     onMouseMove={onMouseMove} 
                 >
-                      {/* Helper Text Overlay */}
-                    <div style={{ position: 'absolute', top: '20px', right: '20px', pointerEvents: 'none', zIndex: 10, background: 'rgba(24, 24, 27, 0.8)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
+                      <div style={{ position: 'absolute', top: '20px', right: '20px', pointerEvents: 'none', zIndex: 10, background: 'rgba(24, 24, 27, 0.8)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
                         <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
                         <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Left-click</span> to select, <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Preview</span> in toolbar
                         </p>
@@ -1055,73 +1171,13 @@ const PipelineBuilderContent = () => {
             )}
             </AnimatePresence>
 
-            {/* --- SCHEDULE MODAL --- */}
-            <AnimatePresence>
-            {showScheduleModal && (
-                <motion.div 
-                    style={{
-                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                        backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
-                        zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center'
-                    }}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                >
-                    <motion.div 
-                        style={{
-                            width: '400px', backgroundColor: '#18181b',
-                            border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '30px',
-                            display: 'flex', flexDirection: 'column',
-                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                        }}
-                        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ margin: 0, color: 'white', fontSize: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <Clock size={20} color="#3b82f6" /> Schedule Pipeline
-                            </h2>
-                            <button onClick={() => setShowScheduleModal(false)} style={{ background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}><X size={20} /></button>
-                        </div>
-                        
-                        <p style={{ color: '#a1a1aa', fontSize: '14px', marginTop: 0, marginBottom: '20px' }}>
-                            Run this pipeline automatically every day at a specific time.
-                        </p>
-
-                        <label style={{ color: 'white', fontSize: '14px', marginBottom: '8px', display: 'block' }}>Daily Run Time</label>
-                        <input 
-                            type="time" 
-                            value={scheduleTime} 
-                            onChange={e => setScheduleTime(e.target.value)}
-                            style={{ 
-                                background: '#27272a', border: '1px solid #3f3f46', color: 'white', 
-                                padding: '12px', borderRadius: '8px', width: '100%', outline: 'none',
-                                fontSize: '16px', marginBottom: '25px', boxSizing: 'border-box'
-                            }}
-                        />
-
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                            <button 
-                                onClick={() => setShowScheduleModal(false)}
-                                style={{ 
-                                    background: 'transparent', border: '1px solid #3f3f46', color: '#e4e4e7',
-                                    padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '500'
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={saveSchedule}
-                                style={{ 
-                                    background: '#3b82f6', border: 'none', color: 'white',
-                                    padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '500'
-                                }}
-                            >
-                                Save Schedule
-                            </button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-            </AnimatePresence>
+            {/* --- SCHEDULE MODAL (UPDATED) --- */}
+            <ScheduleModal 
+                isOpen={showScheduleModal}
+                onClose={() => setShowScheduleModal(false)}
+                onSave={saveSchedule}
+                currentSchedule={currentScheduleStr}
+            />
 
         </div>
     );

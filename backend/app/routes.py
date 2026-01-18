@@ -749,19 +749,29 @@ def set_schedule(id):
                 minutes=int(value)
             )
         elif cron_type == 'cron':
-            # Run at HH:MM
-            try:
-                hour, minute = value.split(':')
-                scheduler.add_job(
-                    id=job_id, 
-                    func=jobs.run_pipeline_job, 
-                    args=[app_obj, id], 
-                    trigger='cron', 
-                    hour=int(hour), 
-                    minute=int(minute)
-                )
-            except ValueError:
-                return jsonify({"error": "Invalid time format. Use HH:MM"}), 400
+            # Run Daily at HH:MM
+            if ':' not in value: return jsonify({"error": "Invalid time format"}), 400
+            hour, minute = value.split(':')
+            scheduler.add_job(
+                id=job_id, 
+                func=jobs.run_pipeline_job, 
+                args=[app_obj, id], 
+                trigger='cron', 
+                hour=int(hour), 
+                minute=int(minute)
+            )
+        elif cron_type == 'date':
+            # --- NEW: Run Once at specific Date/Time ---
+            # value format: "YYYY-MM-DD HH:MM:SS"
+            scheduler.add_job(
+                id=job_id,
+                func=jobs.run_pipeline_job,
+                args=[app_obj, id],
+                trigger='date',
+                run_date=value
+            )
+        else:
+            return jsonify({"error": "Invalid schedule type"}), 400
 
         # 4. Save to DB
         pipeline.schedule = f"{cron_type}:{value}"

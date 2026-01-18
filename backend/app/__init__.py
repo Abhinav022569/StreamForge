@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash
 db = SQLAlchemy()
 socketio = SocketIO(cors_allowed_origins="*")
 jwt = JWTManager()
-scheduler = APScheduler() # Initialize Scheduler here
+scheduler = APScheduler()
 
 def create_app():
     app = Flask(__name__)
@@ -24,8 +24,6 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = 'dev-secret-key' 
     app.config['JWT_SECRET_KEY'] = 'jwt-secret-key'
-    
-    # Scheduler Config
     app.config['SCHEDULER_API_ENABLED'] = True
 
     # Initialize Plugins
@@ -34,7 +32,7 @@ def create_app():
     socketio.init_app(app)
     jwt.init_app(app)
     
-    # Initialize Scheduler
+    # Start Scheduler
     scheduler.init_app(app)
     scheduler.start()
 
@@ -47,7 +45,7 @@ def create_app():
         db.create_all()
         create_default_admin()
         
-        # --- Restore Schedules on Startup ---
+        # Restore Schedules on Startup
         load_scheduled_jobs(app) 
 
     from . import events
@@ -75,7 +73,7 @@ def load_scheduled_jobs(app):
     print(" ↻ Checking for scheduled pipelines...")
     
     try:
-        # We are already inside app_context in create_app
+        # We are inside app_context, query directly
         pipelines = Pipeline.query.filter(Pipeline.schedule != None).all()
         
         count = 0
@@ -84,15 +82,18 @@ def load_scheduled_jobs(app):
             
             job_id = f"pipeline_{p.id}"
             
-            # Skip if already exists (prevents duplicates on reload)
+            # Skip duplicates
             if scheduler.get_job(job_id):
                 continue
 
             try:
-                type_, val = p.schedule.split(':')
+                # Limit split to 1 to safely handle strings like "date:2026-01-20 14:00:00"
+                parts = p.schedule.split(':', 1)
+                if len(parts) != 2: 
+                    print(f" ⚠ Skipping invalid schedule format for Pipeline {p.id}: {p.schedule}")
+                    continue
                 
-                # Pass app._get_current_object() or app to the job
-                # Note: In create_app, 'app' is the object we need.
+                type_, val = parts
                 
                 if type_ == 'interval':
                     scheduler.add_job(
@@ -104,6 +105,7 @@ def load_scheduled_jobs(app):
                         replace_existing=True
                     )
                 elif type_ == 'cron':
+                    # val is HH:MM
                     hour, minute = val.split(':')
                     scheduler.add_job(
                         id=job_id,
@@ -114,11 +116,23 @@ def load_scheduled_jobs(app):
                         minute=int(minute),
                         replace_existing=True
                     )
+                elif type_ == 'date':
+                    # val is YYYY-MM-DD HH:MM:SS
+                    scheduler.add_job(
+                        id=job_id,
+                        func=run_pipeline_job,
+                        args=[app, p.id],
+                        trigger='date',
+                        run_date=val,
+                        replace_existing=True
+                    )
+
                 count += 1
             except Exception as e:
                 print(f" ⚠ Failed to load schedule for Pipeline {p.id}: {e}")
 
         if count > 0:
             print(f" ✅ Restored {count} scheduled jobs from database.")
+            
     except Exception as e:
         print(f"Error loading jobs: {e}")
