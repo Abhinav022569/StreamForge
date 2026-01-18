@@ -1,5 +1,5 @@
-dept_id,dept_name,location
-101,HR,New York
-102,Engineering,San Francisco
-103,Marketing,Chicago
-104,Sales,Remote
+dept_name,location,budget
+Engineering,Building A,500000
+HR,Building B,200000
+Sales,Building C,300000
+Marketing,Building B,150000

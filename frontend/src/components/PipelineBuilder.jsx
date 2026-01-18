@@ -193,6 +193,7 @@ const PipelineBuilderContent = () => {
     const nodeTypes = useMemo(() => ({ 
         filterNode: FilterNode,
         source_unified: SourceNode,
+        // Map all source variations to the updated SourceNode
         source_csv: SourceNode, source_json: SourceNode, source_excel: SourceNode, sourceNode: SourceNode, 
         dest_db: DestinationNode, dest_csv: DestinationNode, dest_json: DestinationNode, dest_excel: DestinationNode, destinationNode: DestinationNode,
         trans_sort: SortNode, trans_select: SelectNode, trans_rename: RenameNode, trans_dedupe: DedupeNode,
@@ -467,8 +468,9 @@ const PipelineBuilderContent = () => {
 
             let defaultData = { label: label };
             
-            if (type.includes('source')) {
-                defaultData.fileType = type.split('_')[1]?.toUpperCase() || 'CSV';
+            // Handle both unified and legacy source types
+            if (type.includes('source') || type === 'sourceNode' || type === 'source_unified') {
+                defaultData.fileType = 'UNIFIED'; // Or 'CSV' as fallback, handled by SourceNode component
             }
             if (type.includes('dest')) defaultData.destinationType = type.split('_')[1]?.toUpperCase() || 'DB';
             if (type === 'filterNode') { defaultData.column = ''; defaultData.condition = '>'; defaultData.value = ''; }
@@ -888,7 +890,7 @@ const PipelineBuilderContent = () => {
                     style={{ width: '100%', height: '100%', backgroundColor: '#0f1115' }}
                     onMouseMove={onMouseMove} 
                 >
-                     {/* Helper Text Overlay */}
+                      {/* Helper Text Overlay */}
                     <div style={{ position: 'absolute', top: '20px', right: '20px', pointerEvents: 'none', zIndex: 10, background: 'rgba(24, 24, 27, 0.8)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
                         <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
                         <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Left-click</span> to select, <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Preview</span> in toolbar

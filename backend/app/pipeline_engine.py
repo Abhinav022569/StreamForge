@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-import numpy as np  # Required for handling Infinity/NaN
+import numpy as np
 import sqlite3
 import json
 import matplotlib
@@ -10,7 +10,6 @@ from .models import ProcessedFile
 from datetime import datetime
 
 def get_size_format(b, factor=1024, suffix="B"):
-    """Converts bytes to human readable format"""
     for unit in ["", "K", "M", "G", "T", "P"]:
         if b < factor:
             return f"{b:.2f} {unit}{suffix}"
@@ -18,7 +17,6 @@ def get_size_format(b, factor=1024, suffix="B"):
     return f"{b:.2f} Y{suffix}"
 
 def safe_convert(val):
-    """Safely converts strings to int/float"""
     try:
         return int(val)
     except:
@@ -33,37 +31,31 @@ class PipelineEngine:
         self.adj_list = {n['id']: [] for n in nodes}
         self.in_degree = {n['id']: 0 for n in nodes}
         self.data_store = {}
-        # Initialize logs with start message
         self.logs = [f"Pipeline initialized with {len(nodes)} nodes."]
         self.db = db_session
         self.user = user
         self.base_dir = base_dir
         self.processed_bytes = 0
         self.preview_mode = preview_mode
-        self.pipeline_id = pipeline_id # NEW: Track which pipeline is running
+        self.pipeline_id = pipeline_id
         
-        # Paths
         self.uploads_dir = os.path.join(base_dir, '..', 'uploads')
         self.processed_dir = os.path.join(base_dir, '..', 'processed')
         if not os.path.exists(self.processed_dir):
             os.makedirs(self.processed_dir)
 
-        # Build Graph (Adjacency List)
         for edge in edges:
             if edge['source'] in self.adj_list:
                 self.adj_list[edge['source']].append(edge['target'])
                 self.in_degree[edge['target']] += 1
 
     def run(self):
-        """Standard Full Pipeline Run"""
-        # Topological sort / Queue based execution
         queue = [nid for nid, count in self.in_degree.items() if count == 0]
         
         if not queue:
             self.logs.append("Error: No starting nodes found (circular dependency or empty graph).")
             return self.logs
 
-        # Use Kahn's Algorithm (Topological Sort)
         while queue:
             current_id = queue.pop(0)
             if current_id not in self.nodes: continue
@@ -92,14 +84,11 @@ class PipelineEngine:
         return self.logs
 
     def run_preview(self, target_node_id):
-        """Runs the pipeline ONLY for the ancestors of target_node_id (BFS/Partial Run)"""
         if target_node_id not in self.nodes:
             return {"error": "Target node not found", "logs": self.logs}
 
-        # 1. Identify Ancestors (Dependency Chain)
         ancestors = set()
         to_visit = [target_node_id]
-        
         processed_visit = set()
         while to_visit:
             curr = to_visit.pop()
@@ -112,15 +101,11 @@ class PipelineEngine:
                     if src not in ancestors:
                         to_visit.append(src)
 
-        # 2. Execution Loop (Topological Sort)
-        # We COPY in_degree to avoid corrupting it for future calls if instance is reused (defensive)
         local_in_degree = self.in_degree.copy()
         queue = [nid for nid, count in local_in_degree.items() if count == 0]
         
         while queue:
             current_id = queue.pop(0)
-            
-            # Only process if it affects our target
             if current_id in ancestors:
                 if current_id in self.nodes:
                     try:
@@ -129,25 +114,16 @@ class PipelineEngine:
                     except Exception as e:
                         return {"error": str(e), "logs": self.logs}
             
-            # Continue traversal to unlock children
             if current_id in self.adj_list:
                 for child in self.adj_list[current_id]:
                      local_in_degree[child] -= 1
                      if local_in_degree[child] == 0:
                          queue.append(child)
 
-        # 3. Retrieve Result
         if target_node_id in self.data_store:
             df = self.data_store[target_node_id]
-            
-            # --- CRITICAL FIX: SANITIZE DATA FOR JSON ---
-            # Convert Infinity to NaN, then all NaN to None (null in JSON)
-            # This prevents backend crashes when calculations produce Infinity
             df_clean = df.replace([np.inf, -np.inf], np.nan)
-            
-            # Take a small sample for preview
             records = df_clean.head(100).where(pd.notnull(df_clean), None).to_dict(orient='records')
-            
             return {"data": records, "columns": list(df.columns), "logs": self.logs}
         else:
             return {"error": "Node produced no data. Check logs.", "logs": self.logs}
@@ -155,7 +131,6 @@ class PipelineEngine:
     def get_parent_df(self, current_id):
         for nid, neighbors in self.adj_list.items():
             if current_id in neighbors:
-                # Return a COPY to ensure subsequent nodes don't mutate stored data
                 parent_df = self.data_store.get(nid)
                 return parent_df.copy() if parent_df is not None else None
         return None
@@ -166,7 +141,7 @@ class PipelineEngine:
             if current_id in neighbors:
                 parent_df = self.data_store.get(nid)
                 if parent_df is not None:
-                    parents.append(parent_df.copy()) # Copy here too
+                    parents.append(parent_df.copy())
                 else:
                     parents.append(None)
         return parents
@@ -176,19 +151,22 @@ class PipelineEngine:
         data = node['data']
         df = None
 
-        # --- SOURCES ---
-        if node_type.startswith('source_'):
+        if node_type == 'sourceNode' or node_type.startswith('source_'):
             filename = data.get('filename')
             if not filename: 
-                # Attempt to use label if filename is missing (fallback)
                 filename = data.get('label')
-                # Simple check if label looks like a file
                 if not filename or '.' not in filename:
                     raise ValueError("No file selected")
             
+            # Check uploads directory first
             path = os.path.join(self.uploads_dir, filename)
+            
+            # If not found, check processed directory (for outputs used as inputs)
             if not os.path.exists(path):
-                raise FileNotFoundError(f"File {filename} not found")
+                path = os.path.join(self.processed_dir, filename)
+
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"File {filename} not found in uploads or processed directories")
             
             nrows_arg = 50 if self.preview_mode else None
             
@@ -203,7 +181,6 @@ class PipelineEngine:
             if df is not None:
                 self.logs.append(f"Loaded {filename}: {len(df)} rows {'(Preview)' if self.preview_mode else ''}")
 
-        # --- TRANSFORMATIONS ---
         else:
             if node_type == 'trans_join':
                 dfs = self.get_join_parents(node_id)
@@ -216,7 +193,6 @@ class PipelineEngine:
                     self.logs.append(f"Skipping {node_type}: No input data found.")
                     return 
 
-                # --- CLEANING & TRANSFORMATION LOGIC ---
                 if node_type == 'filterNode':
                     df = self.process_filter(df, data)
                 elif node_type == 'trans_sort':
@@ -245,8 +221,6 @@ class PipelineEngine:
                     df = self.process_group(df, data)
                 elif node_type == 'trans_calc':
                     df = self.process_calc(df, data)
-                
-                # --- NEW NODES LOGIC ---
                 elif node_type == 'trans_cast':
                     col = data.get('column')
                     tgt = data.get('targetType', 'string')
@@ -256,7 +230,6 @@ class PipelineEngine:
                         elif tgt == 'string': df[col] = df[col].astype(str)
                         elif tgt == 'date': df[col] = pd.to_datetime(df[col], errors='coerce')
                         self.logs.append(f"Casted {col} to {tgt}")
-                        
                 elif node_type == 'trans_string':
                     col = data.get('column')
                     op = data.get('operation', 'upper')
@@ -266,21 +239,16 @@ class PipelineEngine:
                         elif op == 'strip': df[col] = df[col].astype(str).str.strip()
                         elif op == 'title': df[col] = df[col].astype(str).str.title()
                         self.logs.append(f"String op {op} on {col}")
-                        
                 elif node_type == 'trans_constant':
                     col = data.get('colName')
                     val = safe_convert(data.get('value'))
                     if col:
                         df[col] = val
                         self.logs.append(f"Added constant col {col}")
-
-                # --- CUSTOM PYTHON NODE ---
                 elif node_type == 'trans_python':
                     code = data.get('code', '')
                     if code:
                         try:
-                            # Create a restricted local scope with safe libraries
-                            # 'df' is the main dataframe being passed through
                             local_scope = {
                                 'df': df, 
                                 'pd': pd, 
@@ -288,25 +256,15 @@ class PipelineEngine:
                                 'math': __import__('math'),
                                 'datetime': __import__('datetime')
                             }
-                            
-                            # EXECUTE THE USER CODE
-                            # We use exec() here. In a true enterprise environment, this should be sandboxxed 
-                            # (e.g., restricted python or containerized) but for a BCA project exec is acceptable 
-                            # if documented as "Developer Mode".
                             exec(code, {}, local_scope)
-                            
-                            # Retrieve the modified df. User code must modify 'df' in place or reassign it.
                             if 'df' in local_scope and isinstance(local_scope['df'], pd.DataFrame):
                                 df = local_scope['df']
                                 self.logs.append(f"Executed custom Python script")
                             else:
                                 raise ValueError("Python script must maintain a 'df' pandas DataFrame variable.")
-                                
                         except Exception as e:
-                            # Catch syntax errors or runtime errors in user code
                             raise ValueError(f"Python Script Execution Error: {str(e)}")
 
-                # --- VISUALIZATION & OUTPUTS ---
                 elif node_type == 'vis_chart':
                     if not self.preview_mode:
                         self.generate_chart(df, data)
@@ -420,7 +378,7 @@ class PipelineEngine:
             ftype = 'Database'
         
         if path and os.path.exists(path):
-            # NEW: Pass df for Metadata extraction
+            # Pass DataFrame to extract metadata
             self.save_db_record(name, ftype, path, df)
             self.logs.append(f"Saved output to {name}")
 
@@ -428,7 +386,7 @@ class PipelineEngine:
         size = os.path.getsize(path)
         self.processed_bytes += size
         
-        # NEW: Extract Metadata
+        # Extract Metadata
         row_count = 0
         columns_json = "{}"
         if df is not None and not df.empty:
@@ -444,7 +402,7 @@ class PipelineEngine:
             file_size_display=get_size_format(size),
             filepath=path, 
             user_id=self.user.id,
-            # NEW: Store metadata & lineage
+            # NEW FIELDS
             row_count=row_count,
             columns=columns_json,
             source_pipeline_id=self.pipeline_id
