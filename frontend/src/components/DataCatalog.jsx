@@ -36,7 +36,8 @@ const DataCatalog = () => {
     };
 
     const fetchLineage = async (asset) => {
-        if (selectedAsset?.id === asset.id && selectedAsset?.type === asset.type) return;
+        // Force refresh even if clicking same asset to ensure latest data
+        // if (selectedAsset?.id === asset.id && selectedAsset?.type === asset.type) return;
         
         setSelectedAsset(asset);
         setLineage(null); 
@@ -46,6 +47,7 @@ const DataCatalog = () => {
             const res = await axios.get(`http://127.0.0.1:5000/api/catalog/lineage/${asset.type}/${asset.id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            console.log("Lineage Data:", res.data); // DEBUG LOG
             setLineage(res.data);
         } catch (err) {
             console.error(err);
