@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Book, Code2, Terminal, Layers, Shield, Zap, 
@@ -9,8 +9,8 @@ import logo from '../assets/logo.png';
 
 const DocumentationPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeSection, setActiveSection] = useState('intro');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const scrollTo = (id) => {
     const element = document.getElementById(id);
@@ -20,9 +20,16 @@ const DocumentationPage = () => {
       const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
       window.scrollTo({ top: y, behavior: 'smooth' });
       setActiveSection(id);
-      setIsMobileMenuOpen(false);
     }
   };
+
+  // Scroll to hash on load
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.replace('#', '');
+      scrollTo(id);
+    }
+  }, [location]);
 
   return (
     <div style={{ background: '#09090b', minHeight: '100vh', color: '#e4e4e7', fontFamily: 'Inter, sans-serif' }}>
@@ -59,7 +66,7 @@ const DocumentationPage = () => {
                 borderRight: '1px solid rgba(255,255,255,0.05)', 
                 padding: '30px 20px', overflowY: 'auto', background: '#09090b',
                 zIndex: 40,
-                display: 'block' // You can add responsive hiding here if needed
+                display: 'block' 
             }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
                     <DocNavGroup title="Getting Started">
