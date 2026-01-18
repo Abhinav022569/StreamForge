@@ -472,14 +472,42 @@ def get_pipelines():
     current_user_id = int(get_jwt_identity())
     pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
     output = []
+    
     for p in pipelines:
-        output.append({"id": p.id, "name": p.name, "flow": json.loads(p.structure), "status": p.status, "created_at": p.created_at.strftime('%Y-%m-%d %H:%M'), "is_shared": False, "permission": "owner"})
+        output.append({
+            "id": p.id, 
+            "name": p.name, 
+            "flow": json.loads(p.structure), 
+            "status": p.status, 
+            "schedule": p.schedule,  # <--- NEW: Return schedule info
+            "created_at": p.created_at.strftime('%Y-%m-%d %H:%M'), 
+            "is_shared": False, 
+            "permission": "owner"
+        })
+        
     shares = SharedPipeline.query.filter_by(user_id=current_user_id).all()
     for share in shares:
         p = share.pipeline
         if not p: continue 
-        output.append({"id": p.id, "name": f"{p.name} (Shared)", "flow": json.loads(p.structure), "status": p.status, "created_at": p.created_at.strftime('%Y-%m-%d %H:%M'), "is_shared": True, "permission": share.role, "owner": p.owner.username})
-    return jsonify(output)
+        output.append({
+            "id": p.id, 
+            "name": f"{p.name} (Shared)", 
+            "flow": json.loads(p.structure), 
+            "status": p.status, 
+            "schedule": None, 
+            "created_at": p.created_at.strftime('%Y-%m-%d %H:%M'), 
+            "is_shared": True, 
+            "permission": share.role, 
+            "owner": p.owner.username
+        })
+    
+    # --- FIX IS HERE ---
+    response = jsonify(output) # Create response object first
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
+    return response # Then return it
 
 @main.route('/pipelines/<int:id>', methods=['GET'])
 @jwt_required()

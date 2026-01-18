@@ -22,7 +22,8 @@ import NotificationsPage from './components/NotificationsPage';
 // Admin Pages
 import AdminDashboard from './components/AdminDashboard';
 import AdminUsers from './components/AdminUsers';
-import AdminCommunication from './components/AdminCommunication'; // NEW
+import AdminCommunication from './components/AdminCommunication';
+import ScheduledPipelines from './components/ScheduledPipelines';
 
 // Auth Guard
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -63,6 +64,7 @@ function App() {
         <Route path="/processed" element={<ProtectedRoute><ProcessedData /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+        <Route path="/schedules" element={<ProtectedRoute><ScheduledPipelines /></ProtectedRoute>} />
 
         {/* --- Admin Routes --- */}
         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />

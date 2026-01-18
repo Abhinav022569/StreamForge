@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Network, Users, Database, 
   HardDrive, Settings, LogOut, Menu, X,
-  Search 
+  Search, Calendar // <--- 1. Import Calendar here
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import '../../App.css';
@@ -37,9 +37,11 @@ const AppLayout = ({ children }) => {
     navigate('/login');
   };
 
+  // --- 2. Update Menu Items here ---
   const menuItems = [
     { label: 'Overview', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
     { label: 'All Pipelines', icon: <Network size={20} />, path: '/pipelines' },
+    { label: 'Scheduled Jobs', icon: <Calendar size={20} />, path: '/schedules' }, // <--- Added this
     { label: 'Data Catalog', icon: <Search size={20} />, path: '/catalog' }, 
     { label: 'Collaboration', icon: <Users size={20} />, path: '/collaboration' },
     { label: 'Data Sources', icon: <Database size={20} />, path: '/datasources' },
@@ -111,10 +113,10 @@ const AppLayout = ({ children }) => {
               <div style={{ padding: '20px' }}>
                   <div className="sidebar-logo" style={{ marginBottom: '30px', paddingLeft: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                       <div style={{ position: 'relative' }}>
-                          <img src={logo} alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '8px', boxShadow: '0 0 15px rgba(16,185,129,0.3)' }} />
-                       </div>
-                       <span style={{ fontWeight: '800', letterSpacing: '0.5px', fontSize: '18px', background: 'linear-gradient(to right, #fff, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>StreamForge</span>
+                        <div style={{ position: 'relative' }}>
+                           <img src={logo} alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '8px', boxShadow: '0 0 15px rgba(16,185,129,0.3)' }} />
+                        </div>
+                        <span style={{ fontWeight: '800', letterSpacing: '0.5px', fontSize: '18px', background: 'linear-gradient(to right, #fff, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>StreamForge</span>
                     </div>
                     {!isMobile && <NotificationCenter />}
                   </div>
@@ -135,7 +137,7 @@ const AppLayout = ({ children }) => {
                   </nav>
               </div>
 
-              {/* SASSY & PROFESSIONAL USER CARD */}
+              {/* USER CARD */}
               <div style={{ padding: '20px' }}>
                   <motion.div 
                     whileHover={{ y: -4, boxShadow: '0 20px 40px -10px rgba(0,0,0,0.6)' }}
@@ -152,10 +154,8 @@ const AppLayout = ({ children }) => {
                         boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
                     }}
                   >
-                      {/* Decorative Background Blur */}
                       <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '100px', height: '100px', background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(20px)' }} />
 
-                      {/* User Info */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', zIndex: 1 }}>
                           <div style={{ position: 'relative' }}>
                              <div style={{ 
@@ -179,10 +179,8 @@ const AppLayout = ({ children }) => {
                           </div>
                       </div>
 
-                      {/* Divider */}
                       <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)' }} />
 
-                      {/* Logout Button */}
                       <motion.button 
                           onClick={handleLogout}
                           style={{ 
@@ -218,7 +216,6 @@ const AppLayout = ({ children }) => {
         )}
       </AnimatePresence>
 
-      {/* MAIN CONTENT AREA */}
       <main className="main-content" style={{ position: 'relative', zIndex: 1, overflowY: 'auto', flexGrow: 1, height: '100%' }}>
         {children}
       </main>
@@ -244,28 +241,17 @@ const SidebarItem = ({ label, icon, active, onClick }) => (
         border: active ? '1px solid rgba(16, 185, 129, 0.1)' : '1px solid transparent',
         display: 'flex',
         alignItems: 'center',
-        transition: 'background 0.2s ease, border 0.2s ease, color 0.2s ease' // CSS transition for basic props
+        transition: 'background 0.2s ease, border 0.2s ease, color 0.2s ease'
     }}
   >
     {active && (
       <motion.div 
         layoutId="activeIndicator"
-        transition={{ 
-            type: "spring", 
-            stiffness: 500, 
-            damping: 30 
-        }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
         style={{
-          position: 'absolute', 
-          left: '0', 
-          top: '0', 
-          bottom: '0',
-          width: '4px', 
-          height: '100%', 
-          background: '#10b981',
-          borderRadius: '4px 0 0 4px',
-          boxShadow: '0 0 10px rgba(16,185,129,0.5)',
-          zIndex: 10
+          position: 'absolute', left: '0', top: '0', bottom: '0', width: '4px', height: '100%', 
+          background: '#10b981', borderRadius: '4px 0 0 4px',
+          boxShadow: '0 0 10px rgba(16,185,129,0.5)', zIndex: 10
         }}
       />
     )}
