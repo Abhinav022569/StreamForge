@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import AppLayout from './layout/AppLayout.jsx'; // Explicit extension
-import { User, Bell, Shield, Key, Mail, ToggleLeft, ToggleRight, Save, Loader2, UserX } from 'lucide-react';
+import AppLayout from './layout/AppLayout.jsx';
+import { 
+    User, Bell, Shield, Key, Mail, ToggleLeft, ToggleRight, 
+    Save, Loader2, UserX, AlertCircle, Info, CheckCircle2, X 
+} from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -242,11 +245,13 @@ const SettingsPage = () => {
                 )}
             </AnimatePresence>
 
-            <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', color: '#e4e4e7' }}>
+            {/* EXPANDED LAYOUT CONTAINER */}
+            <div style={{ padding: '40px 60px', maxWidth: '1800px', margin: '0 auto', width: '100%', color: '#e4e4e7' }}>
                 <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '30px' }}>Account Settings</h1>
 
                 <div style={{ display: 'flex', gap: '60px' }}>
-                    <div style={{ width: '250px' }}>
+                    {/* SIDEBAR TABS */}
+                    <div style={{ width: '250px', flexShrink: 0 }}>
                         {[
                             { id: 'profile', icon: User, label: 'Profile' },
                             { id: 'notifications', icon: Bell, label: 'Notifications' },
@@ -268,6 +273,7 @@ const SettingsPage = () => {
                         ))}
                     </div>
 
+                    {/* MAIN CONTENT AREA - Expands to fill space */}
                     <div style={{ flex: 1 }}>
                         {activeTab === 'profile' && (
                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} variants={containerVariants}>
