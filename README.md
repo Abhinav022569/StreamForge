@@ -6,34 +6,50 @@ StreamForge is a centralized digital platform designed to democratize data engin
 
 | Component | Technology | File Location |
 | :--- | :--- | :--- |
-| **Front-End** | React (Vite), React Flow, Framer Motion, Socket.IO | `frontend/src/`, `frontend/package.json` |
-| **Back-End Logic** | Python, Flask, Socket.IO, APScheduler | `backend/app/`, `backend/run.py` |
+| **Front-End** | React (Vite), React Flow, Framer Motion, Socket.IO | `frontend/src/` |
+| **Back-End Logic** | Python, Flask, Socket.IO, APScheduler | `backend/app/` |
 | **Data Processing**| Pandas, NumPy, Matplotlib | `backend/app/pipeline_engine.py` |
 | **Database** | SQLite (via SQLAlchemy) | `backend/pipelines.db` |
 | **AI Integration** | Google Gemini (Generative AI) | `backend/app/chatbot_context.py` |
 
 ## ✨ Core Modules & Features
 
-### 🧑‍💻 User Features (Engineers/Data Scientists)
-* **Visual Pipeline Builder**: An interactive canvas to design workflows by connecting Source, Filter, Join, and Destination nodes.
-* **Advanced Transformation Engine**:
-    * **Data Cleaning**: Tools for deduplication, filling null values (fillna), and type casting.
-    * **Logic Operations**: Join multiple datasets, perform group-by aggregations, and run mathematical calculations between columns.
-    * **Custom Python Nodes**: Execute arbitrary Python scripts within the pipeline for bespoke data logic.
-* **AI Chat Assistant**: Context-aware chatbot powered by Gemini to help debug errors or generate pipeline plans from natural language.
-* **Data Catalog & Lineage**: Search datasets and track "lineage" to see which pipelines created or utilized specific files.
-* **Real-Time Execution**: View live status updates and execution logs via WebSockets.
-* **Visualization**: Generate Bar, Line, Scatter, Pie, and Histogram charts directly from your data.
+### 🧑‍💻 User Features
+* **Visual Pipeline Builder**: Drag-and-drop interface for designing data flows using specialized nodes.
+* **Advanced Transformation Engine**: Execute complex data cleaning, joining, and aggregation logic in-memory.
+* **AI Chat Assistant**: Gemini-powered sidekick to help debug logic or generate pipeline structures from text.
+* **Data Catalog & Lineage**: Full traceability of datasets to see which user or pipeline created a specific file.
+* **Real-Time Execution**: Monitor live logs and status updates as pipelines process data.
+* **Visualization**: Instant generation of professional charts directly from the workflow.
 
 ### 🤝 Collaboration & Automation
-* **Real-Time Collaboration**: Share pipelines with team members and assign "Viewer" or "Editor" roles.
-* **Automated Scheduling**: Schedule pipelines to run automatically at set intervals (minutes), daily at a specific time, or once on a future date.
-* **Notification System**: Receive real-time alerts for pipeline successes, failures, and administrative broadcasts.
+* **Real-Time Collaboration**: Share pipelines with teammates using "Viewer" or "Editor" permissions.
+* **Automated Scheduling**: Cron-style scheduling for running tasks at set intervals or specific times.
+* **Notification System**: Integrated alerts for pipeline status changes and admin messages.
 
-### 🛡️ Admin Features
-* **User Management**: Monitor registered users, track total data processed, and manage account statuses (suspend/activate).
-* **System Dashboard**: Global overview of active pipelines, system health, and logs.
-* **Global Communication**: Send system-wide broadcast notifications or email blasts to all users.
+## 🧩 Comprehensive Node Catalog
+
+The Execution Engine supports a wide array of specialized nodes to handle any data task:
+
+| Category | Node Name | Description |
+| :--- | :--- | :--- |
+| **Sources** | `Source Node` | Ingest CSV, Excel, or JSON files from local uploads or previous runs. |
+| **Logic** | `Join` | Merge two datasets using Inner, Left, Right, or Outer join logic. |
+| | `Filter` | Remove rows based on conditions like `>`, `<`, `==`, or `!=`. |
+| | `Deduplicate` | Identify and remove duplicate rows from the dataset. |
+| **Transform** | `Sort` | Order data based on a specific column in ascending or descending order. |
+| | `Limit` | Restrict the dataset to a specific number of rows (e.g., top 100). |
+| | `Select` | Pick specific columns to keep and discard the rest. |
+| | `Rename` | Change the name of existing columns for better readability. |
+| | `Cast` | Change data types (e.g., String to Integer, or Date). |
+| | `Fill Null` | Replace missing (NaN) values with a constant or specific value. |
+| | `Constant` | Add a new column with a fixed value to every row. |
+| **Advanced** | `Group By` | Aggregate data using Sum, Mean, Count, Max, or Min operations. |
+| | `Calculate` | Perform math between two columns (Add, Sub, Mult, Div). |
+| | `String Op` | Manipulate text (Upper, Lower, Strip, or Title Case). |
+| | `Python Script` | **Custom Code**: Write raw Python/Pandas scripts for bespoke logic. |
+| **Output** | `Visualize` | Create Bar, Line, Scatter, Pie, or Histogram charts (PNG). |
+| | `Destination` | Export results to CSV, JSON, Excel, or a SQLite database. |
 
 ## 🚀 Installation Guide
 
@@ -53,7 +69,7 @@ StreamForge is a centralized digital platform designed to democratize data engin
     ```bash
     cd backend
     pip install -r requirements.txt
-    # Create a .env file in backend/ with your GEMINI_API_KEY
+    # Important: Add your GEMINI_API_KEY to a .env file in /backend
     python run.py
     ```
 
@@ -64,13 +80,13 @@ StreamForge is a centralized digital platform designed to democratize data engin
     npm run dev
     ```
 
-4.  **Access the Platform:**
-    Open `http://localhost:5173` in your browser.
+4.  **Access:** Open `http://localhost:5173`.
 
-## 🔒 Security & Authentication
-* **JWT Authentication**: Secure login and session management.
-* **Role-Based Access**: Strict separation between Admin and User capabilities.
-* **Data Privacy**: Users can only view or edit their own pipelines and files unless shared via the collaboration module.
+## 🛡️ Admin Oversight
+Admin users have exclusive access to:
+* **User Management**: Monitor total data processed per user and suspend accounts.
+* **System Broadcast**: Send real-time notifications to all active users.
+* **Email Blast**: Queue system-wide emails for critical updates.
 
 <br>
 
