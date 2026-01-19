@@ -1,41 +1,43 @@
 # 🛠️ StreamForge: Data Pipeline Orchestration
 
-A centralized digital platform designed to streamline data workflow design, real-time pipeline execution, and AI-assisted data transformation for engineers and data scientists.
+StreamForge is a centralized digital platform designed to democratize data engineering. It provides a visual, "No-Code/Low-Code" drag-and-drop interface for building complex ETL (Extract, Transform, Load) workflows, allowing both technical and non-technical users to process data without writing a single line of code.
 
 ## 💻 Tech Stack & Dependencies
 
 | Component | Technology | File Location |
 | :--- | :--- | :--- |
-| **Front-End** | React (Vite), React Flow, Framer Motion | `frontend/src/`, `frontend/package.json` |
-| **Back-End Logic** | Python, Flask, Socket.IO | `backend/app/`, `backend/run.py` |
+| **Front-End** | React (Vite), React Flow, Framer Motion, Socket.IO | `frontend/src/`, `frontend/package.json` |
+| **Back-End Logic** | Python, Flask, Socket.IO, APScheduler | `backend/app/`, `backend/run.py` |
+| **Data Processing**| Pandas, NumPy, Matplotlib | `backend/app/pipeline_engine.py` |
 | **Database** | SQLite (via SQLAlchemy) | `backend/pipelines.db` |
 | **AI Integration** | Google Gemini (Generative AI) | `backend/app/chatbot_context.py` |
 
 ## ✨ Core Modules & Features
 
 ### 🧑‍💻 User Features (Engineers/Data Scientists)
+* **Visual Pipeline Builder**: An interactive canvas to design workflows by connecting Source, Filter, Join, and Destination nodes.
+* **Advanced Transformation Engine**:
+    * **Data Cleaning**: Tools for deduplication, filling null values (fillna), and type casting.
+    * **Logic Operations**: Join multiple datasets, perform group-by aggregations, and run mathematical calculations between columns.
+    * **Custom Python Nodes**: Execute arbitrary Python scripts within the pipeline for bespoke data logic.
+* **AI Chat Assistant**: Context-aware chatbot powered by Gemini to help debug errors or generate pipeline plans from natural language.
+* **Data Catalog & Lineage**: Search datasets and track "lineage" to see which pipelines created or utilized specific files.
+* **Real-Time Execution**: View live status updates and execution logs via WebSockets.
+* **Visualization**: Generate Bar, Line, Scatter, Pie, and Histogram charts directly from your data.
 
-| Feature | Description | Key Mechanism |
-| :--- | :--- | :--- |
-| **Visual Pipeline Builder** | Drag-and-drop interface to design complex data workflows. | Uses **React Flow** in `PipelineBuilder.jsx`. |
-| **AI Chat Assistant** | Context-aware chatbot for debugging and optimization suggestions. | Powered by **Gemini** via `ChatAssistant.jsx`. |
-| **Real-Time Execution** | Execute pipelines and view live status updates. | WebSocket events in `events.py`. |
-| **Data Visualization** | Preview and analyze processed datasets (CSV/Excel). | Handled by `DataPreviewPanel.jsx` & `ProcessedData.jsx`. |
-| **Collaboration** | Shared workspace for team-based pipeline management. | Managed via `CollaborationPage.jsx`. |
+### 🤝 Collaboration & Automation
+* **Real-Time Collaboration**: Share pipelines with team members and assign "Viewer" or "Editor" roles.
+* **Automated Scheduling**: Schedule pipelines to run automatically at set intervals (minutes), daily at a specific time, or once on a future date.
+* **Notification System**: Receive real-time alerts for pipeline successes, failures, and administrative broadcasts.
 
 ### 🛡️ Admin Features
-
-| Feature | Description | Key Mechanism |
-| :--- | :--- | :--- |
-| **User Management** | Monitor registered users and manage access roles. | `AdminUsers.jsx` and `models.py`. |
-| **System Dashboard** | Overview of active pipelines, system health, and logs. | `AdminDashboard.jsx`. |
-| **Pipeline Oversight** | Review and manage all user-created pipelines globally. | `AllPipelines.jsx`. |
+* **User Management**: Monitor registered users, track total data processed, and manage account statuses (suspend/activate).
+* **System Dashboard**: Global overview of active pipelines, system health, and logs.
+* **Global Communication**: Send system-wide broadcast notifications or email blasts to all users.
 
 ## 🚀 Installation Guide
 
 ### Prerequisites
-
-Ensure you have the following installed:
 * **Node.js** (v18+) & **npm**
 * **Python** (v3.10+) & **pip**
 
@@ -47,15 +49,15 @@ Ensure you have the following installed:
     cd StreamForge
     ```
 
-2.  **Backend Setup:** Navigate to the backend, install dependencies, and start the server.
+2.  **Backend Setup:**
     ```bash
     cd backend
     pip install -r requirements.txt
+    # Create a .env file in backend/ with your GEMINI_API_KEY
     python run.py
     ```
-    * *Note: Ensure you create a `.env` file in `backend/` with your `GOOGLE_API_KEY`.*
 
-3.  **Frontend Setup:** Open a new terminal, navigate to the frontend, and run the dev server.
+3.  **Frontend Setup:**
     ```bash
     cd frontend
     npm install
@@ -63,14 +65,12 @@ Ensure you have the following installed:
     ```
 
 4.  **Access the Platform:**
-    Open your browser and navigate to the local URL provided (typically `http://localhost:5173`).
+    Open `http://localhost:5173` in your browser.
 
-## 🔒 Credentials & Authentication
-
-StreamForge utilizes **JWT Authentication**.
-
-* **New Users**: You can register a new account via the **Sign Up** page (`SignupPage.jsx`) upon launching the application.
-* **Admin Access**: The first registered user or a user manually set in `pipelines.db` will have admin privileges (depending on configuration).
+## 🔒 Security & Authentication
+* **JWT Authentication**: Secure login and session management.
+* **Role-Based Access**: Strict separation between Admin and User capabilities.
+* **Data Privacy**: Users can only view or edit their own pipelines and files unless shared via the collaboration module.
 
 <br>
 
