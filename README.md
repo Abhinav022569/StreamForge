@@ -1,41 +1,59 @@
 # 🛠️ StreamForge: Data Pipeline Orchestration
 
-A centralized digital platform designed to streamline data workflow design, real-time pipeline execution, and AI-assisted data transformation for engineers and data scientists.
+StreamForge is a centralized digital platform designed to democratize data engineering. It provides a visual, "No-Code/Low-Code" drag-and-drop interface for building complex ETL (Extract, Transform, Load) workflows, allowing both technical and non-technical users to process data without writing a single line of code.
 
 ## 💻 Tech Stack & Dependencies
 
 | Component | Technology | File Location |
 | :--- | :--- | :--- |
-| **Front-End** | React (Vite), React Flow, Framer Motion | `frontend/src/`, `frontend/package.json` |
-| **Back-End Logic** | Python, Flask, Socket.IO | `backend/app/`, `backend/run.py` |
+| **Front-End** | React (Vite), React Flow, Framer Motion, Socket.IO | `frontend/src/` |
+| **Back-End Logic** | Python, Flask, Socket.IO, APScheduler | `backend/app/` |
+| **Data Processing**| Pandas, NumPy, Matplotlib | `backend/app/pipeline_engine.py` |
 | **Database** | SQLite (via SQLAlchemy) | `backend/pipelines.db` |
 | **AI Integration** | Google Gemini (Generative AI) | `backend/app/chatbot_context.py` |
 
 ## ✨ Core Modules & Features
 
-### 🧑‍💻 User Features (Engineers/Data Scientists)
+### 🧑‍💻 User Features
+* **Visual Pipeline Builder**: Drag-and-drop interface for designing data flows using specialized nodes.
+* **Advanced Transformation Engine**: Execute complex data cleaning, joining, and aggregation logic in-memory.
+* **AI Chat Assistant**: Gemini-powered sidekick to help debug logic or generate pipeline structures from text.
+* **Data Catalog & Lineage**: Full traceability of datasets to see which user or pipeline created a specific file.
+* **Real-Time Execution**: Monitor live logs and status updates as pipelines process data.
+* **Visualization**: Instant generation of professional charts directly from the workflow.
 
-| Feature | Description | Key Mechanism |
+### 🤝 Collaboration & Automation
+* **Real-Time Collaboration**: Share pipelines with teammates using "Viewer" or "Editor" permissions.
+* **Automated Scheduling**: Cron-style scheduling for running tasks at set intervals or specific times.
+* **Notification System**: Integrated alerts for pipeline status changes and admin messages.
+
+## 🧩 Comprehensive Node Catalog
+
+The Execution Engine supports a wide array of specialized nodes to handle any data task:
+
+| Category | Node Name | Description |
 | :--- | :--- | :--- |
-| **Visual Pipeline Builder** | Drag-and-drop interface to design complex data workflows. | Uses **React Flow** in `PipelineBuilder.jsx`. |
-| **AI Chat Assistant** | Context-aware chatbot for debugging and optimization suggestions. | Powered by **Gemini** via `ChatAssistant.jsx`. |
-| **Real-Time Execution** | Execute pipelines and view live status updates. | WebSocket events in `events.py`. |
-| **Data Visualization** | Preview and analyze processed datasets (CSV/Excel). | Handled by `DataPreviewPanel.jsx` & `ProcessedData.jsx`. |
-| **Collaboration** | Shared workspace for team-based pipeline management. | Managed via `CollaborationPage.jsx`. |
-
-### 🛡️ Admin Features
-
-| Feature | Description | Key Mechanism |
-| :--- | :--- | :--- |
-| **User Management** | Monitor registered users and manage access roles. | `AdminUsers.jsx` and `models.py`. |
-| **System Dashboard** | Overview of active pipelines, system health, and logs. | `AdminDashboard.jsx`. |
-| **Pipeline Oversight** | Review and manage all user-created pipelines globally. | `AllPipelines.jsx`. |
+| **Sources** | `Source Node` | Ingest CSV, Excel, or JSON files from local uploads or previous runs. |
+| **Logic** | `Join` | Merge two datasets using Inner, Left, Right, or Outer join logic. |
+| | `Filter` | Remove rows based on conditions like `>`, `<`, `==`, or `!=`. |
+| | `Deduplicate` | Identify and remove duplicate rows from the dataset. |
+| **Transform** | `Sort` | Order data based on a specific column in ascending or descending order. |
+| | `Limit` | Restrict the dataset to a specific number of rows (e.g., top 100). |
+| | `Select` | Pick specific columns to keep and discard the rest. |
+| | `Rename` | Change the name of existing columns for better readability. |
+| | `Cast` | Change data types (e.g., String to Integer, or Date). |
+| | `Fill Null` | Replace missing (NaN) values with a constant or specific value. |
+| | `Constant` | Add a new column with a fixed value to every row. |
+| **Advanced** | `Group By` | Aggregate data using Sum, Mean, Count, Max, or Min operations. |
+| | `Calculate` | Perform math between two columns (Add, Sub, Mult, Div). |
+| | `String Op` | Manipulate text (Upper, Lower, Strip, or Title Case). |
+| | `Python Script` | **Custom Code**: Write raw Python/Pandas scripts for bespoke logic. |
+| **Output** | `Visualize` | Create Bar, Line, Scatter, Pie, or Histogram charts (PNG). |
+| | `Destination` | Export results to CSV, JSON, Excel, or a SQLite database. |
 
 ## 🚀 Installation Guide
 
 ### Prerequisites
-
-Ensure you have the following installed:
 * **Node.js** (v18+) & **npm**
 * **Python** (v3.10+) & **pip**
 
@@ -47,30 +65,28 @@ Ensure you have the following installed:
     cd StreamForge
     ```
 
-2.  **Backend Setup:** Navigate to the backend, install dependencies, and start the server.
+2.  **Backend Setup:**
     ```bash
     cd backend
     pip install -r requirements.txt
+    # Important: Add your GEMINI_API_KEY to a .env file in /backend
     python run.py
     ```
-    * *Note: Ensure you create a `.env` file in `backend/` with your `GOOGLE_API_KEY`.*
 
-3.  **Frontend Setup:** Open a new terminal, navigate to the frontend, and run the dev server.
+3.  **Frontend Setup:**
     ```bash
     cd frontend
     npm install
     npm run dev
     ```
 
-4.  **Access the Platform:**
-    Open your browser and navigate to the local URL provided (typically `http://localhost:5173`).
+4.  **Access:** Open `http://localhost:5173`.
 
-## 🔒 Credentials & Authentication
-
-StreamForge utilizes **JWT Authentication**.
-
-* **New Users**: You can register a new account via the **Sign Up** page (`SignupPage.jsx`) upon launching the application.
-* **Admin Access**: The first registered user or a user manually set in `pipelines.db` will have admin privileges (depending on configuration).
+## 🛡️ Admin Oversight
+Admin users have exclusive access to:
+* **User Management**: Monitor total data processed per user and suspend accounts.
+* **System Broadcast**: Send real-time notifications to all active users.
+* **Email Blast**: Queue system-wide emails for critical updates.
 
 <br>
 
