@@ -96,6 +96,19 @@ const Dashboard = () => {
 
   return (
     <AppLayout>
+        {/* --- HIDE SCROLLBAR STYLE --- */}
+        <style>
+            {`
+                .main-content::-webkit-scrollbar {
+                    display: none;
+                }
+                .main-content {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}
+        </style>
+
         <div style={{ padding: '32px 48px', maxWidth: '1800px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
             
             <motion.div variants={containerVariants} initial="hidden" animate="visible">

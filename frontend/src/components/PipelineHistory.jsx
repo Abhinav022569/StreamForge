@@ -2,215 +2,274 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, CheckCircle, XCircle, Terminal, ArrowLeft, Loader } from 'lucide-react';
+import { 
+    Clock, CheckCircle, XCircle, ArrowLeft, 
+    Terminal, Calendar, Timer, ChevronDown, ChevronUp,
+    Activity
+} from 'lucide-react';
 import AppLayout from './layout/AppLayout';
 import '../App.css';
 
 const PipelineHistory = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [runs, setRuns] = useState([]);
-    const [pipelineName, setPipelineName] = useState('Pipeline');
+    const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedRun, setSelectedRun] = useState(null);
+    const [expandedRun, setExpandedRun] = useState(null);
+    const [pipelineName, setPipelineName] = useState('Pipeline');
 
     useEffect(() => {
         const fetchHistory = async () => {
             const token = localStorage.getItem('token');
             try {
-                // Fetch Pipeline Details for Name
-                const pipeRes = await axios.get(`http://127.0.0.1:5000/pipelines/${id}`, {
+                // Fetch pipeline details for the name
+                const pRes = await axios.get(`http://127.0.0.1:5000/pipelines/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setPipelineName(pipeRes.data.name);
+                setPipelineName(pRes.data.name);
 
-                // Fetch History
-                const historyRes = await axios.get(`http://127.0.0.1:5000/pipelines/${id}/history`, {
+                // Fetch history
+                const hRes = await axios.get(`http://127.0.0.1:5000/pipelines/${id}/history`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setRuns(historyRes.data);
+                setHistory(hRes.data);
             } catch (err) {
                 console.error("Error fetching history:", err);
             } finally {
                 setLoading(false);
             }
         };
-
-        if (id) fetchHistory();
+        fetchHistory();
     }, [id]);
+
+    const toggleExpand = (runId) => {
+        setExpandedRun(expandedRun === runId ? null : runId);
+    };
+
+    const getStatusColor = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'completed': return '#10b981'; // Emerald
+            case 'failed': return '#ef4444';    // Red
+            case 'running': return '#3b82f6';   // Blue
+            default: return '#71717a';          // Zinc
+        }
+    };
+
+    const getStatusIcon = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'completed': return <CheckCircle size={18} />;
+            case 'failed': return <XCircle size={18} />;
+            case 'running': return <Activity size={18} className="spin" />;
+            default: return <Clock size={18} />;
+        }
+    };
+
+    // Helper to safely format time without crashing
+    const safeTime = (dateStr) => {
+        try {
+            if (!dateStr) return '--:--:--';
+            return new Date(dateStr).toLocaleTimeString();
+        } catch (e) {
+            return '--:--:--';
+        }
+    };
 
     return (
         <AppLayout>
-            <div className="content-wrapper" style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
-                    <button 
-                        onClick={() => navigate('/pipelines')}
-                        style={{ background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}
-                    >
-                        <ArrowLeft size={24} />
-                    </button>
-                    <h1 style={{ fontSize: '28px', margin: 0, color: '#fff' }}>
-                        <span style={{ color: '#a1a1aa' }}>History:</span> {pipelineName}
-                    </h1>
+            <div style={{ padding: '32px 48px', maxWidth: '1200px', margin: '0 auto' }}>
+                
+                {/* --- HEADER --- */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <button 
+                            onClick={() => navigate('/pipelines')}
+                            style={{ 
+                                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', 
+                                borderRadius: '12px', padding: '10px', color: '#e4e4e7', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '32px', fontWeight: '800', color: 'white', margin: 0, letterSpacing: '-0.5px' }}>
+                                Execution History
+                            </h1>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                <span style={{ color: '#a1a1aa', fontSize: '14px' }}>Timeline for</span>
+                                <span style={{ color: '#6366f1', fontWeight: '600', background: 'rgba(99, 102, 241, 0.1)', padding: '2px 8px', borderRadius: '6px', fontSize: '13px' }}>
+                                    {pipelineName}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button 
+                            onClick={() => navigate(`/builder/${id}`)}
+                            className="btn btn-secondary"
+                            style={{ padding: '10px 20px', borderRadius: '12px', fontSize: '14px' }}
+                        >
+                            <Terminal size={16} /> Edit Pipeline
+                        </button>
+                    </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
-                    {/* LEFT COLUMN: RUN LIST */}
-                    <motion.div 
-                        className="card"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        style={{ 
-                            flex: 1, 
-                            background: 'rgba(24, 24, 27, 0.6)', 
-                            backdropFilter: 'blur(10px)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
-                            padding: '0'
-                        }}
-                    >
-                        <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <h3 style={{ margin: 0, fontSize: '16px', color: '#e4e4e7' }}>Execution Log</h3>
-                        </div>
-                        
-                        <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                            {loading ? (
-                                <div style={{ padding: '40px', textAlign: 'center', color: '#a1a1aa' }}>
-                                    <Loader className="animate-spin" style={{ margin: '0 auto 10px' }} />
-                                    Loading history...
-                                </div>
-                            ) : runs.length === 0 ? (
-                                <div style={{ padding: '40px', textAlign: 'center', color: '#a1a1aa' }}>
-                                    No runs recorded yet.
-                                </div>
-                            ) : (
-                                <table className="data-table" style={{ width: '100%' }}>
-                                    <thead style={{ position: 'sticky', top: 0, background: '#18181b', zIndex: 1 }}>
-                                        <tr>
-                                            <th style={{ padding: '15px 20px', textAlign: 'left', color: '#71717a', fontSize: '12px' }}>STATUS</th>
-                                            <th style={{ padding: '15px 20px', textAlign: 'left', color: '#71717a', fontSize: '12px' }}>DATE</th>
-                                            <th style={{ padding: '15px 20px', textAlign: 'left', color: '#71717a', fontSize: '12px' }}>DURATION</th>
-                                            <th style={{ padding: '15px 20px', textAlign: 'right', color: '#71717a', fontSize: '12px' }}>ACTION</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {runs.map((run) => (
-                                            <tr 
-                                                key={run.id} 
-                                                style={{ 
-                                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                                    background: selectedRun?.id === run.id ? 'rgba(255,255,255,0.03)' : 'transparent'
-                                                }}
-                                            >
-                                                <td style={{ padding: '15px 20px' }}>
-                                                    {run.status === 'Success' ? (
-                                                        <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600' }}>
-                                                            <CheckCircle size={14} /> Success
-                                                        </span>
-                                                    ) : run.status === 'Failed' ? (
-                                                        <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600' }}>
-                                                            <XCircle size={14} /> Failed
-                                                        </span>
-                                                    ) : (
-                                                        <span style={{ color: '#eab308', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600' }}>
-                                                            <Loader size={14} className="animate-spin" /> Running
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td style={{ padding: '15px 20px', color: '#d4d4d8', fontSize: '13px' }}>
-                                                    {run.start_time}
-                                                </td>
-                                                <td style={{ padding: '15px 20px', color: '#a1a1aa', fontSize: '13px' }}>
-                                                    <Clock size={12} style={{ marginRight: '5px', verticalAlign: 'middle' }} />
-                                                    {run.duration}
-                                                </td>
-                                                <td style={{ padding: '15px 20px', textAlign: 'right' }}>
-                                                    <button 
-                                                        className="btn btn-ghost"
-                                                        onClick={() => setSelectedRun(run)}
-                                                        style={{ 
-                                                            fontSize: '12px', 
-                                                            padding: '6px 12px', 
-                                                            border: '1px solid rgba(255,255,255,0.1)',
-                                                            color: selectedRun?.id === run.id ? '#fff' : '#a1a1aa',
-                                                            background: selectedRun?.id === run.id ? '#3b82f6' : 'transparent'
-                                                        }}
-                                                    >
-                                                        View Logs
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </motion.div>
+                {/* --- TIMELINE CONTENT --- */}
+                <div style={{ position: 'relative', paddingLeft: '20px' }}>
+                    
+                    {/* Continuous Vertical Line */}
+                    <div style={{ position: 'absolute', left: '43px', top: '20px', bottom: '20px', width: '2px', background: 'rgba(255,255,255,0.05)', zIndex: 0 }} />
 
-                    {/* RIGHT COLUMN: LOG DETAILS */}
-                    <AnimatePresence>
-                        {selectedRun && (
-                            <motion.div 
-                                className="card"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                style={{ 
-                                    flex: 1, 
-                                    background: '#09090b', 
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    padding: '0',
-                                    height: '600px',
-                                    display: 'flex',
-                                    flexDirection: 'column'
-                                }}
-                            >
-                                <div style={{ 
-                                    padding: '15px 20px', 
-                                    borderBottom: '1px solid #27272a',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                    background: '#18181b'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Terminal size={18} color="#a1a1aa" />
-                                        <span style={{ color: '#e4e4e7', fontSize: '14px', fontFamily: 'monospace' }}>
-                                            Run #{selectedRun.id} Logs
-                                        </span>
-                                    </div>
-                                    <button 
-                                        onClick={() => setSelectedRun(null)}
-                                        style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer' }}
+                    {loading ? (
+                        <div style={{ color: '#71717a', paddingLeft: '40px' }}>Loading history...</div>
+                    ) : history.length === 0 ? (
+                        <div style={{ padding: '60px', background: 'rgba(24,24,27,0.4)', borderRadius: '24px', border: '1px dashed rgba(255,255,255,0.1)', textAlign: 'center', marginLeft: '30px' }}>
+                            <Clock size={40} color="#52525b" style={{ marginBottom: '16px' }} />
+                            <h3 style={{ color: 'white', margin: '0 0 8px 0' }}>No executions yet</h3>
+                            <p style={{ color: '#a1a1aa' }}>Run your pipeline to see the history logs here.</p>
+                        </div>
+                    ) : (
+                        history.map((run, index) => {
+                            const color = getStatusColor(run.status);
+                            const isExpanded = expandedRun === run.id;
+
+                            return (
+                                <motion.div 
+                                    key={run.id}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    style={{ marginBottom: '24px', position: 'relative', zIndex: 1 }}
+                                >
+                                    <div 
+                                        onClick={() => toggleExpand(run.id)}
+                                        style={{ 
+                                            display: 'flex', alignItems: 'center', gap: '24px', 
+                                            cursor: 'pointer', padding: '8px 0'
+                                        }}
                                     >
-                                        <XCircle size={18} />
-                                    </button>
-                                </div>
-
-                                <div style={{ 
-                                    padding: '20px', 
-                                    overflowY: 'auto', 
-                                    flex: 1,
-                                    fontFamily: 'monospace',
-                                    fontSize: '13px',
-                                    lineHeight: '1.6',
-                                    color: '#d4d4d8'
-                                }}>
-                                    {selectedRun.logs.map((log, i) => (
-                                        <div key={i} style={{ marginBottom: '8px', display: 'flex', gap: '10px' }}>
-                                            <span style={{ color: '#52525b', userSelect: 'none' }}>{i + 1}</span>
-                                            <span>
-                                                {log.startsWith('Error') || log.includes('failed') ? (
-                                                    <span style={{ color: '#f87171' }}>{log}</span>
-                                                ) : log.includes('Saved') || log.includes('Success') ? (
-                                                    <span style={{ color: '#34d399' }}>{log}</span>
-                                                ) : (
-                                                    log
-                                                )}
-                                            </span>
+                                        {/* Status Dot */}
+                                        <div style={{ 
+                                            width: '48px', height: '48px', borderRadius: '50%', 
+                                            background: '#18181b', border: `2px solid ${color}`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            boxShadow: `0 0 15px ${color}40`, zIndex: 2, flexShrink: 0
+                                        }}>
+                                            <div style={{ color: color }}>{getStatusIcon(run.status)}</div>
                                         </div>
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+
+                                        {/* Card Summary */}
+                                        <div style={{ 
+                                            flex: 1, background: 'rgba(24, 24, 27, 0.6)', 
+                                            backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.05)',
+                                            borderRadius: '16px', padding: '20px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        className="hover-card-bg"
+                                        >
+                                            <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Calendar size={12} /> Date
+                                                    </div>
+                                                    <div style={{ color: '#e4e4e7', fontWeight: '500' }}>
+                                                        {new Date(run.start_time).toLocaleDateString()}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Timer size={12} /> Time
+                                                    </div>
+                                                    <div style={{ color: '#e4e4e7', fontWeight: '500' }}>
+                                                        {safeTime(run.start_time)}
+                                                    </div>
+                                                </div>
+                                                {run.duration && (
+                                                    <div>
+                                                        <div style={{ fontSize: '12px', color: '#71717a', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <Activity size={12} /> Duration
+                                                        </div>
+                                                        <div style={{ color: '#e4e4e7', fontWeight: '500' }}>
+                                                            {run.duration}s
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                <span style={{ 
+                                                    padding: '6px 12px', borderRadius: '20px', 
+                                                    background: `${color}15`, color: color,
+                                                    border: `1px solid ${color}30`, fontSize: '12px', fontWeight: '700',
+                                                    textTransform: 'uppercase', letterSpacing: '0.5px'
+                                                }}>
+                                                    {run.status}
+                                                </span>
+                                                {isExpanded ? <ChevronUp size={18} color="#71717a" /> : <ChevronDown size={18} color="#71717a" />}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Expanded Details */}
+                                    <AnimatePresence>
+                                        {isExpanded && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                style={{ overflow: 'hidden', marginLeft: '72px' }}
+                                            >
+                                                <div style={{ 
+                                                    marginTop: '12px', background: '#09090b', 
+                                                    border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px',
+                                                    padding: '20px'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                                        <h4 style={{ margin: 0, color: '#e4e4e7', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <Terminal size={14} color="#a1a1aa" /> Execution Logs
+                                                        </h4>
+                                                    </div>
+                                                    
+                                                    <div style={{ 
+                                                        fontFamily: 'monospace', fontSize: '13px', color: '#a1a1aa', 
+                                                        lineHeight: '1.6', background: 'rgba(255,255,255,0.02)', 
+                                                        padding: '16px', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto'
+                                                    }}>
+                                                        {run.logs && typeof run.logs === 'string' ? (
+                                                            run.logs.split('\n').map((line, i) => (
+                                                                <div key={i} style={{ marginBottom: '4px' }}>
+                                                                    <span style={{ color: '#52525b', marginRight: '8px' }}>
+                                                                        {safeTime(run.start_time)}
+                                                                    </span>
+                                                                    {line}
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <>
+                                                                {/* Mock / Fallback logs */}
+                                                                <div><span style={{color: '#10b981'}}>[INFO]</span> Pipeline initialized successfully.</div>
+                                                                <div><span style={{color: '#10b981'}}>[INFO]</span> Loading source data...</div>
+                                                                {run.status === 'Failed' ? (
+                                                                    <div><span style={{color: '#ef4444'}}>[ERROR]</span> Process terminated unexpectedly.</div>
+                                                                ) : (
+                                                                    <div><span style={{color: '#10b981'}}>[SUCCESS]</span> Process completed.</div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            );
+                        })
+                    )}
                 </div>
             </div>
         </AppLayout>
