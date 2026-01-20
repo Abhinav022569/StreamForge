@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Database, FileText, ArrowRight, Layers, Table, 
-    Filter, Activity, ChevronRight, Clock, AlertCircle, XCircle, GitCommit 
+    Filter, Activity, ChevronRight, Clock, AlertCircle, XCircle, GitCommit,
+    Hash, Type, Calendar, CheckCircle2, MoreVertical
 } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,12 +10,16 @@ import AppLayout from './layout/AppLayout';
 import '../App.css';
 
 const DataCatalog = () => {
+    // Core State
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
     const [selectedAsset, setSelectedAsset] = useState(null);
     const [lineage, setLineage] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [hasSearched, setHasSearched] = useState(false);
+    
+    // UI State
+    const [filterType, setFilterType] = useState('ALL'); // 'ALL', 'Source', 'Pipeline'
+    const [schemaSearch, setSchemaSearch] = useState(''); // Search within schema table
 
     useEffect(() => {
         searchCatalog('');
@@ -28,7 +33,6 @@ const DataCatalog = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setResults(res.data);
-            if (!hasSearched) setHasSearched(true);
         } catch (err) {
             console.error(err);
         }
@@ -36,561 +40,444 @@ const DataCatalog = () => {
     };
 
     const fetchLineage = async (asset) => {
-        // Force refresh even if clicking same asset to ensure latest data
-        // if (selectedAsset?.id === asset.id && selectedAsset?.type === asset.type) return;
+        if (selectedAsset?.id === asset.id && selectedAsset?.type === asset.type) return;
         
         setSelectedAsset(asset);
-        setLineage(null); 
-
+        setLineage(null);
+        setSchemaSearch(''); // Reset schema search when changing assets
+        
         try {
             const token = localStorage.getItem('token');
             const res = await axios.get(`http://127.0.0.1:5000/api/catalog/lineage/${asset.type}/${asset.id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            console.log("Lineage Data:", res.data); // DEBUG LOG
             setLineage(res.data);
         } catch (err) {
             console.error(err);
         }
     };
 
-    const handleSearch = (e) => {
-        e.preventDefault();
-        searchCatalog(query);
-    };
+    // Filter Logic
+    const filteredResults = useMemo(() => {
+        if (filterType === 'ALL') return results;
+        if (filterType === 'Source') return results.filter(r => r.type === 'Source');
+        if (filterType === 'Pipeline') return results.filter(r => r.type !== 'Source'); // Assuming non-sources are pipelines/transformations
+        return results;
+    }, [results, filterType]);
 
-    const listVariants = {
-        hidden: { opacity: 0 },
-        visible: { 
-            opacity: 1,
-            transition: { 
-                staggerChildren: 0.05,
-                delayChildren: 0.1
-            } 
-        }
-    };
-
-    const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
-    };
+    // Schema Filter Logic
+    const filteredSchema = useMemo(() => {
+        if (!selectedAsset || !selectedAsset.columns) return [];
+        const entries = Object.entries(selectedAsset.columns);
+        if (!schemaSearch) return entries;
+        return entries.filter(([col, type]) => 
+            col.toLowerCase().includes(schemaSearch.toLowerCase()) || 
+            String(type).toLowerCase().includes(schemaSearch.toLowerCase())
+        );
+    }, [selectedAsset, schemaSearch]);
 
     return (
         <AppLayout>
-            <div style={{ padding: '10px 48px 32px 48px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', width: '100%' }}>
+            <div style={{ padding: '24px 32px', height: '100%', display: 'flex', flexDirection: 'column', width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
                 
-                <div style={{ marginBottom: '30px' }}>
-                    <motion.div 
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        <h1 style={{ 
-                            fontSize: '36px', 
-                            fontWeight: '800', 
-                            color: 'white', 
-                            marginBottom: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '16px',
-                            letterSpacing: '-0.5px'
-                        }}>
-                            <div style={{ 
-                                background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)', 
-                                padding: '10px', 
-                                borderRadius: '14px',
-                                boxShadow: '0 8px 32px rgba(139, 92, 246, 0.25)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                <Database size={28} color="white" />
-                            </div>
-                            Data Catalog
-                        </h1>
-                        <p style={{ color: '#a1a1aa', fontSize: '16px', maxWidth: '650px', lineHeight: '1.6' }}>
-                            The central intelligence hub for your data assets. Explore schemas, uncover hidden dependencies, and visualize data lineage across your entire pipeline ecosystem.
-                        </p>
-                    </motion.div>
+                {/* 1. HEADER SECTION */}
+                <div style={{ marginBottom: '24px', flexShrink: 0 }}>
+                    <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'white', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)', padding: '8px', borderRadius: '10px', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
+                            <Database size={20} color="white" />
+                        </div>
+                        Data Catalog
+                    </h1>
+                    <p style={{ color: '#a1a1aa', fontSize: '14px', margin: 0, paddingLeft: '4px' }}>
+                        Central intelligence for your data assets. Explore schemas and visualize dependencies.
+                    </p>
                 </div>
 
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2, duration: 0.4 }}
-                    style={{ marginBottom: '24px', position: 'relative', zIndex: 10, width: '100%' }}
-                >
-                    <form onSubmit={handleSearch} style={{ position: 'relative', width: '100%' }}>
-                        <div style={{
-                            position: 'absolute', inset: 0, borderRadius: '16px',
-                            background: 'linear-gradient(90deg, #8b5cf6, #ec4899)',
-                            opacity: 0.3, filter: 'blur(20px)', zIndex: -1,
-                            transform: 'translateY(4px) scale(0.98)'
-                        }} />
-                        
-                        <Search size={22} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa', pointerEvents: 'none' }} />
-                        
-                        <input 
-                            type="text" 
-                            placeholder="Search assets by name, column, or tag..." 
-                            value={query}
-                            onChange={(e) => {
-                                setQuery(e.target.value);
-                                if(e.target.value === '') searchCatalog('');
-                            }}
-                            style={{ 
-                                width: '100%', 
-                                padding: '18px 50px 18px 56px', 
-                                background: 'rgba(24, 24, 27, 0.8)', 
-                                border: '1px solid rgba(255, 255, 255, 0.1)', 
-                                borderRadius: '16px', 
-                                color: 'white',
-                                fontSize: '16px',
-                                outline: 'none',
-                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                backdropFilter: 'blur(16px)',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                            }}
-                            onFocus={(e) => {
-                                e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)';
-                                e.target.style.background = 'rgba(24, 24, 27, 0.95)';
-                                e.target.style.boxShadow = '0 0 0 4px rgba(139, 92, 246, 0.15)';
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                                e.target.style.background = 'rgba(24, 24, 27, 0.8)';
-                                e.target.style.boxShadow = 'none';
-                            }}
-                        />
-                        
-                        {query && (
-                            <button 
-                                type="button"
-                                onClick={() => { setQuery(''); searchCatalog(''); }}
-                                style={{
-                                    position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)',
-                                    background: 'none', border: 'none', cursor: 'pointer', color: '#71717a'
-                                }}
-                            >
-                                <XCircle size={18} />
-                            </button>
-                        )}
-                    </form>
-                </motion.div>
-
-                <div style={{ display: 'flex', gap: '32px', flex: 1, overflow: 'hidden' }}>
+                {/* 2. MAIN 3-COLUMN LAYOUT */}
+                <div style={{ display: 'flex', gap: '24px', flex: 1, overflow: 'hidden' }}>
                     
-                    <div style={{ width: '35%', display: 'flex', flexDirection: 'column', minWidth: '350px', maxWidth: '500px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '0 4px' }}>
-                            <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '1.2px' }}>
-                                Results ({results.length})
-                            </h3>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer', opacity: 0.7 }}>
-                                <Filter size={14} color="#a1a1aa" />
-                                <span style={{ fontSize: '13px', color: '#a1a1aa' }}>Filter</span>
+                    {/* COLUMN 1: FILTERS (Fixed Width) */}
+                    <div style={{ width: '220px', display: 'flex', flexDirection: 'column', gap: '24px', flexShrink: 0 }}>
+                        {/* Search Bar */}
+                        <div style={{ position: 'relative' }}>
+                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
+                            <input 
+                                type="text" 
+                                placeholder="Search catalog..." 
+                                value={query}
+                                onChange={(e) => { setQuery(e.target.value); if(e.target.value === '') searchCatalog(''); }}
+                                onKeyDown={(e) => e.key === 'Enter' && searchCatalog(query)}
+                                style={{ 
+                                    width: '100%', padding: '10px 12px 10px 36px', background: 'rgba(24, 24, 27, 0.6)', 
+                                    border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', 
+                                    color: 'white', fontSize: '13px', outline: 'none', transition: 'all 0.2s'
+                                }}
+                            />
+                        </div>
+
+                        {/* Filter Groups */}
+                        <div>
+                            <SectionLabel label="Asset Type" />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <FilterButton 
+                                    label="All Assets" 
+                                    count={results.length} 
+                                    active={filterType === 'ALL'} 
+                                    onClick={() => setFilterType('ALL')}
+                                    icon={<Database size={14} />}
+                                />
+                                <FilterButton 
+                                    label="Sources" 
+                                    count={results.filter(r => r.type === 'Source').length} 
+                                    active={filterType === 'Source'} 
+                                    onClick={() => setFilterType('Source')}
+                                    icon={<FileText size={14} />}
+                                />
+                                <FilterButton 
+                                    label="Pipelines" 
+                                    count={results.filter(r => r.type !== 'Source').length} 
+                                    active={filterType === 'Pipeline'} 
+                                    onClick={() => setFilterType('Pipeline')}
+                                    icon={<Activity size={14} />}
+                                />
                             </div>
                         </div>
 
-                        <motion.div 
-                            className="scrollable custom-scrollbar"
-                            style={{ flex: 1, overflowY: 'auto', paddingRight: '8px', paddingBottom: '20px' }}
-                            variants={listVariants}
-                            initial="hidden"
-                            animate="visible"
-                            key={loading ? 'loading' : 'loaded'} 
-                        >
+                        {/* Stats / Info */}
+                        <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <SectionLabel label="Catalog Stats" />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <span style={{ color: '#a1a1aa', fontSize: '12px' }}>Total Rows</span>
+                                <span style={{ color: 'white', fontSize: '12px', fontWeight: '600' }}>
+                                    {results.reduce((acc, curr) => acc + (curr.rows || 0), 0).toLocaleString()}
+                                </span>
+                            </div>
+                            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                                <div style={{ width: '65%', height: '100%', background: '#10b981' }} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* COLUMN 2: ASSET LIST (Fixed Width) */}
+                    <div style={{ width: '380px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <SectionLabel label={`Results (${filteredResults.length})`} noMargin />
+                            <div style={{ fontSize: '11px', color: '#a1a1aa', display: 'flex', gap: '4px', alignItems: 'center', cursor: 'pointer' }}>
+                                <Filter size={12} /> Sort by: Newest
+                            </div>
+                        </div>
+
+                        <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {loading ? (
-                                Array.from({ length: 4 }).map((_, i) => (
-                                    <SkeletonCard key={i} />
-                                ))
-                            ) : results.length === 0 ? (
-                                <motion.div 
-                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    style={{ textAlign: 'center', padding: '60px 20px', color: '#52525b', border: '1px dashed rgba(255,255,255,0.05)', borderRadius: '12px' }}
-                                >
-                                    <div style={{ background: 'rgba(255,255,255,0.03)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                                        <AlertCircle size={32} style={{ opacity: 0.5 }} />
-                                    </div>
-                                    <p style={{ fontWeight: '500', color: '#a1a1aa' }}>No data assets found</p>
-                                    <p style={{ fontSize: '13px' }}>Try searching for a different keyword or check spelling.</p>
-                                </motion.div>
+                                Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
+                            ) : filteredResults.length === 0 ? (
+                                <EmptyState message="No assets match your filters." />
                             ) : (
-                                results.map(asset => (
-                                    <AssetCard 
+                                filteredResults.map(asset => (
+                                    <CompactAssetCard 
                                         key={`${asset.type}-${asset.id}`} 
                                         asset={asset} 
-                                        isSelected={selectedAsset?.id === asset.id && selectedAsset?.type === asset.type}
+                                        isSelected={selectedAsset?.id === asset.id}
                                         onClick={() => fetchLineage(asset)}
-                                        variants={itemVariants}
                                     />
                                 ))
                             )}
-                        </motion.div>
+                        </div>
                     </div>
 
-                    <AnimatePresence mode="wait">
-                        {selectedAsset ? (
-                            <motion.div 
-                                key={selectedAsset.id}
-                                initial={{ x: 50, opacity: 0, scale: 0.98 }}
-                                animate={{ x: 0, opacity: 1, scale: 1 }}
-                                exit={{ x: 50, opacity: 0, scale: 0.98 }}
-                                transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                                style={{ 
-                                    flex: 1, 
-                                    background: 'rgba(24, 24, 27, 0.6)',
-                                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                                    borderRadius: '24px',
-                                    backdropFilter: 'blur(40px)',
-                                    padding: '32px',
-                                    overflowY: 'auto',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '32px',
-                                    boxShadow: '-10px 0 40px rgba(0,0,0,0.2)'
-                                }}
-                            >
-                                <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '24px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                                            <div style={{ 
-                                                width: '64px', height: '64px', borderRadius: '16px',
-                                                background: selectedAsset.type === 'Source' 
-                                                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.2))' 
-                                                    : 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(30, 64, 175, 0.2))',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                border: selectedAsset.type === 'Source' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
-                                                boxShadow: selectedAsset.type === 'Source' ? '0 8px 20px rgba(16, 185, 129, 0.1)' : '0 8px 20px rgba(59, 130, 246, 0.1)'
-                                            }}>
-                                                {selectedAsset.type === 'Source' 
-                                                    ? <FileText size={32} color="#34d399" strokeWidth={1.5} /> 
-                                                    : <Table size={32} color="#60a5fa" strokeWidth={1.5} />
-                                                }
-                                            </div>
-                                            <div>
-                                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '6px' }}>
-                                                    <Badge type={selectedAsset.type} />
-                                                    <span style={{ fontSize: '12px', color: '#71717a' }}>ID: {selectedAsset.id}</span>
-                                                </div>
-                                                <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: 'white', margin: 0, letterSpacing: '-0.5px' }}>
-                                                    {selectedAsset.name}
-                                                </h2>
-                                            </div>
-                                        </div>
-                                        <div style={{ textAlign: 'right' }}>
-                                             <div style={{ fontSize: '13px', color: '#a1a1aa', marginBottom: '4px' }}>Row Count</div>
-                                             <div style={{ fontSize: '18px', fontWeight: '700', color: 'white' }}>{selectedAsset.rows?.toLocaleString() || 0}</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <h4 style={{ 
-                                        color: '#e4e4e7', fontSize: '15px', fontWeight: '600', marginBottom: '20px',
-                                        display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.5px'
-                                    }}>
-                                        <Activity size={18} color="#f472b6" /> DATA LINEAGE
-                                    </h4>
-                                    
-                                    <div style={{ 
-                                        background: 'rgba(0,0,0,0.2)', 
+                    {/* COLUMN 3: DETAIL VIEW (Flexible) */}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <AnimatePresence mode="wait">
+                            {selectedAsset ? (
+                                <motion.div 
+                                    key={selectedAsset.id}
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.2 }}
+                                    style={{ 
+                                        height: '100%', 
+                                        background: 'rgba(24, 24, 27, 0.4)', 
                                         borderRadius: '16px', 
-                                        padding: '24px', 
-                                        border: '1px solid rgba(255,255,255,0.03)',
-                                        position: 'relative',
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        backdropFilter: 'blur(20px)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
                                         overflow: 'hidden'
-                                    }}>
-                                        {!lineage ? (
-                                            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
-                                                <Activity className="spin" size={24} color="#71717a" />
-                                            </div>
-                                        ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', position: 'relative' }}>
-                                                
-                                                <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}>
-                                                    <line x1="28" y1="30" x2="28" y2="100%" stroke="rgba(255,255,255,0.1)" strokeWidth="2" strokeDasharray="6 4" />
-                                                </svg>
-
-                                                <LineageStep 
-                                                    icon={<Clock size={16} />} color="#f472b6"
-                                                    label="PROVENANCE"
-                                                    title={lineage.created_by?.name || "Manual Upload"}
-                                                    subtitle={lineage.created_by?.id ? `Generated via Pipeline #${lineage.created_by.id}` : "Direct user upload"}
-                                                />
-
-                                                <div style={{ padding: '16px 0', marginLeft: '56px' }}>
-                                                    <div style={{ 
-                                                        background: 'rgba(139, 92, 246, 0.1)', 
-                                                        border: '1px solid rgba(139, 92, 246, 0.3)', 
-                                                        borderRadius: '8px', 
-                                                        padding: '10px 16px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        color: '#e9d5ff',
-                                                        fontSize: '13px',
-                                                        fontWeight: '600'
-                                                    }}>
-                                                        <Database size={14} /> {selectedAsset.name}
+                                    }}
+                                >
+                                    {/* Detail Header */}
+                                    <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ display: 'flex', gap: '16px' }}>
+                                                <div style={{ 
+                                                    width: '48px', height: '48px', borderRadius: '12px',
+                                                    background: selectedAsset.type === 'Source' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                                                    border: selectedAsset.type === 'Source' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(59, 130, 246, 0.2)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                }}>
+                                                    {selectedAsset.type === 'Source' ? <FileText size={24} color="#34d399" /> : <Table size={24} color="#60a5fa" />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                        <Badge type={selectedAsset.type} />
+                                                        <span style={{ fontSize: '11px', color: '#71717a', fontFamily: 'monospace' }}>ID: {selectedAsset.id}</span>
                                                     </div>
+                                                    <h2 style={{ fontSize: '20px', fontWeight: '700', color: 'white', margin: 0 }}>{selectedAsset.name}</h2>
                                                 </div>
-
-                                                <LineageStep 
-                                                    icon={<GitCommit size={16} />} color="#38bdf8"
-                                                    label="DOWNSTREAM USAGE"
-                                                    isList={true}
-                                                    listItems={lineage.used_in}
-                                                />
                                             </div>
-                                        )}
+                                            <div style={{ display: 'flex', gap: '24px' }}>
+                                                <StatBox label="Rows" value={selectedAsset.rows?.toLocaleString() || 0} icon={<Layers size={14}/>} />
+                                                <StatBox label="Columns" value={Object.keys(selectedAsset.columns || {}).length} icon={<Table size={14}/>} />
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    <h4 style={{ 
-                                        color: '#e4e4e7', fontSize: '15px', fontWeight: '600', marginBottom: '16px',
-                                        display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.5px'
-                                    }}>
-                                        <Layers size={18} color="#a855f7" /> SCHEMA DEFINITION
-                                    </h4>
-                                    <div style={{ 
-                                        background: 'rgba(0,0,0,0.2)', 
-                                        borderRadius: '16px', 
-                                        flex: 1,
-                                        overflow: 'hidden',
-                                        border: '1px solid rgba(255,255,255,0.03)',
-                                        display: 'flex', flexDirection: 'column'
-                                    }}>
-                                        {Object.keys(selectedAsset.columns || {}).length > 0 ? (
-                                            <>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
-                                                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#71717a', textTransform: 'uppercase' }}>Column Name</span>
-                                                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#71717a', textTransform: 'uppercase' }}>Data Type</span>
+                                    {/* Detail Scrollable Body */}
+                                    <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+                                        
+                                        {/* Lineage Section */}
+                                        <div style={{ marginBottom: '32px' }}>
+                                            <SectionHeader icon={<Activity size={16} color="#f472b6" />} title="DATA LINEAGE" />
+                                            <div style={{ 
+                                                background: 'rgba(0,0,0,0.2)', borderRadius: '12px', padding: '20px', 
+                                                border: '1px solid rgba(255,255,255,0.03)', position: 'relative'
+                                            }}>
+                                                {!lineage ? <div style={{ textAlign: 'center', padding: '10px' }}><Activity className="spin" size={20} color="#71717a" /></div> : (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                                        {/* Source/Origin */}
+                                                        <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <Clock size={14} color="#a1a1aa" />
+                                                            <span style={{ color: '#a1a1aa' }}>{lineage.created_by?.name || "User Upload"}</span>
+                                                        </div>
+                                                        
+                                                        <ArrowRight size={14} color="#52525b" />
+                                                        
+                                                        {/* Current Node */}
+                                                        <div style={{ padding: '8px 12px', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '8px', color: '#e9d5ff', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <Database size={14} />
+                                                            {selectedAsset.name}
+                                                        </div>
+                                                        
+                                                        {/* Downstream */}
+                                                        {lineage.used_in?.length > 0 && (
+                                                            <>
+                                                                <ArrowRight size={14} color="#52525b" />
+                                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                                    {lineage.used_in.map(p => (
+                                                                        <div key={p.id} style={{ padding: '8px 12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '8px', color: '#7dd3fc', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                            <GitCommit size={14} />
+                                                                            {p.name}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Schema Section */}
+                                        <div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                <SectionHeader icon={<Layers size={16} color="#a855f7" />} title="SCHEMA DEFINITION" noMargin />
+                                                
+                                                {/* Schema Search */}
+                                                <div style={{ position: 'relative', width: '200px' }}>
+                                                    <Search size={12} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Filter columns..." 
+                                                        value={schemaSearch}
+                                                        onChange={(e) => setSchemaSearch(e.target.value)}
+                                                        style={{ 
+                                                            width: '100%', padding: '6px 10px 6px 30px', background: 'rgba(0,0,0,0.2)', 
+                                                            border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', 
+                                                            color: 'white', fontSize: '11px', outline: 'none'
+                                                        }}
+                                                    />
                                                 </div>
-                                                <div className="custom-scrollbar" style={{ overflowY: 'auto', flex: 1 }}>
-                                                    <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse' }}>
-                                                        <tbody>
-                                                            {Object.entries(selectedAsset.columns || {}).map(([col, type], idx) => (
-                                                                <tr key={col} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
-                                                                    <td style={{ padding: '12px 20px', color: '#e4e4e7', fontWeight: '500' }}>{col}</td>
-                                                                    <td style={{ padding: '12px 20px', color: '#a1a1aa' }}>
-                                                                        <span style={{ 
-                                                                            fontFamily: 'JetBrains Mono, monospace', 
-                                                                            background: 'rgba(255,255,255,0.05)', 
-                                                                            padding: '4px 8px', 
-                                                                            borderRadius: '6px', 
-                                                                            fontSize: '12px',
-                                                                            color: '#d4d4d8'
-                                                                        }}>{type}</span>
+                                            </div>
+
+                                            <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.03)', overflow: 'hidden' }}>
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                                    <thead>
+                                                        <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                            <th style={{ padding: '12px 20px', fontSize: '11px', color: '#71717a', textTransform: 'uppercase', fontWeight: '700' }}>Column Name</th>
+                                                            <th style={{ padding: '12px 20px', fontSize: '11px', color: '#71717a', textTransform: 'uppercase', fontWeight: '700' }}>Data Type</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {filteredSchema.length > 0 ? (
+                                                            filteredSchema.map(([col, type], idx) => (
+                                                                <tr key={col} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.005)' }}>
+                                                                    <td style={{ padding: '10px 20px', color: '#e4e4e7', fontSize: '13px', fontWeight: '500' }}>{col}</td>
+                                                                    <td style={{ padding: '10px 20px' }}>
+                                                                        <TypeBadge type={type} />
                                                                     </td>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div style={{ padding: '40px', textAlign: 'center', color: '#71717a', fontStyle: 'italic' }}>
-                                                Schema information not available for this asset.
+                                                            ))
+                                                        ) : (
+                                                            <tr>
+                                                                <td colSpan={2} style={{ padding: '30px', textAlign: 'center', color: '#71717a', fontSize: '13px', fontStyle: 'italic' }}>
+                                                                    No columns found matching "{schemaSearch}"
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
                                             </div>
-                                        )}
+                                        </div>
+
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <div style={{ 
+                                    height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+                                    border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '16px', color: '#52525b', gap: '16px' 
+                                }}>
+                                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Search size={24} style={{ opacity: 0.5 }} />
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#a1a1aa', marginBottom: '4px' }}>No Asset Selected</h3>
+                                        <p style={{ fontSize: '13px', color: '#52525b' }}>Select an item from the list to view lineage and schema.</p>
                                     </div>
                                 </div>
-                            </motion.div>
-                        ) : (
-                            <motion.div 
-                                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                style={{ 
-                                    flex: 1, 
-                                    display: 'flex', 
-                                    flexDirection: 'column', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center', 
-                                    color: '#52525b',
-                                    border: '2px dashed rgba(255,255,255,0.05)',
-                                    borderRadius: '24px',
-                                    background: 'rgba(0,0,0,0.1)'
-                                }}
-                            >
-                                <div style={{ 
-                                    width: '80px', height: '80px', borderRadius: '50%', 
-                                    background: 'rgba(255,255,255,0.02)', 
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    marginBottom: '20px'
-                                }}>
-                                    <Search size={32} style={{ opacity: 0.3 }} />
-                                </div>
-                                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#a1a1aa', marginBottom: '8px' }}>No Asset Selected</h3>
-                                <p style={{ fontSize: '14px', maxWidth: '300px', textAlign: 'center' }}>Select an asset from the list to view its schema definition and lineage graph.</p>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                            )}
+                        </AnimatePresence>
+                    </div>
                 </div>
             </div>
         </AppLayout>
     );
 };
 
-const SkeletonCard = () => (
-    <div style={{ 
-        padding: '16px', marginBottom: '12px', borderRadius: '12px',
-        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)'
+/* --- HELPER COMPONENTS --- */
+
+const SectionLabel = ({ label, noMargin }) => (
+    <h4 style={{ 
+        fontSize: '11px', fontWeight: '700', color: '#52525b', textTransform: 'uppercase', 
+        letterSpacing: '1px', marginBottom: noMargin ? 0 : '12px' 
     }}>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)' }} />
-            <div style={{ flex: 1 }}>
-                <div style={{ width: '60%', height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', marginBottom: '8px' }} />
-                <div style={{ width: '40%', height: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
+        {label}
+    </h4>
+);
+
+const FilterButton = ({ label, count, active, onClick, icon }) => (
+    <button 
+        onClick={onClick}
+        style={{
+            width: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '8px 12px',
+            background: active ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+            border: 'none', borderRadius: '8px', cursor: 'pointer',
+            transition: 'all 0.2s',
+            color: active ? '#a78bfa' : '#a1a1aa'
+        }}
+    >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: active ? '600' : '500' }}>
+            {icon}
+            {label}
+        </div>
+        {count !== undefined && (
+            <span style={{ fontSize: '11px', background: active ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>
+                {count}
+            </span>
+        )}
+    </button>
+);
+
+const CompactAssetCard = ({ asset, isSelected, onClick }) => (
+    <div 
+        onClick={onClick}
+        style={{
+            padding: '12px 14px', borderRadius: '10px', cursor: 'pointer',
+            background: isSelected ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255,255,255,0.02)',
+            border: isSelected ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(255,255,255,0.03)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            transition: 'all 0.2s ease',
+            position: 'relative', overflow: 'hidden'
+        }}
+    >
+        {isSelected && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: '#8b5cf6' }} />}
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ color: asset.type === 'Source' ? '#10b981' : '#3b82f6', opacity: 0.8 }}>
+                {asset.type === 'Source' ? <FileText size={16} /> : <Table size={16} />}
+            </div>
+            <div>
+                <div style={{ color: isSelected ? 'white' : '#e4e4e7', fontSize: '13px', fontWeight: '500', marginBottom: '2px' }}>{asset.name}</div>
+                <div style={{ color: '#52525b', fontSize: '11px', display: 'flex', gap: '8px' }}>
+                    <span>{asset.type}</span>
+                    <span>•</span>
+                    <span>{asset.rows?.toLocaleString() ?? 0} rows</span>
+                </div>
             </div>
         </div>
+        {isSelected && <ChevronRight size={14} color="#8b5cf6" />}
     </div>
 );
 
-const AssetCard = ({ asset, isSelected, onClick, variants }) => (
-    <motion.div 
-        variants={variants}
-        onClick={onClick}
-        whileHover={{ 
-            scale: 1.01, 
-            backgroundColor: 'rgba(255,255,255,0.04)', 
-            x: 2 
-        }}
-        whileTap={{ scale: 0.99 }}
-        style={{ 
-            padding: '18px', 
-            marginBottom: '12px', 
-            background: isSelected ? 'rgba(139, 92, 246, 0.1)' : 'rgba(24, 24, 27, 0.6)',
-            border: isSelected ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid rgba(255,255,255,0.05)',
-            borderRadius: '16px',
-            cursor: 'pointer',
-            transition: 'border 0.2s',
-            boxShadow: isSelected ? '0 4px 20px rgba(139, 92, 246, 0.15)' : 'none',
-            position: 'relative',
-            overflow: 'hidden',
-            transformOrigin: 'center center'
-        }}
-    >
-        {isSelected && (
-            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: '#8b5cf6' }} />
-        )}
+const TypeBadge = ({ type }) => {
+    const typeStr = String(type).toUpperCase();
+    const colors = {
+        'INTEGER': '#f59e0b', 'INT': '#f59e0b', 'NUMBER': '#f59e0b',
+        'TEXT': '#3b82f6', 'STRING': '#3b82f6', 'VARCHAR': '#3b82f6',
+        'FLOAT': '#10b981', 'DECIMAL': '#10b981', 'DOUBLE': '#10b981',
+        'BOOLEAN': '#ec4899', 'BOOL': '#ec4899',
+        'DATE': '#8b5cf6', 'DATETIME': '#8b5cf6', 'TIMESTAMP': '#8b5cf6'
+    };
+    const color = colors[typeStr] || '#71717a'; // Default Gray
+    
+    return (
+        <span style={{ 
+            fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', fontWeight: '700', padding: '3px 8px', 
+            borderRadius: '4px', background: `${color}15`, color: color, border: `1px solid ${color}30`,
+            display: 'inline-block'
+        }}>
+            {typeStr}
+        </span>
+    );
+};
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                <div style={{ 
-                    padding: '10px', 
-                    borderRadius: '10px', 
-                    background: asset.type === 'Source' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                    color: asset.type === 'Source' ? '#10b981' : '#3b82f6'
-                }}>
-                    {asset.type === 'Source' ? <FileText size={20} strokeWidth={2} /> : <Table size={20} strokeWidth={2} />}
-                </div>
-                <div>
-                    <h4 style={{ margin: 0, color: isSelected ? 'white' : '#e4e4e7', fontSize: '15px', fontWeight: '600' }}>{asset.name}</h4>
-                    <p style={{ margin: '4px 0 0', color: '#a1a1aa', fontSize: '12px', fontFamily: 'monospace' }}>ID: {asset.id}</p>
-                </div>
-            </div>
-            {isSelected && <ChevronRight size={18} color="#8b5cf6" />}
+const StatBox = ({ label, value, icon }) => (
+    <div style={{ textAlign: 'right' }}>
+        <div style={{ fontSize: '11px', color: '#71717a', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+            {icon} {label}
         </div>
-        
-        <div style={{ paddingLeft: '50px' }}>
-            {asset.matches && asset.matches.length > 0 && (
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                    {asset.matches.map((m, i) => (
-                        <span key={i} style={{ 
-                            fontSize: '10px', 
-                            background: 'rgba(255,255,255,0.08)', 
-                            padding: '3px 8px', 
-                            borderRadius: '6px', 
-                            color: '#e4e4e7',
-                            border: '1px solid rgba(255,255,255,0.05)'
-                        }}>
-                            {m}
-                        </span>
-                    ))}
-                </div>
-            )}
-            <div style={{ fontSize: '12px', color: '#71717a', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Layers size={12} /> {Object.keys(asset.columns || {}).length} columns
-                </span>
-                <span style={{ opacity: 0.3 }}>|</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Database size={12} /> {asset.rows?.toLocaleString()} rows
-                </span>
-            </div>
-        </div>
-    </motion.div>
+        <div style={{ fontSize: '16px', fontWeight: '700', color: 'white', fontFamily: 'Inter, sans-serif' }}>{value}</div>
+    </div>
+);
+
+const SectionHeader = ({ icon, title, noMargin }) => (
+    <h4 style={{ 
+        display: 'flex', alignItems: 'center', gap: '8px', color: '#e4e4e7', 
+        fontSize: '13px', fontWeight: '600', marginBottom: noMargin ? 0 : '16px', letterSpacing: '0.5px' 
+    }}>
+        {icon} {title}
+    </h4>
 );
 
 const Badge = ({ type }) => (
     <span style={{ 
-        fontSize: '10px', 
-        padding: '3px 10px', 
-        borderRadius: '20px', 
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
+        fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontWeight: '700',
         background: type === 'Source' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
         color: type === 'Source' ? '#34d399' : '#60a5fa',
-        border: type === 'Source' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(59, 130, 246, 0.2)'
-    }}>
-        {type}
-    </span>
+        textTransform: 'uppercase'
+    }}>{type}</span>
 );
 
-const LineageStep = ({ icon, color, label, title, subtitle, isList, listItems }) => (
-    <div style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1, padding: '8px 0' }}>
-        <div style={{ 
-            width: '56px', display: 'flex', flexDirection: 'column', alignItems: 'center'
-        }}>
-            <div style={{ 
-                width: '32px', height: '32px', borderRadius: '50%', 
-                background: `${color}15`, 
-                border: `1px solid ${color}40`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: `0 0 15px ${color}20`,
-                marginBottom: '4px'
-            }}>
-                {React.cloneElement(icon, { size: 16, color: color })}
-            </div>
-        </div>
-        
-        <div style={{ flex: 1, paddingTop: '4px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', color: color, letterSpacing: '1px', marginBottom: '6px' }}>
-                {label}
-            </div>
-            
-            {isList ? (
-                listItems && listItems.length > 0 ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {listItems.map(p => (
-                            <motion.div 
-                                whileHover={{ y: -2 }}
-                                key={p.id} 
-                                style={{ 
-                                    background: 'rgba(255,255,255,0.03)', 
-                                    padding: '8px 14px', 
-                                    borderRadius: '10px', 
-                                    border: '1px solid rgba(255,255,255,0.08)',
-                                    cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', gap: '8px'
-                                }}
-                            >
-                                <span style={{ color: '#e4e4e7', fontSize: '13px', fontWeight: '500' }}>{p.name}</span>
-                                <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#a1a1aa' }}>#{p.id}</span>
-                            </motion.div>
-                        ))}
-                    </div>
-                ) : (
-                    <div style={{ color: '#52525b', fontStyle: 'italic', fontSize: '13px' }}>
-                        No active downstream usage detected.
-                    </div>
-                )
-            ) : (
-                <div>
-                    <div style={{ color: '#e4e4e7', fontWeight: '600', fontSize: '15px' }}>{title}</div>
-                    <div style={{ color: '#a1a1aa', fontSize: '13px', marginTop: '2px' }}>{subtitle}</div>
-                </div>
-            )}
-        </div>
+const SkeletonCard = () => (
+    <div style={{ height: '46px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px' }} />
+);
+
+const EmptyState = ({ message }) => (
+    <div style={{ padding: '40px 20px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+        <AlertCircle size={24} color="#52525b" style={{ marginBottom: '12px', opacity: 0.5 }} />
+        <p style={{ fontSize: '13px', color: '#71717a', margin: 0 }}>{message}</p>
     </div>
 );
 
