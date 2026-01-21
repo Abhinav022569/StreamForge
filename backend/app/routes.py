@@ -124,10 +124,16 @@ def delete_account():
     try:
         current_user_id = int(get_jwt_identity())
         user = User.query.get(current_user_id)
+        
+        # 1. Delete items owned by user
         Pipeline.query.filter_by(user_id=current_user_id).delete()
         DataSource.query.filter_by(user_id=current_user_id).delete()
         ProcessedFile.query.filter_by(user_id=current_user_id).delete()
         Notification.query.filter_by(user_id=current_user_id).delete()
+        
+        # 2. NEW: Delete shares received by this user (The Missing Link)
+        SharedPipeline.query.filter_by(user_id=current_user_id).delete()
+
         db.session.delete(user)
         db.session.commit()
         return jsonify({"message": "Account deleted successfully"})
@@ -359,10 +365,34 @@ def get_shared_with_me():
     current_user_id = int(get_jwt_identity())
     shares = SharedPipeline.query.filter_by(user_id=current_user_id).all()
     output = []
+    
     for share in shares:
         p = share.pipeline
-        if not p: continue 
-        output.append({"id": p.id, "name": p.name, "owner_name": p.owner.username, "owner_email": p.owner.email, "role": share.role, "updated_at": p.created_at.strftime('%Y-%m-%d %H:%M'), "version": "1.0", "share_id": share.id})
+        # If the pipeline itself was deleted but the share remains
+        if not p: 
+            db.session.delete(share) # Auto-cleanup
+            continue 
+        
+        owner_user = User.query.get(p.user_id)
+        
+        # If the Owner was deleted, we shouldn't see this share anymore
+        if not owner_user:
+            db.session.delete(share) # Auto-cleanup
+            continue
+
+        output.append({
+            "id": p.id, 
+            "name": p.name, 
+            "owner_name": owner_user.username,
+            "owner_email": owner_user.email,
+            "role": share.role, 
+            "updated_at": p.created_at.strftime('%Y-%m-%d %H:%M'), 
+            "version": "1.0", 
+            "share_id": share.id
+        })
+        
+    # Commit any auto-cleanups
+    db.session.commit()
     return jsonify(output)
 
 @main.route('/collaboration/shared-by-me', methods=['GET'])
@@ -371,12 +401,37 @@ def get_shared_by_me():
     current_user_id = int(get_jwt_identity())
     pipelines = Pipeline.query.filter_by(user_id=current_user_id).all()
     output = []
+    
     for p in pipelines:
         if p.shares.count() > 0:
             shared_users = []
+            # Iterate through shares and filter out deleted users
             for s in p.shares:
-                shared_users.append({"share_id": s.id, "username": s.recipient.username if hasattr(s, 'recipient') else "Unknown", "email": s.recipient.email if hasattr(s, 'recipient') else "Unknown", "role": s.role})
-            output.append({"id": p.id, "name": p.name, "status": p.status, "shared_users": shared_users, "user_count": len(shared_users)})
+                recipient_user = User.query.get(s.user_id)
+                
+                # If the user I shared with no longer exists, remove the share
+                if not recipient_user:
+                    db.session.delete(s) # Auto-cleanup
+                    continue
+                
+                shared_users.append({
+                    "share_id": s.id, 
+                    "username": recipient_user.username, 
+                    "email": recipient_user.email, 
+                    "role": s.role
+                })
+            
+            # Only add to output if there are valid shares left
+            if shared_users:
+                output.append({
+                    "id": p.id, 
+                    "name": p.name, 
+                    "status": p.status, 
+                    "shared_users": shared_users, 
+                    "user_count": len(shared_users)
+                })
+    
+    db.session.commit()
     return jsonify(output)
 
 @main.route('/pipelines/share', methods=['POST'])
@@ -405,7 +460,14 @@ def revoke_share(share_id):
     current_user_id = int(get_jwt_identity())
     share = SharedPipeline.query.get(share_id)
     if not share: return jsonify({"error": "Share not found"}), 404
-    if share.pipeline.user_id == current_user_id or share.user_id == current_user_id:
+    
+    # Allow revocation if:
+    # 1. I am the owner of the pipeline (revoking access from someone)
+    # 2. I am the recipient of the share (leaving the share)
+    is_owner = (share.pipeline.user_id == current_user_id)
+    is_recipient = (share.user_id == current_user_id)
+    
+    if is_owner or is_recipient:
         db.session.delete(share)
         db.session.commit()
         return jsonify({"message": "Access revoked"})

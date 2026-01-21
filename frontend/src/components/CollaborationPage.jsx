@@ -3,544 +3,426 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Users, 
-  Share2,
-  Inbox,
-  Shield,
-  Layers,
-  ExternalLink,
-  X,
-  Mail,
-  AlertCircle,
-  CheckCircle2,
-  Info,
-  AlertTriangle 
+    Share2, Users, Shield, Trash2, Search, 
+    CheckCircle, X, AlertTriangle, Inbox, ExternalLink, Mail, Layers, 
+    Activity, Lock, ArrowRight, Zap, Globe, LayoutGrid
 } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
-import '../App.css'; 
+import '../App.css';
 
 const CollaborationPage = () => {
-  const navigate = useNavigate();
-  const [stats, setStats] = useState({ shared_with_me: 0, my_shared_pipelines: 0, team_members: 0 });
-  const [sharedWithMe, setSharedWithMe] = useState([]);
-  const [sharedByMe, setSharedByMe] = useState([]);
-  
-  // Modal States
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [myPipelines, setMyPipelines] = useState([]);
-  const [shareForm, setShareForm] = useState({ pipelineId: '', email: '', role: 'viewer' });
+    const navigate = useNavigate();
+    const [stats, setStats] = useState({ shared_with_me: 0, my_shared_pipelines: 0, team_members: 0 });
+    const [sharedWithMe, setSharedWithMe] = useState([]);
+    const [sharedByMe, setSharedByMe] = useState([]);
+    const [myPipelines, setMyPipelines] = useState([]); 
+    
+    // Modals & Notifications
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [shareForm, setShareForm] = useState({ pipelineId: '', email: '', role: 'viewer' });
+    const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
+    const [selectedRevoke, setSelectedRevoke] = useState(null); 
+    const [toast, setToast] = useState(null);
 
-  // Notification & Confirmation States
-  const [notification, setNotification] = useState(null);
-  const [revokeModal, setRevokeModal] = useState({ isOpen: false, shareId: null, username: '' });
+    useEffect(() => {
+        fetchData();
+    }, []);
 
-  const showToast = (message, type = 'success') => {
-      setNotification({ message, type });
-      setTimeout(() => setNotification(null), 4000);
-  };
+    const fetchData = async () => {
+        const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
+        try {
+            const [statsRes, withMeRes, byMeRes, pipesRes] = await Promise.all([
+                axios.get('http://127.0.0.1:5000/collaboration/stats', { headers }),
+                axios.get('http://127.0.0.1:5000/collaboration/shared-with-me', { headers }), 
+                axios.get('http://127.0.0.1:5000/collaboration/shared-by-me', { headers }),   
+                axios.get('http://127.0.0.1:5000/pipelines', { headers })
+            ]);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        fetchData(token);
-    }
-  }, [navigate]);
+            setStats(statsRes.data);
+            setSharedWithMe(withMeRes.data);
+            setSharedByMe(byMeRes.data);
+            setMyPipelines(pipesRes.data.filter(p => !p.is_shared)); 
+        } catch (err) {
+            console.error("Error loading data:", err);
+            showToast('Failed to sync collaboration data', 'error');
+        }
+    };
 
-  const fetchData = async (token) => {
-      try {
-          const config = { headers: { Authorization: `Bearer ${token}` } };
-          
-          const statsRes = await axios.get('http://127.0.0.1:5000/collaboration/stats', config);
-          setStats(statsRes.data);
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
-          const withMeRes = await axios.get('http://127.0.0.1:5000/collaboration/shared-with-me', config);
-          setSharedWithMe(withMeRes.data);
+    const handleShare = async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        try {
+            await axios.post('http://127.0.0.1:5000/pipelines/share', {
+                pipeline_id: shareForm.pipelineId,
+                email: shareForm.email,
+                role: shareForm.role
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            showToast('Pipeline shared successfully');
+            setIsShareModalOpen(false);
+            setShareForm({ pipelineId: '', email: '', role: 'viewer' });
+            fetchData();
+        } catch (err) {
+            showToast(err.response?.data?.error || 'Share failed', 'error');
+        }
+    };
 
-          const byMeRes = await axios.get('http://127.0.0.1:5000/collaboration/shared-by-me', config);
-          setSharedByMe(byMeRes.data);
+    const openRevokeModal = (shareId, username, type) => {
+        setSelectedRevoke({ shareId, username, type });
+        setIsRevokeModalOpen(true);
+    };
 
-          const myPipesRes = await axios.get('http://127.0.0.1:5000/pipelines', config);
-          setMyPipelines(myPipesRes.data.filter(p => !p.is_shared)); // Only show non-shared pipelines in dropdown
+    const confirmRevoke = async () => {
+        if (!selectedRevoke) return;
+        const token = localStorage.getItem('token');
+        try {
+            await axios.delete(`http://127.0.0.1:5000/pipelines/share/${selectedRevoke.shareId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            showToast(selectedRevoke.type === 'leave' ? 'Left shared pipeline' : 'Access revoked');
+            setIsRevokeModalOpen(false);
+            setSelectedRevoke(null);
+            fetchData();
+        } catch (err) {
+            showToast('Failed to perform action', 'error');
+        }
+    };
 
-      } catch (err) {
-          console.error("Error fetching collaboration data:", err);
-          showToast("Failed to load data", "error");
-      }
-  };
+    // --- ANIMATIONS ---
+    const pageTransition = {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
+    };
 
-  const handleShareSubmit = async () => {
-      const token = localStorage.getItem('token');
-      try {
-          await axios.post('http://127.0.0.1:5000/pipelines/share', {
-              pipeline_id: shareForm.pipelineId,
-              email: shareForm.email,
-              role: shareForm.role
-          }, { headers: { Authorization: `Bearer ${token}` } });
-          
-          showToast("Pipeline shared successfully!", "success");
-          setShowShareModal(false);
-          setShareForm({ pipelineId: '', email: '', role: 'viewer' });
-          fetchData(token); 
-      } catch (err) {
-          showToast("Share failed: " + (err.response?.data?.error || err.message), "error");
-      }
-  };
+    const slideInLeft = {
+        hidden: { x: -20, opacity: 0 },
+        visible: { x: 0, opacity: 1, transition: { duration: 0.4, ease: "easeOut" } }
+    };
 
-  const initiateRevoke = (shareId, username) => {
-      setRevokeModal({ isOpen: true, shareId, username });
-  };
+    const fadeInUp = {
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 200, damping: 20 } }
+    };
 
-  const confirmRevoke = async () => {
-      const { shareId } = revokeModal;
-      const token = localStorage.getItem('token');
-      try {
-          await axios.delete(`http://127.0.0.1:5000/pipelines/share/${shareId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
-          fetchData(token);
-          showToast("Access revoked successfully", "success");
-      } catch (err) {
-          showToast("Failed to revoke access", "error");
-      } finally {
-          setRevokeModal({ isOpen: false, shareId: null, username: '' });
-      }
-  };
+    return (
+        <AppLayout>
+            <style>
+                {`
+                    .glass-panel-dark {
+                        background: rgba(18, 18, 21, 0.6);
+                        backdrop-filter: blur(20px);
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+                    }
+                    .glass-card-light {
+                        background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
+                    }
+                    .custom-scrollbar::-webkit-scrollbar { display: none; }
+                    .role-badge-editor {
+                        background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3);
+                    }
+                    .role-badge-viewer {
+                        background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);
+                    }
+                `}
+            </style>
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
-  };
-
-  const ToastNotification = () => (
-    <AnimatePresence>
-        {notification && (
             <motion.div 
-                initial={{ opacity: 0, y: -50, x: '-50%' }} 
-                animate={{ opacity: 1, y: 20, x: '-50%' }} 
-                exit={{ opacity: 0, y: -20, x: '-50%' }}
-                style={{
-                    position: 'fixed', left: '50%', top: 0, zIndex: 2000,
-                    background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 
-                                notification.type === 'info' ? 'rgba(59, 130, 246, 0.9)' : 
-                                'rgba(16, 185, 129, 0.9)',
-                    color: 'white', padding: '12px 24px', borderRadius: '50px',
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center',
-                    maxWidth: '90%'
+                initial="hidden" 
+                animate="visible" 
+                variants={pageTransition}
+                style={{ 
+                    padding: '24px 40px', 
+                    width: '100%', 
+                    height: '100%', 
+                    boxSizing: 'border-box', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    overflow: 'hidden'
                 }}
             >
-                {notification.type === 'error' ? <AlertCircle size={20} /> : 
-                 notification.type === 'info' ? <Info size={20} /> :
-                 <CheckCircle2 size={20} />}
-                <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
-                <button 
-                    onClick={() => setNotification(null)}
-                    style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
-                >
-                    <X size={16} />
-                </button>
-            </motion.div>
-        )}
-    </AnimatePresence>
-  );
-
-  return (
-    <AppLayout>
-      <ToastNotification />
-
-      <AnimatePresence>
-        {revokeModal.isOpen && (
-            <motion.div 
-                style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
-                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '20px'
-                }}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            >
-                <motion.div 
-                    style={{
-                        width: '100%', maxWidth: '400px', background: '#18181b', 
-                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
-                        padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                    }}
-                    initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                >
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px' }}>
-                        <div style={{ 
-                            width: '60px', height: '60px', borderRadius: '50%', 
-                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <AlertTriangle size={32} />
-                        </div>
-                        
-                        <h3 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Revoke Access?</h3>
-                        
-                        <p style={{ margin: 0, color: '#a1a1aa', fontSize: '14px', lineHeight: '1.5' }}>
-                            Are you sure you want to remove access for <b style={{ color: 'white' }}>{revokeModal.username}</b>? 
-                            <br/>They will no longer be able to view or edit this pipeline.
-                        </p>
-
-                        <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '10px' }}>
-                            <button 
-                                onClick={() => setRevokeModal({ isOpen: false, shareId: null, username: '' })}
-                                className="btn btn-ghost"
-                                style={{ flex: 1, justifyContent: 'center' }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={confirmRevoke}
-                                className="btn"
-                                style={{ 
-                                    flex: 1, justifyContent: 'center', 
-                                    background: '#ef4444', color: 'white', border: 'none', fontWeight: '600' 
-                                }}
-                            >
-                                Revoke Access
-                            </button>
+                
+                {/* --- 1. HEADER --- */}
+                <motion.div variants={slideInLeft} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+                                <Globe size={28} color="white" />
+                            </div>
+                            <div>
+                                <h1 style={{ fontSize: '32px', fontWeight: '800', color: 'white', margin: 0, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                                    Network
+                                </h1>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                    <span style={{ width: '6px', height: '6px', background: '#10b981', borderRadius: '50%', boxShadow: '0 0 8px #10b981' }}></span>
+                                    <span style={{ fontSize: '13px', color: '#a1a1aa', fontWeight: '500' }}>Collaboration Hub Active</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsShareModalOpen(true)}
+                        style={{ 
+                            background: 'white', color: 'black', border: 'none', 
+                            padding: '14px 28px', borderRadius: '50px', fontWeight: '700', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 25px rgba(255,255,255,0.15)',
+                            fontSize: '14px'
+                        }}
+                    >
+                        <Share2 size={18} /> Share Pipeline
+                    </motion.button>
                 </motion.div>
-            </motion.div>
-        )}
-      </AnimatePresence>
 
-      <motion.div 
-          className="content-wrapper"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          style={{ paddingBottom: '60px' }}
-        >
-          
-          <motion.div className="dashboard-header-flex" style={{ marginBottom: '40px', alignItems: 'flex-end' }} variants={itemVariants}>
-            <div>
-                <p className="text-muted" style={{ fontSize: '13px', margin: 0, textTransform: 'uppercase', letterSpacing: '1px', color: '#10b981' }}>Collaboration Hub</p>
-                <h1 style={{ fontSize: '32px', marginBottom: '5px', marginTop: '5px', background: 'linear-gradient(90deg, #fff, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Team Collaboration</h1>
-                <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>Manage shared pipelines and coordinate with your team.</p>
-            </div>
-            
-            <motion.button 
-                className="btn btn-success" 
-                onClick={() => setShowShareModal(true)}
-                whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(16,185,129,0.4)' }}
-                whileTap={{ scale: 0.95 }}
-                style={{ 
-                  display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600',
-                  padding: '8px 16px', fontSize: '13px', height: '36px'     
-                }}
-            >
-                <Share2 size={14} />
-                Share Pipeline
-            </motion.button>
-          </motion.div>
+                {/* --- 2. SPLIT LAYOUT --- */}
+                <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '40px', flex: 1, overflow: 'hidden' }}>
+                    
+                    {/* === LEFT COLUMN: MANAGEMENT === */}
+                    <motion.div variants={slideInLeft} style={{ display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto', paddingRight: '4px' }} className="custom-scrollbar">
+                        
+                        {/* Stats */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <StatBox label="Active Collaborators" value={stats.team_members} icon={<Users size={20} />} color="#f59e0b" />
+                            <StatBox label="Incoming Projects" value={stats.shared_with_me} icon={<Inbox size={20} />} color="#3b82f6" />
+                            <StatBox label="Outgoing Shares" value={stats.my_shared_pipelines} icon={<Share2 size={20} />} color="#8b5cf6" />
+                        </div>
 
-          <motion.div className="stats-grid" style={{ marginBottom: '40px' }} variants={itemVariants}>
-              <CollabStatCard title="SHARED WITH ME" value={stats.shared_with_me} sub="Pipelines accessible" icon={<Inbox size={24} />} color="#3b82f6" />
-              <CollabStatCard title="MY SHARED PIPELINES" value={stats.my_shared_pipelines} sub="Active shares" icon={<Share2 size={24} />} color="#a855f7" />
-              <CollabStatCard title="TEAM MEMBERS" value={stats.team_members} sub="In your network" icon={<Users size={24} />} color="#eab308" />
-          </motion.div>
+                        {/* Outgoing List */}
+                        <div className="glass-panel-dark" style={{ borderRadius: '24px', padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Shield size={18} color="#a1a1aa" />
+                                    <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'white', margin: 0 }}>Outgoing Access</h3>
+                                </div>
+                                <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '10px', color: '#71717a' }}>
+                                    {sharedByMe.length} Items
+                                </span>
+                            </div>
 
-          {/* Shared With Me */}
-          <motion.h3 style={{ marginBottom: '15px', marginTop: '30px', color: '#e4e4e7', fontSize: '18px' }} variants={itemVariants}>Shared With Me</motion.h3>
-          <motion.div 
-            className="card"
-            variants={itemVariants}
-            style={{ 
-                background: 'rgba(24, 24, 27, 0.4)', 
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                overflow: 'hidden'
-            }}
-          >
-            <div className="table-responsive">
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Pipeline Name</th>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Owner</th>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>My Role</th>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Updated</th>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sharedWithMe.length === 0 ? (
-                            <tr><td colSpan="5" className="text-center text-muted" style={{ padding: '40px' }}>No pipelines shared with you yet.</td></tr>
-                        ) : (
-                            sharedWithMe.map(p => (
-                                <motion.tr 
-                                    key={p.share_id}
-                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                                >
-                                    <td className="font-bold" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7', minWidth: '200px' }}>
-                                        <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '6px', borderRadius: '6px', color: '#3b82f6' }}>
-                                            <Layers size={16} />
-                                        </div>
-                                        {p.name.replace(' (Shared)', '')}
-                                    </td>
-                                    <td>
-                                        <div className="flex items-center gap-10">
-                                            <div className="profile-avatar" style={{ width: '24px', height: '24px', fontSize: '10px', background: '#27272a', border: '1px solid #3f3f46' }}>{p.owner_name[0]}</div>
-                                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#d4d4d8', whiteSpace: 'nowrap' }}>{p.owner_name}</div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span style={{ 
-                                            background: 'rgba(59, 130, 246, 0.1)', 
-                                            color: '#3b82f6', 
-                                            border: '1px solid rgba(59, 130, 246, 0.2)',
-                                            padding: '2px 8px', 
-                                            borderRadius: '4px', 
-                                            fontSize: '11px', 
-                                            textTransform: 'uppercase',
-                                            fontWeight: '600' 
-                                        }}>
-                                            {p.role}
-                                        </span>
-                                    </td>
-                                    <td className="text-muted" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{p.updated_at}</td>
-                                    <td style={{ textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            <motion.button 
-                                                className="btn btn-ghost" 
-                                                style={{ fontSize: '12px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
-                                                onClick={() => navigate(`/builder/${p.id}`)}
-                                                whileHover={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}
-                                            >
-                                                <ExternalLink size={12} /> Open
-                                            </motion.button>
-                                            <motion.button 
-                                                onClick={() => initiateRevoke(p.share_id, p.owner_name)} 
-                                                className="btn btn-ghost" 
-                                                style={{ fontSize: '12px', padding: '4px 10px', color: '#64748b', border: '1px solid transparent' }} 
-                                                title="Leave Share"
-                                                whileHover={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}
-                                            >
-                                                <X size={14} />
-                                            </motion.button>
-                                        </div>
-                                    </td>
-                                </motion.tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-          </motion.div>
-
-          {/* My Shared Pipelines */}
-          <motion.h3 style={{ marginBottom: '15px', marginTop: '40px', color: '#e4e4e7', fontSize: '18px' }} variants={itemVariants}>My Shared Pipelines</motion.h3>
-          <motion.div 
-            className="card"
-            variants={itemVariants}
-            style={{ 
-                background: 'rgba(24, 24, 27, 0.4)', 
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                overflow: 'hidden'
-            }}
-          >
-            <div className="table-responsive">
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Pipeline Name</th>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Shared With</th>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Status</th>
-                            <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Manage</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sharedByMe.length === 0 ? (
-                            <tr><td colSpan="4" className="text-center text-muted" style={{ padding: '40px' }}>You haven't shared any pipelines yet.</td></tr>
-                        ) : (
-                            sharedByMe.map(p => (
-                                <motion.tr 
-                                    key={p.id}
-                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                                >
-                                    <td className="font-bold" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7', minWidth: '200px' }}>
-                                        <div style={{ background: 'rgba(234, 179, 8, 0.1)', padding: '6px', borderRadius: '6px', color: '#eab308' }}>
-                                            <Share2 size={16} />
-                                        </div>
-                                        {p.name}
-                                    </td>
-                                    <td>
-                                        <div className="flex items-center gap-5">
-                                            {p.shared_users.slice(0, 3).map((u, i) => (
-                                                <div key={i} className="profile-avatar" style={{ width: '24px', height: '24px', fontSize: '10px', border: '1px solid #3f3f46', background: '#27272a' }} title={`${u.username} (${u.role})`}>
-                                                    {u.username[0]}
-                                                </div>
-                                            ))}
-                                            {p.user_count > 3 && <span className="text-muted" style={{ fontSize: '12px' }}>+{p.user_count - 3}</span>}
-                                            <span className="text-muted" style={{ fontSize: '12px', marginLeft: '5px', whiteSpace: 'nowrap' }}>{p.user_count} users</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span style={{
-                                            background: 'rgba(16, 185, 129, 0.15)',
-                                            color: '#10b981',
-                                            border: '1px solid rgba(16, 185, 129, 0.3)',
-                                            padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600'
-                                        }}>
-                                            Active
-                                        </span>
-                                    </td>
-                                    <td style={{ textAlign: 'right', minWidth: '150px' }}>
-                                        {p.shared_users.map(u => (
-                                            <div key={u.share_id} style={{ display: 'inline-flex', alignItems: 'center', marginRight: '8px', background: 'rgba(255,255,255,0.03)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}>
-                                                <span className="text-muted" style={{ fontSize: '11px', marginRight: '5px' }}>{u.username}</span>
-                                                <button 
-                                                    style={{ 
-                                                        background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 
-                                                    }}
-                                                    onClick={() => initiateRevoke(u.share_id, u.username)}
-                                                    title="Revoke Access"
-                                                >
-                                                    <X size={12} />
-                                                </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                {sharedByMe.length === 0 ? (
+                                    <div style={{ padding: '40px 0', textAlign: 'center', color: '#52525b', fontSize: '13px', border: '1px dashed rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+                                        No active shares.
+                                    </div>
+                                ) : (
+                                    sharedByMe.map((p, i) => (
+                                        <div key={i} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', padding: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                <span style={{ fontWeight: '600', color: 'white', fontSize: '14px' }}>{p.name}</span>
+                                                <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.1)', color: '#d4d4d8', padding: '2px 6px', borderRadius: '4px' }}>{p.user_count} Users</span>
                                             </div>
-                                        ))}
-                                    </td>
-                                </motion.tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-          </motion.div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {p.shared_users.map(u => (
+                                                    <div key={u.share_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#3f3f46', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e4e4e7', border: '1px solid #52525b' }}>
+                                                                {u.username ? u.username[0].toUpperCase() : '?'}
+                                                            </div>
+                                                            <span style={{ fontSize: '13px', color: '#a1a1aa' }}>{u.username || 'Unknown'}</span>
+                                                        </div>
+                                                        <Trash2 
+                                                            size={14} 
+                                                            style={{ cursor: 'pointer', color: '#52525b', transition: 'color 0.2s' }} 
+                                                            onClick={() => openRevokeModal(u.share_id, u.username, 'revoke')}
+                                                            onMouseEnter={(e) => e.target.style.color = '#ef4444'}
+                                                            onMouseLeave={(e) => e.target.style.color = '#52525b'}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
 
-        </motion.div>
+                    {/* === RIGHT COLUMN: WORKSPACE === */}
+                    <motion.div variants={fadeInUp} style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '20px', fontWeight: '700', color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <LayoutGrid size={22} color="#3b82f6" /> Shared With Me
+                            </h3>
+                            <div style={{ height: '1px', flex: 1, background: 'rgba(255,255,255,0.1)', marginLeft: '24px' }}></div>
+                        </div>
 
-      {/* SHARE MODAL */}
-      <AnimatePresence>
-      {showShareModal && (
-          <motion.div 
-            style={{
-              position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-              backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-              zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center',
-              padding: '20px'
-            }}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          >
-              <motion.div 
-                className="card" 
-                style={{ 
-                    width: '100%', maxWidth: '400px', padding: '30px',
-                    background: 'rgba(24, 24, 27, 0.9)', 
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
-                }}
-                initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Share Pipeline</h2>
-                    <button onClick={() => setShowShareModal(false)} style={{ background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}><X size={20} /></button>
-                  </div>
-                  
-                  <div className="input-group">
-                      <label className="input-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Layers size={14}/> Select Pipeline</label>
-                      <select 
-                          className="select-field"
-                          value={shareForm.pipelineId}
-                          onChange={(e) => setShareForm({...shareForm, pipelineId: e.target.value})}
-                          style={{ background: '#18181b', border: '1px solid #3f3f46', color: 'white', width: '100%', padding: '10px', borderRadius: '6px' }}
-                      >
-                          <option value="">-- Choose a Pipeline --</option>
-                          {myPipelines.map(p => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
-                      </select>
-                  </div>
+                        {/* ADDED PADDING TO CONTAINER HERE */}
+                        <div className="custom-scrollbar" style={{ overflowY: 'auto', flex: 1, paddingBottom: '40px' }}>
+                            {sharedWithMe.length === 0 ? (
+                                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '24px', color: '#52525b', minHeight: '400px' }}>
+                                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '50%', marginBottom: '16px' }}>
+                                        <Inbox size={48} style={{ opacity: 0.3 }} />
+                                    </div>
+                                    <p style={{ fontSize: '16px', fontWeight: '500' }}>Your inbox is empty.</p>
+                                    <p style={{ fontSize: '13px', opacity: 0.6 }}>Pipelines shared with you will appear here.</p>
+                                </div>
+                            ) : (
+                                <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
+                                    gap: '24px', 
+                                    padding: '12px' // <--- ADDED PADDING TO FIX CLIPPING
+                                }}>
+                                    {sharedWithMe.map((item, i) => (
+                                        <ProjectCard 
+                                            key={i} 
+                                            item={item} 
+                                            openRevokeModal={openRevokeModal} 
+                                            navigate={navigate}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
 
-                  <div className="input-group">
-                      <label className="input-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Mail size={14}/> User Email</label>
-                      <input 
-                          className="input-field" 
-                          type="email" 
-                          placeholder="colleague@example.com"
-                          value={shareForm.email}
-                          onChange={(e) => setShareForm({...shareForm, email: e.target.value})}
-                          style={{ background: '#18181b', border: '1px solid #3f3f46', color: 'white', width: '100%', padding: '10px', borderRadius: '6px' }}
-                      />
-                  </div>
+                </div>
 
-                  <div className="input-group">
-                      <label className="input-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Shield size={14}/> Role</label>
-                      <select 
-                          className="select-field" 
-                          value={shareForm.role}
-                          onChange={(e) => setShareForm({...shareForm, role: e.target.value})}
-                          style={{ background: '#18181b', border: '1px solid #3f3f46', color: 'white', width: '100%', padding: '10px', borderRadius: '6px' }}
-                      >
-                          <option value="viewer">Viewer (Read Only)</option>
-                          <option value="editor">Editor (Can Edit)</option>
-                      </select>
-                  </div>
+                {/* --- MODALS --- */}
+                <AnimatePresence>
+                    {toast && <Toast toast={toast} />}
+                    {isShareModalOpen && <ShareModal close={() => setIsShareModalOpen(false)} myPipelines={myPipelines} shareForm={shareForm} setShareForm={setShareForm} handleShare={handleShare} />}
+                    {isRevokeModalOpen && <RevokeModal close={() => setIsRevokeModalOpen(false)} selectedRevoke={selectedRevoke} confirmRevoke={confirmRevoke} />}
+                </AnimatePresence>
 
-                  <div className="flex gap-10 justify-end mt-30" style={{ marginTop: '30px' }}>
-                      <button className="btn btn-ghost" onClick={() => setShowShareModal(false)}>Cancel</button>
-                      <button className="btn btn-success" onClick={handleShareSubmit} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <Share2 size={16} /> Share
-                      </button>
-                  </div>
-              </motion.div>
-          </motion.div>
-      )}
-      </AnimatePresence>
-
-    </AppLayout>
-  );
+            </motion.div>
+        </AppLayout>
+    );
 };
 
-const CollabStatCard = ({ title, value, sub, icon, color }) => (
-    <motion.div 
-        className="card" 
-        style={{ 
-            flex: 1, 
-            padding: '24px', 
-            background: 'rgba(24, 24, 27, 0.4)', 
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            position: 'relative',
-            overflow: 'hidden'
-        }}
-        whileHover={{ y: -5, borderColor: `rgba(${parseInt(color.slice(1,3),16)}, ${parseInt(color.slice(3,5),16)}, ${parseInt(color.slice(5,7),16)}, 0.4)` }}
-    >
-        <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '60px', height: '60px', background: color, filter: 'blur(40px)', opacity: 0.1 }}></div>
-        
-        <p className="text-muted" style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '1px', marginBottom: '15px', textTransform: 'uppercase' }}>{title}</p>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-            <div>
-                <h2 style={{ fontSize: '36px', margin: 0, fontWeight: 'bold', color: 'white', lineHeight: 1 }}>{value}</h2>
-                <p style={{ fontSize: '13px', marginTop: '5px', color: color, margin: '5px 0 0 0' }}>{sub}</p>
-            </div>
-            <div style={{ 
-                background: `rgba(${parseInt(color.slice(1,3),16)}, ${parseInt(color.slice(3,5),16)}, ${parseInt(color.slice(5,7),16)}, 0.1)`, 
-                padding: '10px', 
-                borderRadius: '8px',
-                color: color
-            }}>
-                {icon}
-            </div>
+// --- SUB-COMPONENTS ---
+
+const StatBox = ({ label, value, icon, color }) => (
+    <div style={{ background: 'rgba(24, 24, 27, 0.6)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ background: `${color}15`, padding: '12px', borderRadius: '14px', color: color }}>{icon}</div>
+        <div>
+            <div style={{ fontSize: '28px', fontWeight: '800', color: 'white', lineHeight: 1 }}>{value}</div>
+            <div style={{ fontSize: '12px', color: '#a1a1aa', fontWeight: '600', textTransform: 'uppercase', marginTop: '6px', letterSpacing: '0.5px' }}>{label}</div>
         </div>
+    </div>
+);
+
+const ProjectCard = ({ item, openRevokeModal, navigate }) => {
+    const ownerName = item.owner_name || item.owner || 'Unknown';
+    return (
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ 
+                scale: 1.02,
+                boxShadow: '0 20px 40px -12px rgba(0,0,0,0.6)',
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                borderColor: 'rgba(255,255,255,0.1)'
+            }}
+            transition={{ duration: 0.2 }}
+            className="glass-card-light"
+            style={{ borderRadius: '24px', padding: '28px', position: 'relative', display: 'flex', flexDirection: 'column', height: '240px', justifyContent: 'space-between', cursor: 'default' }}
+        >
+            <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            {ownerName[0].toUpperCase()}
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '14px', color: '#e4e4e7', fontWeight: '600' }}>{ownerName}</div>
+                            <div style={{ fontSize: '11px', color: '#71717a' }}>Owner</div>
+                        </div>
+                    </div>
+                    <span className={item.role === 'editor' ? 'role-badge-editor' : 'role-badge-viewer'} style={{ fontSize: '11px', fontWeight: '700', padding: '6px 10px', borderRadius: '8px', textTransform: 'uppercase' }}>
+                        {item.role}
+                    </span>
+                </div>
+                
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'white', margin: '0 0 12px 0', lineHeight: '1.4' }}>
+                    {item.name.replace(' (Shared)', '')}
+                </h3>
+                <div style={{ display: 'flex', gap: '10px', fontSize: '12px', color: '#a1a1aa' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Activity size={12} color="#10b981" /> Active</span>
+                    <span style={{ opacity: 0.3 }}>|</span>
+                    <span>Updated {item.updated_at.split(' ')[0]}</span>
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <button 
+                    onClick={() => navigate(`/builder/${item.id || item.pipeline_id}`)}
+                    style={{ width: '100%', padding: '12px', borderRadius: '14px', background: 'white', color: 'black', border: 'none', fontWeight: '600', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(255,255,255,0.1)' }}
+                >
+                    Open Canvas <ArrowRight size={16} />
+                </button>
+                <button 
+                    onClick={() => openRevokeModal(item.share_id, item.name, 'leave')}
+                    style={{ padding: '12px', borderRadius: '14px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
+                    title="Leave Project"
+                >
+                    <X size={20} />
+                </button>
+            </div>
+        </motion.div>
+    );
+}
+
+const Toast = ({ toast }) => (
+    <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)', background: toast.type==='error'?'#ef4444':'#10b981', color: 'white', padding: '12px 24px', borderRadius: '50px', zIndex: 9999, display: 'flex', gap: '10px', alignItems: 'center' }}>
+        {toast.type==='error' ? <AlertTriangle size={18} /> : <CheckCircle size={18} />} {toast.message}
     </motion.div>
+);
+
+const ShareModal = ({ close, myPipelines, shareForm, setShareForm, handleShare }) => (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={close}>
+        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} style={{ width: '420px', background: '#18181b', padding: '32px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+            <h2 style={{ color: 'white', margin: '0 0 24px 0', fontSize: '22px' }}>Share Pipeline</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                    <label style={{ display: 'block', color: '#a1a1aa', fontSize: '13px', marginBottom: '8px', fontWeight: '500' }}>Select Pipeline</label>
+                    <select value={shareForm.pipelineId} onChange={e => setShareForm({...shareForm, pipelineId: e.target.value})} style={{ width: '100%', background: '#27272a', color: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #3f3f46', outline: 'none' }}>
+                        <option value="">Choose pipeline...</option>
+                        {myPipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label style={{ display: 'block', color: '#a1a1aa', fontSize: '13px', marginBottom: '8px', fontWeight: '500' }}>User Email</label>
+                    <input type="email" placeholder="colleague@example.com" value={shareForm.email} onChange={e => setShareForm({...shareForm, email: e.target.value})} style={{ width: '100%', background: '#27272a', color: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #3f3f46', outline: 'none' }} />
+                </div>
+                <div>
+                    <label style={{ display: 'block', color: '#a1a1aa', fontSize: '13px', marginBottom: '8px', fontWeight: '500' }}>Access Level</label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        {['viewer', 'editor'].map(role => (
+                            <div key={role} onClick={() => setShareForm({...shareForm, role})} style={{ flex: 1, padding: '10px', textAlign: 'center', borderRadius: '10px', background: shareForm.role===role ? 'rgba(99, 102, 241, 0.2)' : '#27272a', color: shareForm.role===role?'#818cf8':'#71717a', border: shareForm.role===role ? '1px solid #6366f1' : '1px solid #3f3f46', cursor: 'pointer', textTransform: 'capitalize', fontWeight: '600', fontSize: '14px' }}>{role}</div>
+                        ))}
+                    </div>
+                </div>
+                <button onClick={handleShare} style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: 'white', fontWeight: '600', fontSize: '15px', cursor: 'pointer', marginTop: '10px' }}>Send Invite</button>
+            </div>
+        </motion.div>
+    </div>
+);
+
+const RevokeModal = ({ close, selectedRevoke, confirmRevoke }) => (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={close}>
+        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={e => e.stopPropagation()} style={{ width: '380px', background: '#18181b', padding: '32px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                <AlertTriangle size={32} />
+            </div>
+            <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '20px' }}>Confirm Action</h3>
+            <p style={{ color: '#a1a1aa', fontSize: '15px', marginBottom: '24px', lineHeight: '1.5' }}>
+                {selectedRevoke.type === 'leave' ? 'Are you sure you want to leave this shared pipeline?' : `Revoke access for ${selectedRevoke.username}?`}
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={close} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', fontWeight: '500' }}>Cancel</button>
+                <button onClick={confirmRevoke} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', fontWeight: '600' }}>Confirm</button>
+            </div>
+        </motion.div>
+    </div>
 );
 
 export default CollaborationPage;
