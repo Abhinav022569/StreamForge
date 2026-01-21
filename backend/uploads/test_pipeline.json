@@ -1,0 +1,75 @@
+{
+  "nodes": [
+    {
+      "id": "1",
+      "type": "sourceNode",
+      "position": { "x": 100, "y": 100 },
+      "data": { "label": "employees.csv", "filename": "employees.csv" }
+    },
+    {
+      "id": "2",
+      "type": "sourceNode",
+      "position": { "x": 100, "y": 300 },
+      "data": { "label": "departments.csv", "filename": "departments.csv" }
+    },
+    {
+      "id": "3",
+      "type": "filterNode",
+      "position": { "x": 400, "y": 100 },
+      "data": { "label": "Salary > 65k", "column": "salary", "condition": ">", "value": "65000" }
+    },
+    {
+      "id": "4",
+      "type": "trans_string",
+      "position": { "x": 700, "y": 100 },
+      "data": { "label": "UPPERCASE Name", "column": "name", "operation": "upper" }
+    },
+    {
+      "id": "5",
+      "type": "trans_calc",
+      "position": { "x": 1000, "y": 100 },
+      "data": { "label": "Add Bonus", "colA": "salary", "colB": "salary", "op": "*", "newCol": "bonus", "value": "0.1" } 
+    },
+    {
+      "id": "6",
+      "type": "trans_join",
+      "position": { "x": 700, "y": 300 },
+      "data": { "label": "Join Dept", "key": "department", "how": "inner" } 
+    },
+    {
+      "id": "7",
+      "type": "trans_rename",
+      "position": { "x": 400, "y": 300 },
+      "data": { "label": "Rename Key", "oldName": "dept_name", "newName": "department" }
+    },
+    {
+      "id": "8",
+      "type": "trans_group",
+      "position": { "x": 1000, "y": 300 },
+      "data": { "label": "Avg Salary by Loc", "groupCol": "location", "targetCol": "salary", "operation": "mean" }
+    },
+    {
+      "id": "9",
+      "type": "vis_chart",
+      "position": { "x": 1300, "y": 100 },
+      "data": { "label": "Salary Chart", "x_col": "name", "y_col": "salary", "chartType": "bar", "outputName": "salary_viz" }
+    },
+    {
+      "id": "10",
+      "type": "dest_json",
+      "position": { "x": 1300, "y": 300 },
+      "data": { "label": "Save Report", "outputName": "final_report.json" }
+    }
+  ],
+  "edges": [
+    { "id": "e1-3", "source": "1", "target": "3" },
+    { "id": "e3-4", "source": "3", "target": "4" },
+    { "id": "e4-5", "source": "4", "target": "5" },
+    { "id": "e5-9", "source": "5", "target": "9" },
+    { "id": "e2-7", "source": "2", "target": "7" },
+    { "id": "e5-6a", "source": "5", "target": "6" },
+    { "id": "e7-6b", "source": "7", "target": "6" },
+    { "id": "e6-8", "source": "6", "target": "8" },
+    { "id": "e8-10", "source": "8", "target": "10" }
+  ]
+}

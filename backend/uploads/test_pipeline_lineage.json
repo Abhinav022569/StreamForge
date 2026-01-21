@@ -1,0 +1,58 @@
+{
+  "name": "Lineage Demo: Top Earners",
+  "nodes": [
+    {
+      "id": "src_1",
+      "type": "sourceNode",
+      "position": { "x": 100, "y": 100 },
+      "data": { "label": "final_report.json", "filename": "final_report.json" }
+    },
+    {
+      "id": "trans_1",
+      "type": "trans_cast",
+      "position": { "x": 400, "y": 100 },
+      "data": { "label": "Cast Salary", "column": "salary", "targetType": "float" }
+    },
+    {
+      "id": "trans_2",
+      "type": "trans_fillna",
+      "position": { "x": 700, "y": 100 },
+      "data": { "label": "Fill Missing Bonus", "column": "bonus", "value": "0" }
+    },
+    {
+      "id": "trans_3",
+      "type": "trans_python",
+      "position": { "x": 1000, "y": 100 },
+      "data": { 
+        "label": "Calc Tax (Python)", 
+        "code": "df['tax'] = df['salary'] * 0.2\ndf['net_income'] = df['salary'] - df['tax']" 
+      }
+    },
+    {
+      "id": "trans_4",
+      "type": "trans_sort",
+      "position": { "x": 1000, "y": 300 },
+      "data": { "label": "Sort by Salary", "column": "salary", "order": "false" } 
+    },
+    {
+      "id": "trans_5",
+      "type": "trans_limit",
+      "position": { "x": 700, "y": 300 },
+      "data": { "label": "Top 5", "limit": "5" }
+    },
+    {
+      "id": "dest_1",
+      "type": "dest_csv",
+      "position": { "x": 400, "y": 300 },
+      "data": { "label": "Save Top Earners", "outputName": "top_earners.csv" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "src_1", "target": "trans_1" },
+    { "id": "e2", "source": "trans_1", "target": "trans_2" },
+    { "id": "e3", "source": "trans_2", "target": "trans_3" },
+    { "id": "e4", "source": "trans_3", "target": "trans_4" },
+    { "id": "e5", "source": "trans_4", "target": "trans_5" },
+    { "id": "e6", "source": "trans_5", "target": "dest_1" }
+  ]
+}

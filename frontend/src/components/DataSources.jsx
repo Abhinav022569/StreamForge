@@ -2,381 +2,398 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  UploadCloud,
-  FileText,
-  Trash2,
-  FileSpreadsheet,
-  FileJson,
-  AlertCircle,
-  CheckCircle2,
-  Info,
-  X,
-  AlertTriangle
+    Database, UploadCloud, Trash2, FileText, FileJson, 
+    Table, Search, CheckCircle, Clock, 
+    Filter, Plus, AlertCircle, ArrowUpRight
 } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
-import '../App.css'; 
+import '../App.css';
 
 const DataSources = () => {
-  const [files, setFiles] = useState([]);
-  const fileInputRef = useRef(null); 
+    // --- State ---
+    const [files, setFiles] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeFilter, setActiveFilter] = useState('All');
+    const fileInputRef = useRef(null);
+    const [toast, setToast] = useState(null);
 
-  // --- NEW: Notification & Modal State ---
-  const [notification, setNotification] = useState(null);
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
+    useEffect(() => {
+        fetchData();
+    }, []);
 
-  const showToast = (message, type = 'success') => {
-      setNotification({ message, type });
-      setTimeout(() => setNotification(null), 4000);
-  };
+    const fetchData = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            const res = await axios.get('http://127.0.0.1:5000/datasources', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Sort by ID descending (newest first)
+            const sorted = Array.isArray(res.data) ? res.data.sort((a, b) => b.id - a.id) : [];
+            setFiles(sorted);
+        } catch (err) {
+            console.error(err);
+            showToast('Failed to load data sources', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetchFiles(token);
-    }
-  }, []);
+    const handleUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-  const fetchFiles = async (token) => {
-    try {
-      const res = await axios.get('http://127.0.0.1:5000/datasources', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setFiles(res.data);
-    } catch (err) {
-      console.error("Error fetching files:", err);
-      showToast("Failed to fetch files", "error");
-    }
-  };
+        const formData = new FormData();
+        formData.append('file', file);
+        setUploading(true);
 
-  // --- FILE UPLOAD LOGIC ---
+        const token = localStorage.getItem('token');
+        try {
+            await axios.post('http://127.0.0.1:5000/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+            });
+            showToast('File uploaded successfully');
+            fetchData();
+        } catch (err) {
+            showToast('Upload failed', 'error');
+        } finally {
+            setUploading(false);
+            if(fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
-  const uploadFile = async (file) => {
-    if (!file) return;
+    const handleDelete = async (id) => {
+        const token = localStorage.getItem('token');
+        try {
+            await axios.delete(`http://127.0.0.1:5000/datasources/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setFiles(prev => prev.filter(f => f.id !== id));
+            showToast('File deleted');
+        } catch (err) {
+            showToast('Delete failed', 'error');
+        }
+    };
 
-    const formData = new FormData();
-    formData.append('file', file);
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
-    const token = localStorage.getItem('token');
+    // --- Safe Filtering Logic ---
+    const filteredFiles = files.filter(f => {
+        const fName = f.name || '';
+        const fType = f.type || '';
+        
+        const matchesSearch = fName.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesType = activeFilter === 'All' ? true : 
+                            activeFilter === 'CSV' ? fType.includes('CSV') :
+                            activeFilter === 'JSON' ? fType.includes('JSON') :
+                            fType.includes('XLS');
+        return matchesSearch && matchesType;
+    });
 
-    try {
-        await axios.post('http://127.0.0.1:5000/upload', formData, {
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-            }
-        });
-        showToast("Upload Successful!", "success");
-        fetchFiles(token); 
-    } catch (error) {
-        console.error("Upload failed", error);
-        showToast("Upload failed. Check console for details.", "error");
-    }
-  };
+    // Recent Activity - Expanded to 20 to test scrolling/expansion
+    const recentFiles = files.slice(0, 20);
 
-  const onDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+    // --- Variants ---
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
+    };
 
-  const onDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+    return (
+        <AppLayout>
+            <style>
+                {`
+                    .glass-panel {
+                        background: rgba(24, 24, 27, 0.6);
+                        backdrop-filter: blur(16px);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
+                        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+                        transition: all 0.3s ease;
+                    }
+                    .glass-card-hover {
+                        background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
+                    }
+                    .glass-card-hover:hover {
+                        border-color: rgba(99, 102, 241, 0.4);
+                        background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+                    }
+                    .upload-zone {
+                        background: rgba(255, 255, 255, 0.02);
+                        border: 2px dashed rgba(255, 255, 255, 0.1);
+                        transition: all 0.3s ease;
+                        position: relative;
+                        overflow: hidden;
+                    }
+                    .upload-zone:hover {
+                        background: rgba(99, 102, 241, 0.08);
+                        border-color: rgba(99, 102, 241, 0.5);
+                        box-shadow: inset 0 0 20px rgba(99, 102, 241, 0.1);
+                    }
+                    .filter-pill {
+                        padding: 6px 16px;
+                        border-radius: 50px;
+                        font-size: 13px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        border: 1px solid transparent;
+                    }
+                    .filter-pill.active {
+                        background: rgba(99, 102, 241, 0.2);
+                        color: #818cf8;
+                        border-color: rgba(99, 102, 241, 0.3);
+                    }
+                    .filter-pill:not(.active) {
+                        color: #71717a;
+                    }
+                    .filter-pill:not(.active):hover {
+                        background: rgba(255,255,255,0.05);
+                        color: #e4e4e7;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar { display: none; }
+                `}
+            </style>
 
-  const onDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles && droppedFiles.length > 0) {
-        uploadFile(droppedFiles[0]);
-    }
-  };
-
-  const handleClick = () => {
-    fileInputRef.current.click();
-  };
-
-  const onFileSelect = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-        uploadFile(e.target.files[0]);
-    }
-  };
-
-  // 1. Open Modal
-  const confirmDelete = (id) => {
-      setDeleteModal({ isOpen: true, id });
-  };
-
-  // 2. Perform Delete
-  const handleDelete = async () => {
-    const { id } = deleteModal;
-    const token = localStorage.getItem('token');
-    try {
-        await axios.delete(`http://127.0.0.1:5000/datasources/${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        setFiles(files.filter(f => f.id !== id));
-        showToast("File deleted successfully", "success");
-    } catch (err) {
-        showToast("Delete failed", "error");
-    } finally {
-        setDeleteModal({ isOpen: false, id: null });
-    }
-  };
-
-  const getFileIcon = (type) => {
-      if (type === 'CSV') return <FileText size={18} color="#10b981" />;
-      if (type === 'JSON') return <FileJson size={18} color="#eab308" />;
-      if (type === 'EXCEL') return <FileSpreadsheet size={18} color="#3b82f6" />;
-      return <FileText size={18} color="#a1a1aa" />;
-  };
-
-  // --- Animations ---
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
-  };
-
-  // --- HELPER: Toast Component ---
-  const ToastNotification = () => (
-    <AnimatePresence>
-        {notification && (
             <motion.div 
-                initial={{ opacity: 0, y: -50, x: '-50%' }} 
-                animate={{ opacity: 1, y: 20, x: '-50%' }} 
-                exit={{ opacity: 0, y: -20, x: '-50%' }}
-                style={{
-                    position: 'fixed', left: '50%', top: 0, zIndex: 2000,
-                    background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 
-                                notification.type === 'info' ? 'rgba(59, 130, 246, 0.9)' : 
-                                'rgba(16, 185, 129, 0.9)',
-                    color: 'white', padding: '12px 24px', borderRadius: '50px',
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center',
-                    maxWidth: '90%'
+                initial="hidden" animate="visible" variants={containerVariants}
+                style={{ 
+                    padding: '24px 32px', 
+                    width: '100%', 
+                    height: '100%', 
+                    boxSizing: 'border-box', 
+                    display: 'flex', 
+                    flexDirection: 'column'
                 }}
             >
-                {notification.type === 'error' ? <AlertCircle size={20} /> : 
-                 notification.type === 'info' ? <Info size={20} /> :
-                 <CheckCircle2 size={20} />}
-                <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
-                <button 
-                    onClick={() => setNotification(null)}
-                    style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
-                >
-                    <X size={16} />
-                </button>
-            </motion.div>
-        )}
-    </AnimatePresence>
-  );
-
-  return (
-    <AppLayout>
-      <ToastNotification />
-
-      <AnimatePresence>
-        {deleteModal.isOpen && (
-            <motion.div 
-                style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
-                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '20px'
-                }}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            >
-                <motion.div 
-                    style={{
-                        width: '100%', maxWidth: '400px', background: '#18181b', 
-                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
-                        padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                    }}
-                    initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                >
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px' }}>
-                        <div style={{ 
-                            width: '60px', height: '60px', borderRadius: '50%', 
-                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <AlertTriangle size={32} />
+                
+                {/* --- 1. HEADER & UPLOAD SECTION --- */}
+                <div style={{ marginBottom: '32px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                        <div>
+                            <h1 style={{ fontSize: '36px', fontWeight: '800', color: 'white', margin: 0, letterSpacing: '-0.5px' }}>
+                                Data Catalog
+                            </h1>
+                            <p style={{ color: '#a1a1aa', fontSize: '14px', marginTop: '6px' }}>Manage and ingest your raw data sources.</p>
                         </div>
                         
-                        <h3 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Delete File?</h3>
-                        
-                        <p style={{ margin: 0, color: '#a1a1aa', fontSize: '14px', lineHeight: '1.5' }}>
-                            Are you sure you want to delete this data source? 
-                            <br/>This action cannot be undone.
-                        </p>
-
-                        <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '10px' }}>
-                            <button 
-                                onClick={() => setDeleteModal({ isOpen: false, id: null })}
-                                className="btn btn-ghost"
-                                style={{ flex: 1, justifyContent: 'center' }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={handleDelete}
-                                className="btn"
+                        {/* Search Bar */}
+                        <div style={{ position: 'relative' }}>
+                            <Search size={18} color="#71717a" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+                            <input 
+                                type="text" 
+                                placeholder="Search datasets..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                                 style={{ 
-                                    flex: 1, justifyContent: 'center', 
-                                    background: '#ef4444', color: 'white', border: 'none', fontWeight: '600' 
-                                }}
-                            >
-                                Delete
-                            </button>
+                                    background: 'rgba(24, 24, 27, 0.6)', border: '1px solid rgba(255,255,255,0.1)', 
+                                    padding: '12px 20px 12px 46px', borderRadius: '50px', color: 'white', 
+                                    outline: 'none', minWidth: '320px', fontSize: '14px', backdropFilter: 'blur(10px)'
+                                }} 
+                            />
                         </div>
                     </div>
-                </motion.div>
+
+                    {/* FULL WIDTH UPLOAD CARD */}
+                    <div className="glass-panel" style={{ padding: '24px', borderRadius: '24px' }}>
+                        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <UploadCloud size={20} color="#8b5cf6" /> Ingest Data
+                        </h3>
+                        
+                        <label className="upload-zone" style={{ borderRadius: '16px', height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                            <input type="file" ref={fileInputRef} onChange={handleUpload} style={{ display: 'none' }} />
+                            {uploading ? (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center' }}>
+                                    <div style={{ width: '30px', height: '30px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#8b5cf6', borderRadius: '50%', margin: '0 auto 12px' }} className="spinner" />
+                                    <p style={{ color: '#a1a1aa', fontSize: '13px' }}>Uploading...</p>
+                                </motion.div>
+                            ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <Plus size={24} />
+                                    </div>
+                                    <div style={{ textAlign: 'left' }}>
+                                        <p style={{ color: '#e4e4e7', fontWeight: '600', margin: '0 0 4px 0', fontSize: '15px' }}>Click to Upload File</p>
+                                        <p style={{ color: '#71717a', fontSize: '12px', margin: 0 }}>Support: CSV, JSON, Excel</p>
+                                    </div>
+                                </div>
+                            )}
+                        </label>
+                    </div>
+                </div>
+
+                {/* --- 2. MAIN SPLIT LAYOUT --- */}
+                <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '32px', flex: 1, overflow: 'hidden' }}>
+                    
+                    {/* === LEFT: ACTIVITY FEED (EXPANDABLE) === */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto', paddingRight: '4px' }} className="custom-scrollbar">
+                        
+                        <div className="glass-panel" style={{ 
+                            padding: '24px', 
+                            borderRadius: '24px', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            // FIX: Flex 'auto' allows growth, minHeight ensures it fills at least the sidebar
+                            flex: '1 0 auto'
+                        }}>
+                            <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Clock size={20} color="#f59e0b" /> Recent Uploads
+                            </h3>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '12px' }}>
+                                <AnimatePresence>
+                                    {recentFiles.map((file, i) => (
+                                        <motion.div 
+                                            key={file.id} 
+                                            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
+                                            style={{ display: 'flex', gap: '12px', padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.03)' }}
+                                        >
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a1a1aa' }}>
+                                                {file.type && file.type.includes('CSV') ? <Table size={16} /> : <FileText size={16} />}
+                                            </div>
+                                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                <p style={{ color: '#e4e4e7', fontSize: '13px', fontWeight: '600', margin: '0 0 4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</p>
+                                                <p style={{ color: '#71717a', fontSize: '11px', margin: 0 }}>{file.date || 'Just now'}</p>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                    {recentFiles.length === 0 && <p style={{ color: '#52525b', textAlign: 'center', fontSize: '13px', marginTop: '20px' }}>No recent activity.</p>}
+                                </AnimatePresence>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* === RIGHT: EXPLORER ZONE === */}
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                        
+                        {/* Filter Tabs */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                            <Filter size={18} color="#a1a1aa" />
+                            <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                {['All', 'CSV', 'JSON', 'Excel'].map(filter => (
+                                    <div 
+                                        key={filter}
+                                        className={`filter-pill ${activeFilter === filter ? 'active' : ''}`}
+                                        onClick={() => setActiveFilter(filter)}
+                                    >
+                                        {filter}
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ flex: 1, textAlign: 'right', fontSize: '12px', color: '#52525b' }}>
+                                {filteredFiles.length} Results
+                            </div>
+                        </div>
+
+                        {/* Grid with Animations */}
+                        <div className="custom-scrollbar" style={{ overflowY: 'auto', flex: 1, paddingBottom: '40px' }}>
+                            <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', 
+                                gap: '20px', 
+                                padding: '20px' 
+                            }}>
+                                <AnimatePresence>
+                                    {filteredFiles.map((file) => (
+                                        <FileCard key={file.id} file={file} onDelete={handleDelete} />
+                                    ))}
+                                </AnimatePresence>
+                            </div>
+
+                            {filteredFiles.length === 0 && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '24px', color: '#52525b' }}>
+                                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '50%', marginBottom: '16px' }}>
+                                        <Search size={40} style={{ opacity: 0.3 }} />
+                                    </div>
+                                    <p>No matching files found.</p>
+                                </motion.div>
+                            )}
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* --- TOAST --- */}
+                <AnimatePresence>
+                    {toast && <Toast toast={toast} />}
+                </AnimatePresence>
+
             </motion.div>
-        )}
-      </AnimatePresence>
-
-      <motion.div 
-          className="content-wrapper"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          style={{ paddingBottom: '60px' }}
-        >
-          
-          <motion.div style={{ marginBottom: '40px' }} variants={itemVariants}>
-            <h1 style={{ fontSize: '32px', marginBottom: '5px', margin: 0, background: 'linear-gradient(90deg, #fff, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Data Sources</h1>
-            <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>Manage your raw data files and database connections.</p>
-          </motion.div>
-
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={onFileSelect} 
-            style={{ display: 'none' }} 
-          />
-
-          {/* UPLOAD AREA */}
-          <motion.div 
-            className="upload-area"
-            variants={itemVariants}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            onClick={handleClick}
-            whileHover={{ 
-                scale: 1.01, 
-                borderColor: '#10b981', 
-                backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                boxShadow: '0 0 30px rgba(16, 185, 129, 0.1)'
-            }}
-            whileTap={{ scale: 0.99 }}
-            style={{ 
-                border: '2px dashed rgba(255,255,255,0.1)', 
-                borderRadius: '16px',
-                padding: '50px',
-                textAlign: 'center',
-                marginBottom: '40px',
-                cursor: 'pointer',
-                background: 'rgba(24, 24, 27, 0.4)',
-                transition: 'all 0.3s'
-            }}
-          >
-            <motion.div 
-                style={{ 
-                    fontSize: '40px', marginBottom: '15px', color: '#10b981',
-                    background: 'rgba(16, 185, 129, 0.1)', width: '80px', height: '80px',
-                    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto'
-                }}
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            >
-                <UploadCloud size={40} />
-            </motion.div>
-            <h3 style={{ color: 'white', marginBottom: '8px', marginTop: 0, fontSize: '18px' }}>Click or Drag file to upload</h3>
-            <p className="text-muted" style={{ fontSize: '14px', margin: 0 }}>Supports CSV, JSON, Excel (Max 50MB)</p>
-          </motion.div>
-
-          {/* FILES LIST */}
-          <motion.div 
-            className="card"
-            variants={itemVariants}
-            style={{ 
-                background: 'rgba(24, 24, 27, 0.4)', 
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                overflow: 'hidden'
-            }}
-          >
-            <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#e4e4e7' }}>Connected Sources</h3>
-            </div>
-            
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>File Name</th>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Type</th>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Size</th>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Date Added</th>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <AnimatePresence>
-                  {files.length === 0 ? (
-                      <tr><td colSpan="5" className="text-center text-muted" style={{ padding: '40px' }}>No files uploaded yet.</td></tr>
-                  ) : (
-                      files.map((file, index) => (
-                      <motion.tr 
-                          key={file.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          transition={{ delay: index * 0.05 }}
-                          whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                      >
-                          <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7', minWidth: '150px' }}>
-                              {getFileIcon(file.type)} {file.name}
-                          </td>
-                          <td className="text-muted" style={{ fontSize: '13px' }}>{file.type}</td>
-                          <td className="text-muted" style={{ fontSize: '13px' }}>{file.size}</td>
-                          <td className="text-muted" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{file.date}</td>
-                          <td style={{ textAlign: 'right' }}>
-                          <motion.button 
-                              onClick={() => confirmDelete(file.id)}
-                              className="btn" 
-                              style={{ 
-                                  padding: '6px 12px', fontSize: '12px',
-                                  background: 'rgba(239, 68, 68, 0.1)', 
-                                  color: '#f87171',
-                                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                                  display: 'inline-flex', alignItems: 'center', gap: '4px'
-                              }}
-                              whileHover={{ background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                              whileTap={{ scale: 0.95 }}
-                          >
-                              <Trash2 size={12} /> Remove
-                          </motion.button>
-                          </td>
-                      </motion.tr>
-                      ))
-                  )}
-                  </AnimatePresence>
-                </tbody>
-              </table>
-            </div>
-          </motion.div>
-
-        </motion.div>
-    </AppLayout>
-  );
+        </AppLayout>
+    );
 };
+
+// --- SUB-COMPONENTS ---
+
+const FileCard = ({ file, onDelete }) => {
+    let Icon = FileText;
+    let color = '#a1a1aa';
+    let bg = 'rgba(255,255,255,0.1)';
+
+    const fType = file.type || '';
+
+    if (fType.includes('CSV')) { Icon = Table; color = '#f59e0b'; bg = 'rgba(245, 158, 11, 0.15)'; }
+    else if (fType.includes('JSON')) { Icon = FileJson; color = '#3b82f6'; bg = 'rgba(59, 130, 246, 0.15)'; }
+    else if (fType.includes('XLS')) { Icon = Table; color = '#10b981'; bg = 'rgba(16, 185, 129, 0.15)'; }
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            whileHover={{ y: -5, scale: 1.02 }} 
+            transition={{ duration: 0.2 }}
+            className="glass-card-hover"
+            style={{ borderRadius: '20px', padding: '20px', position: 'relative', display: 'flex', flexDirection: 'column', height: '180px', justifyContent: 'space-between', cursor: 'default' }}
+        >
+            <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: color }}>
+                        <Icon size={20} />
+                    </div>
+                    <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', padding: '2px 8px', borderRadius: '6px', fontWeight: '600' }}>
+                        {file.type || 'FILE'}
+                    </span>
+                </div>
+                
+                <h4 style={{ color: 'white', fontSize: '15px', fontWeight: '700', margin: '0 0 6px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.name}>
+                    {file.name || 'Untitled'}
+                </h4>
+                <p style={{ fontSize: '12px', color: '#a1a1aa', margin: 0 }}>
+                    {file.size || 'Unknown'} • {file.date || 'Unknown'}
+                </p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', gap: '8px' }}>
+                <button 
+                    style={{ background: 'transparent', border: 'none', color: '#52525b', cursor: 'pointer', padding: '6px', borderRadius: '8px', transition: 'all 0.2s' }}
+                    onClick={() => { /* Add preview logic if needed */ }}
+                >
+                    <ArrowUpRight size={16} />
+                </button>
+                <button 
+                    onClick={() => onDelete(file.id)}
+                    style={{ background: 'transparent', border: 'none', color: '#52525b', cursor: 'pointer', padding: '6px', borderRadius: '8px', transition: 'all 0.2s' }}
+                    onMouseEnter={(e) => { e.target.style.color = '#ef4444'; e.target.style.background = 'rgba(239, 68, 68, 0.1)'; }}
+                    onMouseLeave={(e) => { e.target.style.color = '#52525b'; e.target.style.background = 'transparent'; }}
+                >
+                    <Trash2 size={16} />
+                </button>
+            </div>
+        </motion.div>
+    );
+};
+
+const Toast = ({ toast }) => (
+    <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)', background: toast.type==='error'?'#ef4444':'#10b981', color: 'white', padding: '12px 24px', borderRadius: '50px', zIndex: 9999, display: 'flex', gap: '10px', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+        {toast.type==='error' ? <AlertCircle size={18} /> : <CheckCircle size={18} />} {toast.message}
+    </motion.div>
+);
 
 export default DataSources;
