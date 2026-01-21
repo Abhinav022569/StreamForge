@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { 
   HardDrive, Download, Trash2, Eye, 
   FileText, FileSpreadsheet, FileJson, Image as ImageIcon, Database,
-  AlertCircle, CheckCircle2, Info, X, AlertTriangle
+  CheckCircle2, X, AlertTriangle, Search, Clock, Box
 } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
 import DataPreviewPanel from './DataPreviewPanel'; 
@@ -12,11 +12,14 @@ import '../App.css';
 
 const ProcessedData = () => {
   const [processedFiles, setProcessedFiles] = useState([]); 
+  const [filteredFiles, setFilteredFiles] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState('All');
+  const [isFetching, setIsFetching] = useState(true); // Added loading state
 
   const [notification, setNotification] = useState(null);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, fileName: '' });
 
-  // Added imageSrc to state
   const [previewPanel, setPreviewPanel] = useState({ 
       isOpen: false, loading: false, data: [], columns: [], error: null, nodeLabel: '', imageSrc: null 
   });
@@ -27,70 +30,63 @@ const ProcessedData = () => {
   };
 
   useEffect(() => {
-    const fetchProcessedFiles = async () => {
+    fetchProcessedFiles();
+  }, []);
+
+  // RESTORED FILTER LOGIC
+  useEffect(() => {
+      let result = processedFiles;
+      if (searchQuery) {
+          result = result.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      }
+      if (selectedType !== 'All') {
+          result = result.filter(f => f.type === selectedType);
+      }
+      setFilteredFiles(result);
+  }, [processedFiles, searchQuery, selectedType]);
+
+  const fetchProcessedFiles = async () => {
+        setIsFetching(true);
         try {
             const token = localStorage.getItem('token');
             const res = await axios.get('http://127.0.0.1:5000/processed-files', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setProcessedFiles(res.data);
+            setProcessedFiles(res.data.reverse());
+            setFilteredFiles(res.data);
         } catch (err) {
             console.error("Error fetching processed files:", err);
             showToast("Failed to load files", "error");
+        } finally {
+            setIsFetching(false);
         }
     };
-    fetchProcessedFiles();
-  }, []);
 
   const handleDownload = (fileName) => {
     showToast("Download started...", "info");
     window.open(`http://127.0.0.1:5000/download/processed/${fileName}`, '_blank');
   };
 
-  // --- UPDATED VIEW LOGIC ---
   const handleView = async (file) => {
-      // Reset State
       setPreviewPanel({
-          isOpen: true,
-          loading: true,
-          data: [],
-          columns: [],
-          error: null,
-          nodeLabel: file.name,
-          imageSrc: null // Reset image
+          isOpen: true, loading: true, data: [], columns: [], error: null, nodeLabel: file.name, imageSrc: null 
       });
 
-      // 1. Handle Image View (No API call needed, just use static URL)
       if (file.type === 'Image') {
           setPreviewPanel(prev => ({
-              ...prev,
-              loading: false,
-              imageSrc: `http://127.0.0.1:5000/download/processed/${file.name}`
+              ...prev, loading: false, imageSrc: `http://127.0.0.1:5000/download/processed/${file.name}`
           }));
           return;
       }
 
-      // 2. Handle Text Data View (API Call)
       try {
           const token = localStorage.getItem('token');
           const res = await axios.get(`http://127.0.0.1:5000/processed-files/${file.id}/preview`, {
               headers: { Authorization: `Bearer ${token}` }
           });
-
-          setPreviewPanel(prev => ({
-              ...prev,
-              loading: false,
-              data: res.data.data,
-              columns: res.data.columns
-          }));
-
+          setPreviewPanel(prev => ({ ...prev, loading: false, data: res.data.data, columns: res.data.columns }));
       } catch (err) {
-          console.error("Preview error:", err);
-          setPreviewPanel(prev => ({
-              ...prev,
-              loading: false,
-              error: err.response?.data?.error || "Failed to fetch preview."
-          }));
+          setPreviewPanel(prev => ({ ...prev, loading: false, error: err.response?.data?.error || "Failed to fetch preview." }));
       }
   };
 
@@ -115,61 +111,43 @@ const ProcessedData = () => {
   };
 
   const getFileIcon = (type) => {
-      if (type === 'Excel') return <FileSpreadsheet size={18} color="#10b981" />;
-      if (type === 'JSON') return <FileJson size={18} color="#eab308" />;
-      if (type === 'Database') return <Database size={18} color="#8b5cf6" />;
-      if (type === 'Image') return <ImageIcon size={18} color="#ec4899" />;
-      return <FileText size={18} color="#3b82f6" />;
+      if (type === 'Excel' || type === 'XLS') return { icon: <FileSpreadsheet size={20} />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
+      if (type === 'JSON') return { icon: <FileJson size={20} />, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
+      if (type === 'Database' || type === 'SQL') return { icon: <Database size={20} />, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' };
+      if (type === 'Image') return { icon: <ImageIcon size={20} />, color: '#ec4899', bg: 'rgba(236, 72, 153, 0.1)' };
+      return { icon: <FileText size={20} />, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' };
   };
-
-  // --- Animations ---
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
-  };
-
-  const ToastNotification = () => (
-    <AnimatePresence>
-        {notification && (
-            <motion.div 
-                initial={{ opacity: 0, y: -50, x: '-50%' }} 
-                animate={{ opacity: 1, y: 20, x: '-50%' }} 
-                exit={{ opacity: 0, y: -20, x: '-50%' }}
-                style={{
-                    position: 'fixed', left: '50%', top: 0, zIndex: 2000,
-                    background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 
-                                notification.type === 'info' ? 'rgba(59, 130, 246, 0.9)' : 
-                                'rgba(16, 185, 129, 0.9)',
-                    color: 'white', padding: '12px 24px', borderRadius: '50px',
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)', minWidth: '300px', justifyContent: 'center',
-                    maxWidth: '90%'
-                }}
-            >
-                {notification.type === 'error' ? <AlertCircle size={20} /> : 
-                 notification.type === 'info' ? <Info size={20} /> :
-                 <CheckCircle2 size={20} />}
-                <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
-                <button 
-                    onClick={() => setNotification(null)}
-                    style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
-                >
-                    <X size={16} />
-                </button>
-            </motion.div>
-        )}
-    </AnimatePresence>
-  );
 
   return (
     <AppLayout>
-      <ToastNotification />
+      <style>
+        {`
+            .glass-panel {
+                background: rgba(24, 24, 27, 0.6);
+                backdrop-filter: blur(16px);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+            }
+            .custom-scrollbar::-webkit-scrollbar { display: none; }
+            .file-row-container {
+                display: grid;
+                grid-template-columns: 2fr 1.5fr 1fr;
+                align-items: center;
+                padding: 16px 24px;
+                border-radius: 16px;
+                background: rgba(255,255,255,0.02);
+                border: 1px solid rgba(255,255,255,0.05);
+                margin-bottom: 12px;
+                transition: background-color 0.2s;
+            }
+            .file-row-container:hover {
+                background-color: rgba(255,255,255,0.04);
+                border-color: rgba(255,255,255,0.1);
+            }
+        `}
+      </style>
+
+      <ToastNotification notification={notification} setNotification={setNotification} />
 
       <DataPreviewPanel 
           isOpen={previewPanel.isOpen}
@@ -179,210 +157,259 @@ const ProcessedData = () => {
           loading={previewPanel.loading}
           error={previewPanel.error}
           nodeLabel={previewPanel.nodeLabel}
-          imageSrc={previewPanel.imageSrc} // Passed new prop
+          imageSrc={previewPanel.imageSrc}
       />
 
-      <AnimatePresence>
-        {deleteModal.isOpen && (
-            <motion.div 
-                style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)',
-                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '20px'
-                }}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            >
-                <motion.div 
-                    style={{
-                        width: '100%', maxWidth: '400px', background: '#18181b', 
-                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
-                        padding: '30px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                    }}
-                    initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                >
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px' }}>
-                        <div style={{ 
-                            width: '60px', height: '60px', borderRadius: '50%', 
-                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <AlertTriangle size={32} />
-                        </div>
-                        
-                        <h3 style={{ margin: 0, color: 'white', fontSize: '20px' }}>Delete Output File?</h3>
-                        
-                        <p style={{ margin: 0, color: '#a1a1aa', fontSize: '14px', lineHeight: '1.5' }}>
-                            Are you sure you want to delete <b style={{ color: 'white' }}>"{deleteModal.fileName}"</b>? 
-                            <br/>This action cannot be undone.
-                        </p>
+      <DeleteModal 
+        isOpen={deleteModal.isOpen} 
+        fileName={deleteModal.fileName} 
+        onClose={() => setDeleteModal({ isOpen: false, id: null, fileName: '' })} 
+        onConfirm={confirmDelete} 
+      />
 
-                        <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '10px' }}>
-                            <button 
-                                onClick={() => setDeleteModal({ isOpen: false, id: null, fileName: '' })}
-                                className="btn btn-ghost"
-                                style={{ flex: 1, justifyContent: 'center' }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={confirmDelete}
-                                className="btn"
-                                style={{ 
-                                    flex: 1, justifyContent: 'center', 
-                                    background: '#ef4444', color: 'white', border: 'none', fontWeight: '600' 
+      <div style={{ padding: '32px 48px', maxWidth: '1800px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+          
+          <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            {/* HEADER */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <h1 style={{ fontSize: '36px', fontWeight: '800', color: 'white', margin: 0, letterSpacing: '-0.5px' }}>
+                            Processed Data
+                        </h1>
+                    </div>
+                    <p style={{ color: '#a1a1aa', fontSize: '15px', maxWidth: '600px', lineHeight: '1.5' }}>
+                        Access, visualize, and manage the output artifacts generated by your pipelines.
+                    </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ position: 'relative' }}>
+                        <Search size={18} color="#71717a" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+                        <input 
+                            type="text" 
+                            placeholder="Search outputs..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{ 
+                                background: 'rgba(24, 24, 27, 0.6)', border: '1px solid rgba(255,255,255,0.1)', 
+                                padding: '12px 20px 12px 46px', borderRadius: '50px', color: 'white', 
+                                outline: 'none', minWidth: '280px', fontSize: '14px', backdropFilter: 'blur(10px)'
+                            }} 
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* MAIN CONTENT CARD */}
+            <motion.div 
+                className="glass-panel" 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4 }}
+                style={{ borderRadius: '24px', padding: '28px', minHeight: '600px', display: 'flex', flexDirection: 'column' }}
+            >
+                
+                {/* Panel Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Box size={20} color="#8b5cf6" /> Artifacts
+                    </h3>
+                    
+                    {/* TYPE FILTERS */}
+                    <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        {['All', 'CSV', 'JSON', 'Excel', 'Image'].map(type => (
+                            <button
+                                key={type}
+                                onClick={() => setSelectedType(type)}
+                                style={{
+                                    background: selectedType === type ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: selectedType === type ? 'white' : '#71717a',
+                                    border: 'none', borderRadius: '20px', padding: '6px 16px',
+                                    fontSize: '12px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s'
                                 }}
                             >
-                                Delete
+                                {type}
                             </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* --- HEADER ROW --- */}
+                <div style={{ 
+                    display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr', 
+                    padding: '0 24px 12px 24px', color: '#a1a1aa', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px'
+                }}>
+                    <div>File Name & Type</div>
+                    <div>Metadata</div>
+                    <div style={{ textAlign: 'right' }}>Actions</div>
+                </div>
+
+                {/* --- FILE LIST --- */}
+                <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                    {isFetching ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+                            <div className="spinner" style={{ borderTopColor: '#3b82f6', width: '30px', height: '30px' }} />
                         </div>
+                    ) : (
+                        <LayoutGroup>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <AnimatePresence mode='popLayout'>
+                                    {filteredFiles.length === 0 ? (
+                                        <motion.div 
+                                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                            style={{ textAlign: 'center', padding: '80px', color: '#52525b' }}
+                                        >
+                                            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '50%', width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                                                <Database size={40} style={{ opacity: 0.4 }} />
+                                            </div>
+                                            <p>No matching files found.</p>
+                                        </motion.div>
+                                    ) : (
+                                        filteredFiles.map((file) => {
+                                            const { icon, color, bg } = getFileIcon(file.type);
+                                            return (
+                                                <motion.div 
+                                                    layout 
+                                                    key={file.id}
+                                                    // SIMPLE, ROBUST ANIMATION: Enter instantly with slight slide-up
+                                                    initial={{ opacity: 0, y: 10 }} 
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.95 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="file-row-container"
+                                                >
+                                                    {/* Left: Icon & Name */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                        <div style={{ 
+                                                                width: '40px', height: '40px', borderRadius: '12px', 
+                                                                background: bg, color: color,
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                                                            }}
+                                                        >
+                                                            {icon}
+                                                        </div>
+                                                        <div>
+                                                            <h4 style={{ color: '#e4e4e7', fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' }}>{file.name}</h4>
+                                                            <span style={{ fontSize: '10px', color: color, background: `${color}15`, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${color}20` }}>{file.type}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Middle: Metadata */}
+                                                    <div style={{ display: 'flex', gap: '32px', color: '#a1a1aa', fontSize: '13px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <HardDrive size={16} color="#52525b" /> {file.size}
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <Clock size={16} color="#52525b" /> {file.date}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Right: Actions */}
+                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                        {(file.type === 'CSV' || file.type === 'JSON' || file.type === 'Excel' || file.type === 'Image') && (
+                                                            <ActionButton onClick={() => handleView(file)} icon={<Eye size={16} />} color="#e4e4e7" label="Preview" />
+                                                        )}
+                                                        <ActionButton onClick={() => handleDownload(file.name)} icon={<Download size={16} />} color="#3b82f6" label="Download" />
+                                                        <ActionButton onClick={() => initiateDelete(file.id, file.name)} icon={<Trash2 size={16} />} color="#ef4444" isDelete label="Delete" />
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </LayoutGroup>
+                    )}
+                </div>
+
+            </motion.div>
+          </motion.div>
+      </div>
+    </AppLayout>
+  );
+};
+
+// --- SUB COMPONENTS ---
+
+const ActionButton = ({ onClick, icon, color, isDelete, label }) => (
+    <motion.button 
+        onClick={onClick}
+        title={label}
+        whileHover={{ scale: 1.1, backgroundColor: isDelete ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.1)' }}
+        whileTap={{ scale: 0.9 }}
+        style={{ 
+            padding: '8px', 
+            background: isDelete ? 'rgba(239, 68, 68, 0.1)' : 'transparent', 
+            border: isDelete ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(255,255,255,0.1)', 
+            borderRadius: '10px', 
+            color: color, 
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyItems: 'center'
+        }}
+    >
+        {icon}
+    </motion.button>
+);
+
+const ToastNotification = ({ notification, setNotification }) => (
+    <AnimatePresence>
+        {notification && (
+            <motion.div 
+                initial={{ opacity: 0, y: -50, x: '-50%' }} 
+                animate={{ opacity: 1, y: 20, x: '-50%' }} 
+                exit={{ opacity: 0, y: -20, x: '-50%' }}
+                style={{
+                    position: 'fixed', left: '50%', top: 0, zIndex: 2000,
+                    background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)',
+                    color: 'white', padding: '12px 24px', borderRadius: '50px',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.2)'
+                }}
+            >
+                {notification.type === 'error' ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}
+                <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification.message}</span>
+                <button onClick={() => setNotification(null)} style={{ background: 'transparent', border: 'none', color: 'white', marginLeft: '10px', cursor: 'pointer', display: 'flex' }}>
+                    <X size={16} />
+                </button>
+            </motion.div>
+        )}
+    </AnimatePresence>
+);
+
+const DeleteModal = ({ isOpen, fileName, onClose, onConfirm }) => (
+    <AnimatePresence>
+        {isOpen && (
+            <motion.div 
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={onClose}
+            >
+                <motion.div 
+                    style={{ width: '400px', background: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '32px', textAlign: 'center' }}
+                    initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                        <AlertTriangle size={32} />
+                    </div>
+                    <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '20px' }}>Delete File?</h3>
+                    <p style={{ color: '#a1a1aa', fontSize: '15px', marginBottom: '24px', lineHeight: '1.5' }}>
+                        Are you sure you want to delete <strong style={{ color: 'white' }}>{fileName}</strong>? This cannot be undone.
+                    </p>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', fontWeight: '500' }}>Cancel</button>
+                        <button onClick={onConfirm} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', fontWeight: '600' }}>Delete</button>
                     </div>
                 </motion.div>
             </motion.div>
         )}
-      </AnimatePresence>
-
-      <motion.div 
-          className="content-wrapper"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          style={{ paddingBottom: '60px' }}
-        >
-          
-          <motion.div style={{ marginBottom: '40px' }} variants={itemVariants}>
-            <h1 style={{ fontSize: '32px', marginBottom: '5px', margin: 0, background: 'linear-gradient(90deg, #fff, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Processed Data</h1>
-            <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>Download the output files generated by your pipelines.</p>
-          </motion.div>
-
-          <motion.div 
-            className="card"
-            variants={itemVariants}
-            style={{ 
-                background: 'rgba(24, 24, 27, 0.4)', 
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                overflow: 'hidden'
-            }}
-          >
-            <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#e4e4e7' }}>Output Files</h3>
-            </div>
-            
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr className="table-header">
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>File Name</th>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Type</th>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Size</th>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa' }}>Created</th>
-                    <th style={{ background: 'rgba(0,0,0,0.2)', color: '#a1a1aa', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <AnimatePresence>
-                  {processedFiles.length === 0 ? (
-                      <tr>
-                          <td colSpan="5" className="text-center text-muted" style={{ padding: '60px' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                                <HardDrive size={32} style={{ opacity: 0.2 }} />
-                                <span>No processed files found. Run a pipeline to generate data.</span>
-                              </div>
-                          </td>
-                      </tr>
-                  ) : (
-                      processedFiles.map((file, index) => (
-                      <motion.tr 
-                          key={file.id} 
-                          className="table-row"
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          transition={{ delay: index * 0.05 }}
-                          whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                      >
-                          <td style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', color: '#e4e4e7', minWidth: '200px' }}>
-                              {getFileIcon(file.type)} 
-                              {file.name}
-                          </td>
-                          <td className="text-muted">
-                              <span style={{ 
-                                  background: file.type === 'Excel' ? 'rgba(22, 163, 74, 0.15)' : 
-                                              file.type === 'JSON' ? 'rgba(251, 191, 36, 0.15)' : 
-                                              file.type === 'Database' ? 'rgba(139, 92, 246, 0.15)' : 
-                                              file.type === 'Image' ? 'rgba(236, 72, 153, 0.15)' :
-                                              'rgba(59, 130, 246, 0.15)',
-                                  color: file.type === 'Excel' ? '#16a34a' : 
-                                        file.type === 'JSON' ? '#fbbf24' : 
-                                        file.type === 'Database' ? '#8b5cf6' : 
-                                        file.type === 'Image' ? '#ec4899' :
-                                        '#3b82f6',
-                                  padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', border: '1px solid rgba(255,255,255,0.05)' 
-                              }}>
-                                  {file.type}
-                              </span>
-                          </td>
-                          <td className="text-muted" style={{ fontSize: '13px' }}>{file.size}</td>
-                          <td className="text-muted" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{file.date}</td>
-                          <td style={{ textAlign: 'right', minWidth: '150px' }}>
-                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                  
-                                  {/* --- VIEW BUTTON (Enabled for CSV, JSON, Excel AND Image) --- */}
-                                  {(file.type === 'CSV' || file.type === 'JSON' || file.type === 'Excel' || file.type === 'Image') && (
-                                      <motion.button 
-                                          onClick={() => handleView(file)}
-                                          className="btn btn-ghost" 
-                                          style={{ 
-                                              padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px',
-                                              color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.05)'
-                                          }}
-                                          whileHover={{ background: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.4)' }}
-                                          whileTap={{ scale: 0.95 }}
-                                      >
-                                          <Eye size={14} /> View
-                                      </motion.button>
-                                  )}
-                                  
-                                  <motion.button 
-                                      onClick={() => handleDownload(file.name)}
-                                      className="btn btn-ghost" 
-                                      style={{ 
-                                          padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px',
-                                          color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)', background: 'rgba(59, 130, 246, 0.05)'
-                                      }}
-                                      whileHover={{ background: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.4)' }}
-                                      whileTap={{ scale: 0.95 }}
-                                  >
-                                      <Download size={14} />
-                                  </motion.button>
-                                  <motion.button 
-                                      onClick={() => initiateDelete(file.id, file.name)}
-                                      className="btn btn-ghost" 
-                                      style={{ 
-                                          padding: '6px 12px', fontSize: '12px', 
-                                          color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)'
-                                      }}
-                                      whileHover={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                                      whileTap={{ scale: 0.95 }}
-                                  >
-                                      <Trash2 size={14} />
-                                  </motion.button>
-                              </div>
-                          </td>
-                      </motion.tr>
-                      ))
-                  )}
-                  </AnimatePresence>
-                </tbody>
-              </table>
-            </div>
-          </motion.div>
-
-        </motion.div>
-    </AppLayout>
-  );
-};
+    </AnimatePresence>
+);
 
 export default ProcessedData;
