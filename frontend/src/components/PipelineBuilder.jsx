@@ -346,7 +346,7 @@ const PipelineBuilderContent = () => {
         if (!id) return; 
 
         socketRef.current = io('http://127.0.0.1:5000');
-        socketRef.current.emit('join', { pipeline_id: id });
+        socketRef.current.emit('join_pipeline', { pipeline_id: id });
 
         socketRef.current.on('pipeline_updated', (data) => {
             if (data.type === 'node_change') {
@@ -381,7 +381,7 @@ const PipelineBuilderContent = () => {
             const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
 
             socketRef.current.emit('cursor_move', {
-                pipeline_id: id,
+                pipelineId: id,
                 userId: currentUser.current.id,
                 userName: currentUser.current.name,
                 color: myColor,
@@ -458,7 +458,7 @@ const PipelineBuilderContent = () => {
 
         if (socketRef.current && id) {
             socketRef.current.emit('pipeline_update', {
-                pipeline_id: id, type: 'node_change', changes: changes
+                pipelineId: id, type: 'node_change', changes: changes
             });
         }
     }, [id, selectedNode]);
@@ -469,7 +469,7 @@ const PipelineBuilderContent = () => {
 
         if (socketRef.current && id) {
             socketRef.current.emit('pipeline_update', {
-                pipeline_id: id, type: 'edge_change', changes: changes
+                pipelineId: id, type: 'edge_change', changes: changes
             });
         }
     }, [id]);
@@ -480,7 +480,7 @@ const PipelineBuilderContent = () => {
 
         if (socketRef.current && id) {
             socketRef.current.emit('pipeline_update', {
-                pipeline_id: id, type: 'connection', changes: params
+                pipelineId: id, type: 'connection', changes: params
             });
         }
     }, [id]);
