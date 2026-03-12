@@ -7,4 +7,4 @@ if __name__ == '__main__':
     # REMOVED: scheduler.start()        <-- Already started in create_app()
     
     # use_reloader=False prevents double execution of scheduled jobs
-    socketio.run(app, debug=True, port=5000, use_reloader=False)
+    socketio.run(app, host="0.0.0.0", debug=True, port=5000, use_reloader=False)
