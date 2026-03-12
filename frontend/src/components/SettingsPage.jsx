@@ -35,7 +35,7 @@ const SettingsPage = () => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const res = await axios.get('http://127.0.0.1:5000/api/user/settings', {
+                const res = await axios.get('http://192.168.1.11:5000/api/user/settings', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 
@@ -62,7 +62,7 @@ const SettingsPage = () => {
         const fullName = `${firstName} ${lastName}`.trim();
         
         try {
-            const res = await axios.put('http://127.0.0.1:5000/user/profile', 
+            const res = await axios.put('http://192.168.1.11:5000/user/profile', 
                 { username: fullName, email: user.email }, 
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -81,7 +81,7 @@ const SettingsPage = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            await axios.put('http://127.0.0.1:5000/api/user/settings', {
+            await axios.put('http://192.168.1.11:5000/api/user/settings', {
                 preferences
             }, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -101,7 +101,7 @@ const SettingsPage = () => {
         
         const token = localStorage.getItem('token');
         try {
-            await axios.put('http://127.0.0.1:5000/user/password', 
+            await axios.put('http://192.168.1.11:5000/user/password', 
                 { currentPassword: passData.currentPassword, newPassword: passData.newPassword }, 
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -120,7 +120,7 @@ const SettingsPage = () => {
     const confirmDeleteAccount = async () => {
         const token = localStorage.getItem('token');
         try {
-            await axios.delete('http://127.0.0.1:5000/user/account', {
+            await axios.delete('http://192.168.1.11:5000/user/account', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             

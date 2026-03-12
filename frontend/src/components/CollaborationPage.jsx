@@ -33,10 +33,10 @@ const CollaborationPage = () => {
         const headers = { Authorization: `Bearer ${token}` };
         try {
             const [statsRes, withMeRes, byMeRes, pipesRes] = await Promise.all([
-                axios.get('http://127.0.0.1:5000/collaboration/stats', { headers }),
-                axios.get('http://127.0.0.1:5000/collaboration/shared-with-me', { headers }), 
-                axios.get('http://127.0.0.1:5000/collaboration/shared-by-me', { headers }),   
-                axios.get('http://127.0.0.1:5000/pipelines', { headers })
+                axios.get('http://192.168.1.11:5000/collaboration/stats', { headers }),
+                axios.get('http://192.168.1.11:5000/collaboration/shared-with-me', { headers }), 
+                axios.get('http://192.168.1.11:5000/collaboration/shared-by-me', { headers }),   
+                axios.get('http://192.168.1.11:5000/pipelines', { headers })
             ]);
 
             setStats(statsRes.data);
@@ -58,7 +58,7 @@ const CollaborationPage = () => {
         e.preventDefault();
         const token = localStorage.getItem('token');
         try {
-            await axios.post('http://127.0.0.1:5000/pipelines/share', {
+            await axios.post('http://192.168.1.11:5000/pipelines/share', {
                 pipeline_id: shareForm.pipelineId,
                 email: shareForm.email,
                 role: shareForm.role
@@ -81,7 +81,7 @@ const CollaborationPage = () => {
         if (!selectedRevoke) return;
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`http://127.0.0.1:5000/pipelines/share/${selectedRevoke.shareId}`, {
+            await axios.delete(`http://192.168.1.11:5000/pipelines/share/${selectedRevoke.shareId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             showToast(selectedRevoke.type === 'leave' ? 'Left shared pipeline' : 'Access revoked');

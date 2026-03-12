@@ -17,7 +17,7 @@ const NotificationsPage = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get('http://127.0.0.1:5000/api/notifications', {
+            const res = await axios.get('http://192.168.1.11:5000/api/notifications', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setNotifications(res.data);
@@ -30,7 +30,7 @@ const NotificationsPage = () => {
     const markAsRead = async () => {
         try {
             const token = localStorage.getItem('token');
-            await axios.put('http://127.0.0.1:5000/api/notifications/read', {}, {
+            await axios.put('http://192.168.1.11:5000/api/notifications/read', {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -46,7 +46,7 @@ const NotificationsPage = () => {
         
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://127.0.0.1:5000/api/notifications/${id}`, {
+            await axios.delete(`http://192.168.1.11:5000/api/notifications/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
         } catch (err) {

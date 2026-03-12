@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create directories for data persistence
-RUN mkdir -p uploads processed
+RUN mkdir -p uploads processed db
 
 # Expose the port
 EXPOSE 5000

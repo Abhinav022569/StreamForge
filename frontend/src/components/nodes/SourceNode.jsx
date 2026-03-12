@@ -16,7 +16,7 @@ export default memo(({ id, data, isConnectable }) => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get('http://127.0.0.1:5000/datasources', {
+            const res = await axios.get('http://192.168.1.11:5000/datasources', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setFiles(res.data);

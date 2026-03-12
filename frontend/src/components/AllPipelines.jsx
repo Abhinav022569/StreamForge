@@ -24,7 +24,7 @@ const AllPipelines = () => {
         const fetchPipelines = async () => {
             const token = localStorage.getItem('token');
             try {
-                const res = await axios.get('http://127.0.0.1:5000/pipelines', {
+                const res = await axios.get('http://192.168.1.11:5000/pipelines', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setPipelines(res.data);
@@ -57,7 +57,7 @@ const AllPipelines = () => {
         if (!pipelineToDelete) return;
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`http://127.0.0.1:5000/pipelines/${pipelineToDelete}`, {
+            await axios.delete(`http://192.168.1.11:5000/pipelines/${pipelineToDelete}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const updated = pipelines.filter(p => p.id !== pipelineToDelete);

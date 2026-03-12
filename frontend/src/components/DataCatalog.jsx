@@ -29,7 +29,7 @@ const DataCatalog = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get(`http://127.0.0.1:5000/api/catalog/search?q=${q}`, {
+            const res = await axios.get(`http://192.168.1.11:5000/api/catalog/search?q=${q}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setResults(res.data);
@@ -48,7 +48,7 @@ const DataCatalog = () => {
         
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get(`http://127.0.0.1:5000/api/catalog/lineage/${asset.type}/${asset.id}`, {
+            const res = await axios.get(`http://192.168.1.11:5000/api/catalog/lineage/${asset.type}/${asset.id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setLineage(res.data);
