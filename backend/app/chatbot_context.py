@@ -12,7 +12,7 @@ def get_gemini_response(history, user_message):
     Standard Chat Assistant Logic
     """
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash-preview-09-2025')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         # Simple history formatting
         chat_session = model.start_chat(
@@ -32,7 +32,7 @@ def generate_pipeline_plan(user_prompt):
     Generates React Flow JSON from natural language.
     """
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash-preview-09-2025')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         system_instruction = """
         You are a Data Pipeline Architect for StreamForge. 

@@ -62,7 +62,7 @@ def chat_with_ai():
     user_message = data.get('message', '')
     if not user_message: return jsonify({"error": "Empty message"}), 400
     try:
-        model = genai.GenerativeModel('gemini-flash-latest')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         full_prompt = f"{SYSTEM_PROMPT}\n\nUser Question: {user_message}"
         response = model.generate_content(full_prompt)
         return jsonify({"reply": response.text})
