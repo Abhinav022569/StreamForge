@@ -14,7 +14,7 @@ const ScheduledPipelines = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://127.0.0.1:5000/pipelines', {
+      const res = await axios.get('http://192.168.1.11:5000/pipelines', {
         headers: { Authorization: `Bearer ${token}` }
       });
       // Filter ONLY scheduled pipelines
@@ -36,7 +36,7 @@ const ScheduledPipelines = () => {
     try {
         const token = localStorage.getItem('token');
         // Sending empty value removes the schedule (logic already in your backend)
-        await axios.post(`http://127.0.0.1:5000/pipelines/${id}/schedule`, 
+        await axios.post(`http://192.168.1.11:5000/pipelines/${id}/schedule`, 
             { type: '', value: '' }, 
             { headers: { Authorization: `Bearer ${token}` } }
         );

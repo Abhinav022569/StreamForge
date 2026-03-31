@@ -40,14 +40,14 @@ const Dashboard = () => {
         const headers = { Authorization: `Bearer ${token}` };
 
         // 1. Fetch Pipelines & User Stats
-        const reqPipelines = axios.get('http://127.0.0.1:5000/pipelines', { headers });
-        const reqUserStats = axios.get('http://127.0.0.1:5000/user-stats', { headers });
+        const reqPipelines = axios.get('http://192.168.1.11:5000/pipelines', { headers });
+        const reqUserStats = axios.get('http://192.168.1.11:5000/user-stats', { headers });
         
         // 2. Fetch Data Sources for Catalog Card
-        const reqDataSources = axios.get('http://127.0.0.1:5000/datasources', { headers });
+        const reqDataSources = axios.get('http://192.168.1.11:5000/datasources', { headers });
 
         // 3. Fetch Collaboration Stats
-        const reqCollab = axios.get('http://127.0.0.1:5000/collaboration/stats', { headers });
+        const reqCollab = axios.get('http://192.168.1.11:5000/collaboration/stats', { headers });
 
         Promise.all([reqPipelines, reqUserStats, reqDataSources, reqCollab])
         .then(([resPipelines, resStats, resData, resCollab]) => {

@@ -1,4 +1,4 @@
-# Use Python 3.9 slim
+# Use Python 3.12 slim
 FROM python:3.9-slim
 
 # Set working directory
@@ -8,7 +8,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     python3-dev \
-    libgl1-mesa-glx \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first (for better caching)
@@ -19,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create directories for data persistence
-RUN mkdir -p uploads processed
+RUN mkdir -p uploads processed db
 
 # Expose the port
 EXPOSE 5000

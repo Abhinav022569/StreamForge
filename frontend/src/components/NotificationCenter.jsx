@@ -21,7 +21,7 @@ const NotificationCenter = () => {
             try {
                 const token = localStorage.getItem('token');
                 if (!token) return;
-                const res = await axios.get('http://127.0.0.1:5000/api/notifications', {
+                const res = await axios.get('http://192.168.1.11:5000/api/notifications', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const unread = res.data.filter(n => !n.read);
@@ -38,7 +38,7 @@ const NotificationCenter = () => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (!user.id) return;
 
-        socketRef.current = io('http://127.0.0.1:5000');
+        socketRef.current = io('http://192.168.1.11:5000');
         socketRef.current.emit('join_notifications', { userId: user.id });
 
         socketRef.current.on('notification', (data) => {

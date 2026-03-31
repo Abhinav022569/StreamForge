@@ -6,7 +6,7 @@ services:
       - "5000:5000"
     volumes:
       # Persist the database and uploaded files on the NAS
-      - ./data/pipelines.db:/app/pipelines.db
+      - ./data/db:/app/db
       - ./data/uploads:/app/uploads
       - ./data/processed:/app/processed
     restart: unless-stopped

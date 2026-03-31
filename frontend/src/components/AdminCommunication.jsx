@@ -49,7 +49,7 @@ const AdminCommunication = () => {
       setErrorMessage('');
       try {
           const token = localStorage.getItem('token');
-          await axios.post('http://127.0.0.1:5000/admin/broadcast', 
+          await axios.post('http://192.168.1.11:5000/admin/broadcast', 
             { message: broadcastMsg, type: broadcastType },
             { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -69,7 +69,7 @@ const AdminCommunication = () => {
       setEmailStatus('sending');
       try {
           const token = localStorage.getItem('token');
-          await axios.post('http://127.0.0.1:5000/admin/email', 
+          await axios.post('http://192.168.1.11:5000/admin/email', 
             { subject: emailSubject, body: emailBody },
             { headers: { Authorization: `Bearer ${token}` } }
           );
